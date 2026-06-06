@@ -220,9 +220,10 @@ local function buildHUD()
 		return valLbl
 	end
 
-	CoinLabel   = statChip(UDim2.new(0,8,0,8),    "💰","0",   Color3.fromRGB(255,215,0),  Color3.fromRGB(50,35,10))
-	GemLabel    = statChip(UDim2.new(0,170,0,8),   "💎","0",   Color3.fromRGB(0,200,255),  Color3.fromRGB(0,20,40))
-	PetCountLabel = statChip(UDim2.new(0,332,0,8), "🐾","0/0", Color3.fromRGB(200,150,255),Color3.fromRGB(30,15,50))
+	-- Right-aligned so they clear the Roblox menu/chat/voice icons (top-left).
+	CoinLabel   = statChip(UDim2.new(1,-493,0,8), "💰","0",   Color3.fromRGB(255,215,0),  Color3.fromRGB(50,35,10))
+	GemLabel    = statChip(UDim2.new(1,-328,0,8), "💎","0",   Color3.fromRGB(0,200,255),  Color3.fromRGB(0,20,40))
+	PetCountLabel = statChip(UDim2.new(1,-163,0,8),"🐾","0/0", Color3.fromRGB(200,150,255),Color3.fromRGB(30,15,50))
 
 	-- Center rebirth badge (top bar, stays)
 	RebirthLabel = Instance.new("TextLabel")
