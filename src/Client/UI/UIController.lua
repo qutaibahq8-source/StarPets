@@ -17,41 +17,31 @@ local PanelModules = {
 	RebirthPanel = "RebirthPanel",
 }
 
-function UIController.CloseAll()
-	if CurrentPanel and CurrentPanel.Parent then
-		-- Find the main Frame inside the ScreenGui to tween
-		local mainFrame = nil
-		for _, child in ipairs(CurrentPanel:GetChildren()) do
-			if child:IsA("Frame") then mainFrame = child break end
-		end
-		if mainFrame then
-			TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-				Position = UDim2.new(
-					mainFrame.Position.X.Scale,
-					mainFrame.Position.X.Offset,
-					0.5, 500
-				),
-			}):Play()
-		end
-		task.delay(0.25, function()
-			if CurrentPanel then CurrentPanel:Destroy() end
-			CurrentPanel = nil
-			CurrentPanelName = nil
-		end)
-	else
-		CurrentPanel = nil
-		CurrentPanelName = nil
+-- Every panel's ScreenGui is named after its module, so we can sweep them all
+local PANEL_NAMES = {
+	"PetsPanel","HatchPanel","ShopPanel","RebirthPanel","UpgradePanel","LeaderboardPanel",
+}
+
+local function destroyAllPanels()
+	for _, name in ipairs(PANEL_NAMES) do
+		local g = PlayerGui:FindFirstChild(name)
+		if g then g:Destroy() end
 	end
+	CurrentPanel = nil
+	CurrentPanelName = nil
+end
+
+function UIController.CloseAll()
+	destroyAllPanels()
 end
 
 function UIController.TogglePanel(panelName, data)
-	if CurrentPanelName == panelName then
-		UIController.CloseAll()
+	-- Clicking the same open panel's button closes it
+	if CurrentPanelName == panelName and PlayerGui:FindFirstChild(panelName) then
+		destroyAllPanels()
 		return
 	end
-	UIController.CloseAll()
-
-	task.wait(0.05)
+	destroyAllPanels()  -- guarantees only one panel is ever open
 
 	-- Load the panel module
 	local ok, module = pcall(function()
