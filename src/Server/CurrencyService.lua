@@ -20,7 +20,7 @@ local function createOrb(position, value, isGem, areaId)
 	local orb = Instance.new("Part")
 	orb.Name       = isGem and "GemOrb" or "CoinOrb"
 	orb.Shape      = Enum.PartType.Ball
-	orb.Size       = Vector3.new(0.8, 0.8, 0.8)
+	orb.Size       = Vector3.new(1.4, 1.4, 1.4)
 	orb.Color      = isGem and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(255, 215, 0)
 	orb.Material   = Enum.Material.Neon
 	orb.Anchored   = true
@@ -29,12 +29,8 @@ local function createOrb(position, value, isGem, areaId)
 	orb.Position   = position
 	orb.Parent     = OrbsFolder
 
-	-- Glow
-	local light = Instance.new("PointLight")
-	light.Color      = orb.Color
-	light.Brightness = 2
-	light.Range      = 6
-	light.Parent     = orb
+	-- NOTE: no per-orb PointLight. With hundreds of orbs that was ~500 lights
+	-- washing the whole map out. The Neon material already makes them pop.
 
 	-- Float bob (client handles visuals, server just positions)
 	OrbData[orb] = { value = value, isGem = isGem, areaId = areaId }
@@ -54,7 +50,7 @@ function CurrencyService.SeedArea(areaId, areaOrigin, orbCount)
 	for i = 1, orbCount do
 		local x = areaOrigin.X + math.random(-58, 58)
 		local z = areaOrigin.Z + math.random(-85, 85)
-		local y = areaOrigin.Y + 1.5
+		local y = areaOrigin.Y + 3.5  -- float above the tall grass so orbs are visible
 		local pos = Vector3.new(x, y, z)
 
 		local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))

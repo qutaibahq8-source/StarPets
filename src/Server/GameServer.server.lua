@@ -393,19 +393,19 @@ local function buildMap()
 	end
 
 	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
-	local wallColor = Color3.fromRGB(30,25,50)
-	local wallNeon  = Color3.fromRGB(80,60,140)
+	local wallColor = Color3.fromRGB(118,116,128)  -- neutral stone (was harsh navy blue)
+	local wallTrim  = Color3.fromRGB(150,148,160)
 	local wallH = 25
 
 	local function buildWall(name, size, pos)
-		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.SmoothPlastic})
+		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.Concrete})
 		-- Invisible tall extension above (blocks jumping over)
 		part({Name=name.."Ext",Size=Vector3.new(size.X,40,size.Z),
 			Position=pos+Vector3.new(0,30,0),Transparency=1,CanCollide=true})
-		-- Neon trim on top
-		local top=part({Name=name.."Top",Size=Vector3.new(size.X,0.8,size.Z),
-			Position=pos+Vector3.new(0,wallH/2+0.4,0),Color=wallNeon,Material=Enum.Material.Neon,CanCollide=false})
-		glow(top,wallNeon,0.8)
+		-- Subtle (non-glowing) trim on top
+		part({Name=name.."Top",Size=Vector3.new(size.X,0.8,size.Z),
+			Position=pos+Vector3.new(0,wallH/2+0.4,0),Color=wallTrim,
+			Material=Enum.Material.SmoothPlastic,CanCollide=false})
 	end
 
 	buildWall("WallN", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1, 126))
