@@ -62,6 +62,9 @@ local function setupLighting()
 	pcall(function()
 		workspace.Terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(95, 160, 70))
 		workspace.Terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(90, 155, 65))
+		-- Turn OFF the tall overgrown grass blades — they buried orbs/flowers
+		-- and showed the purple ground between them. Clean flat grass instead.
+		workspace.Terrain.Decoration = false
 	end)
 
 	local atmo = Instance.new("Atmosphere")
