@@ -484,6 +484,7 @@ function PetModels.Build(petData, uniqueId, rarityInfo)
 	local bb = Instance.new("BillboardGui")
 	bb.Size        = UDim2.new(0,150,0,52)
 	bb.StudsOffset = Vector3.new(0,2.2*size,0)
+	bb.MaxDistance = 35  -- pet name tag only shows when you're close
 	bb.Adornee     = root
 	bb.AlwaysOnTop = false
 	bb.Parent      = model

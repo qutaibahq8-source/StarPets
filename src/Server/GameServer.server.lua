@@ -104,10 +104,11 @@ local function particles(p, color, rate)
 	pe.RotSpeed      = NumberRange.new(-60,60); pe.Rotation = NumberRange.new(0,360)
 end
 
-local function billboard(adornee, line1, col1, line2, col2, size)
+local function billboard(adornee, line1, col1, line2, col2, size, maxDist)
 	size = size or UDim2.new(0,180,0,70)
 	local bb = Instance.new("BillboardGui")
 	bb.Size = size; bb.StudsOffset = Vector3.new(0,4,0)
+	bb.MaxDistance = maxDist or 55  -- only show the sign when the player is near
 	bb.Adornee = adornee; bb.AlwaysOnTop = false; bb.Parent = adornee
 	local t1 = Instance.new("TextLabel"); t1.Size = UDim2.new(1,0,0.55,0)
 	t1.BackgroundTransparency=1; t1.Text=line1; t1.TextColor3=col1
@@ -291,7 +292,7 @@ local function buildMap()
 		local nameAnchor=part({Name="BiomeName_"..b.id,Size=Vector3.new(1,1,1),
 			Position=Vector3.new(b.cx,30,0),Transparency=1,CanCollide=false})
 		billboard(nameAnchor,areaConfig.name,Color3.fromRGB(255,255,255),
-			areaConfig.description,Color3.fromRGB(210,210,235),UDim2.new(0,440,0,130))
+			areaConfig.description,Color3.fromRGB(210,210,235),UDim2.new(0,440,0,130),140)
 
 		local gateX=b.cx-65  -- gate sits at left edge of biome
 
