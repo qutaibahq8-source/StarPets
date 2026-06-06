@@ -169,9 +169,24 @@ local function rock(x, z, baseY, color, scale)
 		math.rad(math.random(0,360)),math.rad(math.random(-12,12)))
 end
 
+local FLOWER_COLORS = {
+	Color3.fromRGB(255,120,150), Color3.fromRGB(255,220,90),
+	Color3.fromRGB(180,130,255), Color3.fromRGB(255,160,80), Color3.fromRGB(120,200,255),
+}
+local function flower(x, z, baseY)
+	local c = FLOWER_COLORS[math.random(#FLOWER_COLORS)]
+	part({Name="FStem",Size=Vector3.new(0.12,0.9,0.12),Position=Vector3.new(x,baseY+0.45,z),
+		Color=Color3.fromRGB(70,150,70),Material=Enum.Material.Grass,CanCollide=false})
+	part({Name="FTop",Shape=Enum.PartType.Ball,Size=Vector3.new(0.55,0.45,0.55),
+		Position=Vector3.new(x,baseY+0.95,z),Color=c,Material=Enum.Material.SmoothPlastic,CanCollide=false})
+	part({Name="FCenter",Shape=Enum.PartType.Ball,Size=Vector3.new(0.22,0.22,0.22),
+		Position=Vector3.new(x,baseY+1.05,z),Color=Color3.fromRGB(255,235,140),Material=Enum.Material.SmoothPlastic,CanCollide=false})
+end
+
 local function decorateBiome(id, cx, baseY)
 	local function rx() return cx + math.random(-56,56) end
 	local function rz() return math.random(-88,88) end
+	for _=1,16 do flower(rx(),rz(),baseY) end
 	if id=="Forest" then
 		for i=1,18 do tree(rx(),rz(),baseY,Color3.fromRGB(70,45,25),Color3.fromRGB(25,90,30),0.8+math.random()*0.7) end
 		for i=1,12 do rock(rx(),rz(),baseY,Color3.fromRGB(95,100,105),0.9) end
@@ -278,6 +293,14 @@ local function buildMap()
 
 	-- ---- MEADOW ORB AREA (behind spawn between z=20 and z=110) ----
 	-- (no separate platform needed, orbs float on terrain)
+	-- Decorate the starter meadow so it isn't bare
+	for _=1,10 do
+		tree(math.random(-48,48), math.random(30,108), 0,
+			Color3.fromRGB(95,65,35), Color3.fromRGB(60,160,50), 0.8+math.random()*0.6)
+	end
+	for _=1,28 do
+		flower(math.random(-48,48), math.random(24,110), 0)
+	end
 
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
