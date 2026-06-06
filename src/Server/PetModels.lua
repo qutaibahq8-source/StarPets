@@ -382,39 +382,74 @@ local builders = {
 -- ============================================================
 -- PUBLIC
 -- ============================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Turn an imported mesh (MeshPart or Model) into a movable pet:
+-- anchor every part, pick a root, name it HumanoidRootPart, set PrimaryPart.
+local function normalizeTemplate(inst)
+	local model
+	if inst:IsA("Model") then
+		model = inst
+	else
+		model = Instance.new("Model")
+		inst.Parent = model
+	end
+	local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
+	if not root then
+		local bestVol
+		for _, d in ipairs(model:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local v = d.Size.X * d.Size.Y * d.Size.Z
+				if not bestVol or v > bestVol then root, bestVol = d, v end
+			end
+		end
+	end
+	if not root then return nil end
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true; d.CanCollide = false; d.CastShadow = false
+		end
+	end
+	root.Name = "HumanoidRootPart"
+	model.PrimaryPart = root
+	return model, root
+end
+
+local function addNameTag(model, root, petData, rarityInfo, s)
+	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
+	local bb = Instance.new("BillboardGui")
+	bb.Size=UDim2.new(0,150,0,52); bb.StudsOffset=Vector3.new(0,2.6*s,0)
+	bb.MaxDistance=35; bb.Adornee=root; bb.AlwaysOnTop=false; bb.Parent=model
+	local n=Instance.new("TextLabel"); n.Size=UDim2.new(1,0,0.58,0); n.BackgroundTransparency=1
+	n.Text=petData.name; n.TextColor3=rColor; n.TextScaled=true; n.Font=Enum.Font.GothamBold
+	n.TextStrokeTransparency=0.3; n.TextStrokeColor3=Color3.new(0,0,0); n.Parent=bb
+	local r=Instance.new("TextLabel"); r.Size=UDim2.new(1,0,0.42,0); r.Position=UDim2.new(0,0,0.58,0)
+	r.BackgroundTransparency=1; r.Text=(rarityInfo and (rarityInfo.displayName or rarityInfo.name)) or petData.rarity
+	r.TextColor3=rColor; r.TextScaled=true; r.Font=Enum.Font.Gotham
+	r.TextStrokeTransparency=0.4; r.TextStrokeColor3=Color3.new(0,0,0); r.Parent=bb
+end
+
 function PetModels.Build(petData, uniqueId, rarityInfo)
-	local model  = Instance.new("Model")
-	model.Name   = petData.name .. "_" .. uniqueId
-	local s      = petData.size or 1.0
+	local s = petData.size or 1.0
 	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
 
-	local builder = builders[petData.name] or buildGeneric
-	local root    = builder(model, s, petData.color, rColor)
+	local model, root
+	-- 1) Use a custom imported Blender mesh if one exists:
+	--    ReplicatedStorage/PetMeshes/<PetName>  (MeshPart or Model)
+	local folder = ReplicatedStorage:FindFirstChild("PetMeshes")
+	local template = folder and folder:FindFirstChild(petData.name)
+	if template then
+		model, root = normalizeTemplate(template:Clone())
+	end
+	-- 2) Otherwise fall back to the procedural part model
+	if not model then
+		model = Instance.new("Model")
+		local builder = builders[petData.name] or buildGeneric
+		root = builder(model, s, petData.color, rColor)
+	end
 
-	-- Name tag (only shows when near — MaxDistance)
-	local bb = Instance.new("BillboardGui")
-	bb.Size        = UDim2.new(0,150,0,52)
-	bb.StudsOffset = Vector3.new(0, 2.6*s, 0)
-	bb.MaxDistance = 35
-	bb.Adornee     = root
-	bb.AlwaysOnTop = false
-	bb.Parent      = model
-
-	local nameLbl = Instance.new("TextLabel")
-	nameLbl.Size=UDim2.new(1,0,0.58,0); nameLbl.BackgroundTransparency=1
-	nameLbl.Text=petData.name; nameLbl.TextColor3=rColor
-	nameLbl.TextScaled=true; nameLbl.Font=Enum.Font.GothamBold
-	nameLbl.TextStrokeTransparency=0.3; nameLbl.TextStrokeColor3=Color3.new(0,0,0)
-	nameLbl.Parent=bb
-
-	local rarLbl = Instance.new("TextLabel")
-	rarLbl.Size=UDim2.new(1,0,0.42,0); rarLbl.Position=UDim2.new(0,0,0.58,0)
-	rarLbl.BackgroundTransparency=1
-	rarLbl.Text=(rarityInfo and (rarityInfo.displayName or rarityInfo.name)) or petData.rarity
-	rarLbl.TextColor3=rColor; rarLbl.TextScaled=true; rarLbl.Font=Enum.Font.Gotham
-	rarLbl.TextStrokeTransparency=0.4; rarLbl.TextStrokeColor3=Color3.new(0,0,0)
-	rarLbl.Parent=bb
-
+	model.Name = petData.name .. "_" .. uniqueId
+	addNameTag(model, root, petData, rarityInfo, s)
 	model.PrimaryPart = root
 	return model, root
 end
