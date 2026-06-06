@@ -68,12 +68,12 @@ local function setupLighting()
 	atmo.Density  = 0.3; atmo.Offset = 0.1
 	atmo.Color    = Color3.fromRGB(220, 225, 230)
 	atmo.Decay    = Color3.fromRGB(150, 170, 200)
-	atmo.Glare    = 0.1; atmo.Haze = 1.6
+	atmo.Glare    = 0.0; atmo.Haze = 1.4
 	atmo.Parent   = Lighting
 
-	-- Much gentler bloom so the map isn't washed out / over-glowy
+	-- Minimal bloom so nothing looks "glowy"
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.25; bloom.Size = 24; bloom.Threshold = 1.1
+	bloom.Intensity = 0.04; bloom.Size = 24; bloom.Threshold = 1.6
 	bloom.Parent = Lighting
 
 	local cc = Instance.new("ColorCorrectionEffect")
@@ -82,7 +82,7 @@ local function setupLighting()
 	cc.Parent     = Lighting
 
 	local sun = Instance.new("SunRaysEffect")
-	sun.Intensity = 0.1; sun.Spread = 0.4; sun.Parent = Lighting
+	sun.Intensity = 0.03; sun.Spread = 0.3; sun.Parent = Lighting
 end
 
 -- ============================================================

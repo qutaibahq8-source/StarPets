@@ -184,10 +184,9 @@ function PetService.Init()
 				targetPos = targetPos + Vector3.new(0, bobOffset, 0)
 
 				local current = body.CFrame
-				local target  = CFrame.new(targetPos) * CFrame.Angles(0, math.atan2(
-					rootPart.Position.X - body.Position.X,
-					rootPart.Position.Z - body.Position.Z
-				), 0)
+				-- Face the same direction the player faces (so pets turn with you)
+				local _, yaw = rootPart.CFrame:ToOrientation()
+				local target  = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
 
 				local speed = GameConfig.Settings.PetFollowSpeed
 				local newCF = current:Lerp(target, math.min(dt * speed, 1))

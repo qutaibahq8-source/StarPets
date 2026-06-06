@@ -412,6 +412,12 @@ local function normalizeTemplate(inst)
 	end
 	root.Name = "HumanoidRootPart"
 	model.PrimaryPart = root
+	-- Auto-scale to a sane size regardless of how it was exported from Blender
+	local ext = model:GetExtentsSize()
+	local biggest = math.max(ext.X, ext.Y, ext.Z)
+	if biggest > 0.01 then
+		model:ScaleTo(3.5 / biggest)
+	end
 	return model, root
 end
 
