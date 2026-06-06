@@ -87,6 +87,18 @@ local RE_SecretFound    = Remotes:WaitForChild("SecretFound")
 local RE_TitleUpdate    = Remotes:WaitForChild("TitleUpdate")
 local RF_GetData        = Remotes:WaitForChild("GetData")
 
+-- Area barriers: block locked areas for THIS player only (client-side collision)
+local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
+local function updateBarriers(data)
+	if not AreaBarriers or not data then return end
+	local unlocked = {}
+	for _, id in ipairs(data.UnlockedAreas or {}) do unlocked[id] = true end
+	for _, bar in ipairs(AreaBarriers:GetChildren()) do
+		local id = string.gsub(bar.Name, "^Barrier_", "")
+		bar.CanCollide = not unlocked[id]
+	end
+end
+
 local CurrentData = nil
 
 -- ============================================================
@@ -295,6 +307,7 @@ local function onDataUpdated(data)
 	end
 	prevCoins = newCoins
 	CurrentData = data
+	updateBarriers(data)
 	if not CoinLabel then return end
 	CoinLabel.Text    = fmt(data.Coins or 0)
 	GemLabel.Text     = fmt(data.Gems or 0)

@@ -213,6 +213,8 @@ local function buildMap()
 	-- (no separate platform needed, orbs float on terrain)
 
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
+	local AreaBarriers = Instance.new("Folder")
+	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = workspace
 	local biomes={
 		{id="Forest",  cx=145, col=Color3.fromRGB(22,85,22)},
 		{id="Desert",  cx=275, col=Color3.fromRGB(160,132,35)},
@@ -251,6 +253,14 @@ local function buildMap()
 			Position=Vector3.new(gateX,8,0),Transparency=1,CanCollide=false})
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=28; cd.Parent=trigger
 		cd.MouseClick:Connect(function(player) RE_BuyArea:FireClient(player,b.id) end)
+
+		-- Force-field barrier blocking the gate until the area is unlocked.
+		-- Server keeps CanCollide=false; each client enables it for areas
+		-- THAT player hasn't unlocked yet (see updateBarriers on the client).
+		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(2,22,46),
+			Position=Vector3.new(gateX,10,0),Color=b.col,
+			Material=Enum.Material.ForceField,Transparency=0.4,CanCollide=false})
+		barrier.Parent=AreaBarriers
 	end
 
 	-- ============================================================
