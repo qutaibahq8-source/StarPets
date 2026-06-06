@@ -722,8 +722,8 @@ RE_BuyArea.OnServerEvent:Connect(function(player,areaId)
 	BadgeService.CheckAll(player)
 end)
 
--- Machine click → open popup on client
-RE_Rebirth.OnClientEvent = nil  -- machine fires this to client (handled in client)
+-- Machine click → server fires RE_Rebirth:FireClient(player) to open the
+-- rebirth popup on the client (the client handles RE_Rebirth.OnClientEvent).
 
 -- Client confirms rebirth → server executes
 RE_RebirthConfirm.OnServerEvent:Connect(function(player)
