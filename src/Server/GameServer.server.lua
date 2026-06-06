@@ -404,19 +404,33 @@ local function buildMap()
 		RE_TitleUpdate:FireClient(player,"__openleaderboard__")
 	end)
 
-	-- Live text rows on the board (updated by server loop)
+	-- Live leaderboard text painted FLAT on the board face (SurfaceGui)
+	local lbSurface = Instance.new("SurfaceGui")
+	lbSurface.Name        = "LBSurface"
+	lbSurface.Face        = Enum.NormalId.Front
+	lbSurface.SizingMode   = Enum.SurfaceGuiSizingMode.FixedSize
+	lbSurface.CanvasSize   = Vector2.new(560, 400)
+	lbSurface.LightInfluence = 0
+	lbSurface.Adornee     = boardBack
+	lbSurface.Parent      = boardBack
+
+	local lbPad = Instance.new("UIPadding", lbSurface)
+	lbPad.PaddingTop=UDim.new(0,18); lbPad.PaddingBottom=UDim.new(0,18)
+	lbPad.PaddingLeft=UDim.new(0,24); lbPad.PaddingRight=UDim.new(0,24)
+	local lbList = Instance.new("UIListLayout", lbSurface)
+	lbList.SortOrder=Enum.SortOrder.LayoutOrder
+	lbList.Padding=UDim.new(0,12)
+	lbList.VerticalAlignment=Enum.VerticalAlignment.Center
+
 	local lbRows = {}
 	for i=1,5 do
-		local anchor=part({Name="LBRow"..i,Size=Vector3.new(1,1,1),
-			Position=boardPos+Vector3.new(0,18-(i-1)*3.2,-6.5),Transparency=1,CanCollide=false})
-		local bb=Instance.new("BillboardGui")
-		bb.Size=UDim2.new(0,340,0,36); bb.Adornee=anchor; bb.AlwaysOnTop=false; bb.Parent=anchor
 		local lbl=Instance.new("TextLabel")
-		lbl.Size=UDim2.new(1,0,1,0); lbl.BackgroundTransparency=1
+		lbl.Size=UDim2.new(1,0,0,60); lbl.BackgroundTransparency=1
 		lbl.Text="Loading..."; lbl.TextColor3=Color3.fromRGB(200,200,200)
 		lbl.TextScaled=true; lbl.Font=Enum.Font.GothamBold
+		lbl.TextXAlignment=Enum.TextXAlignment.Left
 		lbl.TextStrokeTransparency=0.4; lbl.TextStrokeColor3=Color3.new(0,0,0)
-		lbl.Parent=bb
+		lbl.LayoutOrder=i; lbl.Parent=lbSurface
 		table.insert(lbRows, lbl)
 	end
 
