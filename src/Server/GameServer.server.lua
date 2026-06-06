@@ -50,30 +50,39 @@ local RF_GetData      = makeFunction("GetData")
 -- LIGHTING & ATMOSPHERE
 -- ============================================================
 local function setupLighting()
-	Lighting.Ambient        = Color3.fromRGB(80, 80, 120)
-	Lighting.OutdoorAmbient = Color3.fromRGB(120, 140, 180)
-	Lighting.Brightness     = 2
+	-- Warm natural daylight — the old bluish ambient tinted the grass purple
+	Lighting.Ambient        = Color3.fromRGB(120, 118, 110)
+	Lighting.OutdoorAmbient = Color3.fromRGB(165, 162, 150)
+	Lighting.Brightness     = 2.2
 	Lighting.ClockTime      = 14
-	Lighting.ShadowSoftness = 0.5
+	Lighting.ShadowSoftness = 0.4
+	Lighting.GlobalShadows  = true
+
+	-- Clean grass green (terrain grass base was rendering dull/tinted)
+	pcall(function()
+		workspace.Terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(95, 160, 70))
+		workspace.Terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(90, 155, 65))
+	end)
 
 	local atmo = Instance.new("Atmosphere")
-	atmo.Density  = 0.25; atmo.Offset = 0.1
-	atmo.Color    = Color3.fromRGB(199, 220, 255)
-	atmo.Decay    = Color3.fromRGB(100, 140, 200)
-	atmo.Glare    = 0.3; atmo.Haze = 1.2
+	atmo.Density  = 0.3; atmo.Offset = 0.1
+	atmo.Color    = Color3.fromRGB(220, 225, 230)
+	atmo.Decay    = Color3.fromRGB(150, 170, 200)
+	atmo.Glare    = 0.1; atmo.Haze = 1.6
 	atmo.Parent   = Lighting
 
+	-- Much gentler bloom so the map isn't washed out / over-glowy
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.7; bloom.Size = 24; bloom.Threshold = 0.95
+	bloom.Intensity = 0.25; bloom.Size = 24; bloom.Threshold = 1.1
 	bloom.Parent = Lighting
 
 	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Brightness = 0.02; cc.Contrast = 0.08; cc.Saturation = 0.2
-	cc.TintColor  = Color3.fromRGB(240, 245, 255)
+	cc.Brightness = 0.0; cc.Contrast = 0.05; cc.Saturation = 0.15
+	cc.TintColor  = Color3.fromRGB(255, 250, 240)  -- warm white, not blue
 	cc.Parent     = Lighting
 
 	local sun = Instance.new("SunRaysEffect")
-	sun.Intensity = 0.15; sun.Spread = 0.5; sun.Parent = Lighting
+	sun.Intensity = 0.1; sun.Spread = 0.4; sun.Parent = Lighting
 end
 
 -- ============================================================
