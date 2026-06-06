@@ -1,490 +1,401 @@
--- MysticPets: PetModels.lua
--- Unique multi-part models for every pet
+-- StarPets: PetModels.lua
+-- Properly ASSEMBLED multi-part pet models. Every part is positioned
+-- relative to the root (HumanoidRootPart) at build time, the model gets a
+-- PrimaryPart, and PetService moves the whole thing with model:PivotTo().
 -- Place in: ServerScriptService > Server > PetModels (ModuleScript)
 
 local PetModels = {}
 
+-- Forward = -Z, Up = +Y. Root body sits at origin; everything is offset from it.
+
 -- ============================================================
--- SHARED HELPERS
+-- PART HELPERS
 -- ============================================================
-local function p(model, props)
-	local part = Instance.new("Part")
-	part.Anchored   = true
-	part.CanCollide = false
-	part.CastShadow = false
-	for k,v in pairs(props) do part[k] = v end
-	part.Parent = model
-	return part
+local function box(model, props, pos, size, rot)
+	local p = Instance.new("Part")
+	p.Anchored=true; p.CanCollide=false; p.CastShadow=false
+	p.TopSurface=Enum.SurfaceType.Smooth; p.BottomSurface=Enum.SurfaceType.Smooth
+	for k,v in pairs(props) do p[k]=v end
+	p.Size=size
+	p.CFrame=CFrame.new(pos) * (rot or CFrame.new())
+	p.Parent=model
+	return p
 end
 
-local function wedge(model, props)
-	local part = Instance.new("WedgePart")
-	part.Anchored   = true
-	part.CanCollide = false
-	part.CastShadow = false
-	for k,v in pairs(props) do part[k] = v end
-	part.Parent = model
-	return part
+local function ball(model, props, pos, d)
+	local p = Instance.new("Part")
+	p.Shape=Enum.PartType.Ball
+	p.Anchored=true; p.CanCollide=false; p.CastShadow=false
+	for k,v in pairs(props) do p[k]=v end
+	p.Size=Vector3.new(d,d,d)
+	p.CFrame=CFrame.new(pos)
+	p.Parent=model
+	return p
 end
 
-local function addGlow(part, color, brightness)
-	local l = Instance.new("PointLight")
-	l.Color = color; l.Brightness = (brightness or 2) * 0.4; l.Range = 9; l.Parent = part
+local function wedge(model, props, pos, size, rot)
+	local p = Instance.new("WedgePart")
+	p.Anchored=true; p.CanCollide=false; p.CastShadow=false
+	for k,v in pairs(props) do p[k]=v end
+	p.Size=size
+	p.CFrame=CFrame.new(pos) * (rot or CFrame.new())
+	p.Parent=model
+	return p
 end
 
-local function addParticles(part, color, rate)
-	local att = Instance.new("Attachment"); att.Parent = part
-	local pe = Instance.new("ParticleEmitter"); pe.Parent = att
-	pe.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,color),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-	pe.LightEmission=0.9; pe.LightInfluence=0.1
+local function cyl(model, props, pos, size, rot)
+	local p = Instance.new("Part")
+	p.Shape=Enum.PartType.Cylinder
+	p.Anchored=true; p.CanCollide=false; p.CastShadow=false
+	for k,v in pairs(props) do p[k]=v end
+	p.Size=size
+	p.CFrame=CFrame.new(pos) * (rot or CFrame.new())
+	p.Parent=model
+	return p
+end
+
+local function addGlow(part, color, b)
+	local l=Instance.new("PointLight")
+	l.Color=color; l.Brightness=(b or 1)*0.4; l.Range=8; l.Parent=part
+end
+
+local function addAura(part, color, rate)
+	local att=Instance.new("Attachment"); att.Parent=part
+	local pe=Instance.new("ParticleEmitter"); pe.Parent=att
+	pe.Color=ColorSequence.new(color, Color3.new(1,1,1))
+	pe.LightEmission=0.8; pe.LightInfluence=0.1
 	pe.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,0.3),NumberSequenceKeypoint.new(1,0)})
-	pe.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,1)})
-	pe.Speed=NumberRange.new(1,3); pe.Lifetime=NumberRange.new(0.8,1.6)
-	pe.Rate=rate or 15; pe.SpreadAngle=Vector2.new(180,180)
-	pe.RotSpeed=NumberRange.new(-60,60); pe.Rotation=NumberRange.new(0,360)
+	pe.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.3),NumberSequenceKeypoint.new(1,1)})
+	pe.Speed=NumberRange.new(0.5,2); pe.Lifetime=NumberRange.new(0.7,1.4)
+	pe.Rate=rate or 10; pe.SpreadAngle=Vector2.new(180,180)
 end
 
-local function addTrail(part, color)
-	local a0=Instance.new("Attachment"); a0.Position=Vector3.new(0,0.5,0); a0.Parent=part
-	local a1=Instance.new("Attachment"); a1.Position=Vector3.new(0,-0.5,0); a1.Parent=part
-	local trail=Instance.new("Trail"); trail.Parent=part
-	trail.Attachment0=a0; trail.Attachment1=a1
-	trail.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,color),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-	trail.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.3),NumberSequenceKeypoint.new(1,1)})
-	trail.Lifetime=0.4; trail.LightEmission=0.8; trail.MinLength=0.1
-end
-
-local function orbitingStars(anchor, model, color, count)
-	for i=1,count do
-		local star = p(model, {
-			Name="OrbitStar"..i,
-			Shape=Enum.PartType.Ball,
-			Size=Vector3.new(0.3,0.3,0.3),
-			Color=color,
-			Material=Enum.Material.Neon,
-		})
-		addGlow(star,color,1)
-		task.spawn(function()
-			local t=(i/#({}) or 0)*math.pi*2
-			while star and star.Parent and anchor and anchor.Parent do
-				t=t+task.wait(0.03)*1.5
-				local r=2.5; local y=math.sin(t*0.5)*1.2
-				if anchor.Parent then
-					star.CFrame=anchor.CFrame*CFrame.new(math.cos(t)*r,y,math.sin(t)*r)
-				end
-			end
-		end)
+local function eyes(model, headPos, s, eyeColor)
+	eyeColor = eyeColor or Color3.fromRGB(25,25,25)
+	for _, x in ipairs({0.3, -0.3}) do
+		ball(model,{Name="EyeW",Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic},
+			headPos + Vector3.new(x,0.08,-0.5)*s, 0.34*s)
+		ball(model,{Name="Eye",Color=eyeColor,Material=Enum.Material.SmoothPlastic},
+			headPos + Vector3.new(x,0.08,-0.62)*s, 0.18*s)
 	end
 end
+
+-- 4 legs at the body corners
+local function legs(model, s, color, bodyW, bodyH, bodyLen, legLen)
+	local lx, lz = bodyW*0.40, bodyLen*0.30
+	local ly = -(bodyH*0.5 + legLen*0.5 - 0.1)
+	for _, c in ipairs({{lx,-lz},{-lx,-lz},{lx,lz},{-lx,lz}}) do
+		box(model,{Name="Leg",Color=color,Material=Enum.Material.SmoothPlastic},
+			Vector3.new(c[1],ly,c[2])*s, Vector3.new(0.34,legLen,0.34)*s)
+	end
+end
+
+local SMOOTH = Enum.Material.SmoothPlastic
+local NEON   = Enum.Material.Neon
 
 -- ============================================================
--- EYE BUILDER
+-- BUILDERS  (each returns the root part)
 -- ============================================================
-local function eyes(model, headPart, size, eyeColor)
-	eyeColor = eyeColor or Color3.new(1,1,1)
-	for i, xOff in ipairs({0.28,-0.28}) do
-		local eye = p(model,{Name="Eye"..i,Shape=Enum.PartType.Ball,
-			Size=Vector3.new(0.3*size,0.3*size,0.3*size),
-			Color=eyeColor,Material=Enum.Material.Neon})
-		local pupil = p(model,{Name="Pupil"..i,Shape=Enum.PartType.Ball,
-			Size=Vector3.new(0.15*size,0.15*size,0.15*size),
-			Color=Color3.new(0,0,0),Material=Enum.Material.SmoothPlastic})
-		-- Positions set in update loop via offsets stored on parts
-		eye:SetAttribute("XOff",xOff)
-		eye:SetAttribute("YOff",0.18)
-		eye:SetAttribute("ZOff",-0.55)
-		pupil:SetAttribute("XOff",xOff)
-		pupil:SetAttribute("YOff",0.18)
-		pupil:SetAttribute("ZOff",-0.62)
+local function buildCat(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.3,1.1,2.0)*s)
+	legs(model, s, color, 1.3,1.1,2.0, 0.8)
+	local hp = Vector3.new(0,0.55,-1.15)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.2*s)
+	-- pointy ears
+	wedge(model,{Name="EarL",Color=color,Material=SMOOTH}, hp+Vector3.new(0.35,0.7,0)*s, Vector3.new(0.4,0.6,0.4)*s)
+	wedge(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.35,0.7,0)*s, Vector3.new(0.4,0.6,0.4)*s)
+	-- snout + nose
+	box(model,{Name="Snout",Color=color,Material=SMOOTH}, hp+Vector3.new(0,-0.1,-0.55)*s, Vector3.new(0.45,0.35,0.3)*s)
+	ball(model,{Name="Nose",Color=Color3.fromRGB(255,150,170),Material=SMOOTH}, hp+Vector3.new(0,-0.05,-0.72)*s, 0.18*s)
+	-- curled tail (3 segments rising at the back)
+	box(model,{Name="Tail1",Color=color,Material=SMOOTH}, Vector3.new(0,0.2,1.05)*s, Vector3.new(0.3,0.3,0.7)*s)
+	box(model,{Name="Tail2",Color=color,Material=SMOOTH}, Vector3.new(0,0.7,1.25)*s, Vector3.new(0.28,0.6,0.28)*s)
+	ball(model,{Name="TailTip",Color=Color3.new(1,1,1),Material=SMOOTH}, Vector3.new(0,1.05,1.25)*s, 0.34*s)
+	eyes(model, hp, s, Color3.fromRGB(60,180,90))
+	return body
+end
+
+local function buildDog(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.4,1.2,2.1)*s)
+	legs(model, s, color, 1.4,1.2,2.1, 0.85)
+	local hp = Vector3.new(0,0.5,-1.25)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.2,1.1,1.2)*s)
+	-- floppy ears (flat, hanging at the sides)
+	box(model,{Name="EarL",Color=Color3.fromRGB(150,100,55),Material=SMOOTH}, hp+Vector3.new(0.62,0.1,0)*s, Vector3.new(0.18,0.8,0.5)*s)
+	box(model,{Name="EarR",Color=Color3.fromRGB(150,100,55),Material=SMOOTH}, hp+Vector3.new(-0.62,0.1,0)*s, Vector3.new(0.18,0.8,0.5)*s)
+	-- snout + nose
+	box(model,{Name="Snout",Color=color,Material=SMOOTH}, hp+Vector3.new(0,-0.15,-0.6)*s, Vector3.new(0.55,0.45,0.5)*s)
+	ball(model,{Name="Nose",Color=Color3.new(0.05,0.05,0.05),Material=SMOOTH}, hp+Vector3.new(0,-0.1,-0.88)*s, 0.22*s)
+	-- wagging tail
+	box(model,{Name="Tail",Color=color,Material=SMOOTH}, Vector3.new(0,0.45,1.15)*s, Vector3.new(0.3,0.7,0.3)*s, CFrame.Angles(math.rad(-30),0,0))
+	eyes(model, hp, s)
+	return body
+end
+
+local function buildBunny(model, s, color, rColor)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH}, Vector3.new(0,0,0), 1.5*s)
+	local hp = Vector3.new(0,0.6,-1.0)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.1*s)
+	-- tall upright ears
+	box(model,{Name="EarL",Color=color,Material=SMOOTH}, hp+Vector3.new(0.28,1.0,0)*s, Vector3.new(0.32,1.4,0.2)*s)
+	box(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.28,1.0,0)*s, Vector3.new(0.32,1.4,0.2)*s)
+	box(model,{Name="EarInL",Color=Color3.fromRGB(255,190,200),Material=SMOOTH}, hp+Vector3.new(0.28,1.0,-0.08)*s, Vector3.new(0.16,1.1,0.12)*s)
+	box(model,{Name="EarInR",Color=Color3.fromRGB(255,190,200),Material=SMOOTH}, hp+Vector3.new(-0.28,1.0,-0.08)*s, Vector3.new(0.16,1.1,0.12)*s)
+	-- little feet + cotton tail
+	box(model,{Name="FootL",Color=color,Material=SMOOTH}, Vector3.new(0.4,-0.7,-0.5)*s, Vector3.new(0.4,0.25,0.7)*s)
+	box(model,{Name="FootR",Color=color,Material=SMOOTH}, Vector3.new(-0.4,-0.7,-0.5)*s, Vector3.new(0.4,0.25,0.7)*s)
+	ball(model,{Name="CottonTail",Color=Color3.new(1,1,1),Material=SMOOTH}, Vector3.new(0,0,0.85)*s, 0.5*s)
+	ball(model,{Name="Nose",Color=Color3.fromRGB(255,150,170),Material=SMOOTH}, hp+Vector3.new(0,-0.05,-0.55)*s, 0.16*s)
+	eyes(model, hp, s, Color3.fromRGB(120,60,180))
+	return body
+end
+
+local function buildBird(model, s, color, rColor, bigEyes)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH}, Vector3.new(0,0,0), 1.4*s)
+	local hp = Vector3.new(0,0.85,-0.3)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.0*s)
+	-- beak
+	wedge(model,{Name="Beak",Color=Color3.fromRGB(255,180,40),Material=SMOOTH}, hp+Vector3.new(0,-0.05,-0.55)*s, Vector3.new(0.3,0.3,0.4)*s, CFrame.Angles(0,math.rad(180),0))
+	-- stubby wings
+	box(model,{Name="WingL",Color=color,Material=SMOOTH}, Vector3.new(0.78,0.05,0)*s, Vector3.new(0.18,0.9,0.9)*s, CFrame.Angles(0,0,math.rad(15)))
+	box(model,{Name="WingR",Color=color,Material=SMOOTH}, Vector3.new(-0.78,0.05,0)*s, Vector3.new(0.18,0.9,0.9)*s, CFrame.Angles(0,0,math.rad(-15)))
+	-- tail feathers
+	box(model,{Name="TailF",Color=color,Material=SMOOTH}, Vector3.new(0,0.1,0.8)*s, Vector3.new(0.7,0.12,0.6)*s, CFrame.Angles(math.rad(20),0,0))
+	-- little feet
+	box(model,{Name="FootL",Color=Color3.fromRGB(255,180,40),Material=SMOOTH}, Vector3.new(0.3,-0.75,0)*s, Vector3.new(0.18,0.3,0.18)*s)
+	box(model,{Name="FootR",Color=Color3.fromRGB(255,180,40),Material=SMOOTH}, Vector3.new(-0.3,-0.75,0)*s, Vector3.new(0.18,0.3,0.18)*s)
+	if bigEyes then
+		ball(model,{Name="EyeW",Color=Color3.new(1,1,1),Material=SMOOTH}, hp+Vector3.new(0.28,0.1,-0.42)*s, 0.5*s)
+		ball(model,{Name="EyeW",Color=Color3.new(1,1,1),Material=SMOOTH}, hp+Vector3.new(-0.28,0.1,-0.42)*s, 0.5*s)
+		ball(model,{Name="Eye",Color=Color3.fromRGB(255,180,40),Material=SMOOTH}, hp+Vector3.new(0.28,0.1,-0.6)*s, 0.26*s)
+		ball(model,{Name="Eye",Color=Color3.fromRGB(255,180,40),Material=SMOOTH}, hp+Vector3.new(-0.28,0.1,-0.6)*s, 0.26*s)
+	else
+		eyes(model, hp, s)
 	end
-end
-
--- ============================================================
--- PET BUILDERS  (each returns root = HumanoidRootPart)
--- ============================================================
-
-local function buildCat(model, size, color)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(1.8*size,1.4*size,1.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.4*size,1.4*size,1.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Pointy ears
-	local earL = wedge(model,{Name="EarL",Size=Vector3.new(0.4*size,0.7*size,0.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earR = wedge(model,{Name="EarR",Size=Vector3.new(0.4*size,0.7*size,0.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earInL = p(model,{Name="EarInL",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.2*size,0.35*size,0.2*size),Color=Color3.fromRGB(255,180,180),Material=Enum.Material.SmoothPlastic})
-	-- Tail (3 segments curling up)
-	local t1 = p(model,{Name="Tail1",Size=Vector3.new(0.3*size,0.8*size,0.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local t2 = p(model,{Name="Tail2",Size=Vector3.new(0.25*size,0.6*size,0.25*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local tailTip = p(model,{Name="TailTip",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.4*size,0.4*size,0.4*size),Color=Color3.fromRGB(255,255,255),Material=Enum.Material.SmoothPlastic})
-	-- Offsets stored as attributes (read by PetService update loop)
-	head:SetAttribute("BodyOffset",true)
-	earL:SetAttribute("IsEarL",true)
-	earR:SetAttribute("IsEarR",true)
-	body:SetAttribute("RootPart",true)
-	eyes(model,head,size)
 	return body
 end
 
-local function buildDog(model, size, color)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.0*size,1.4*size,1.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.3*size,1.2*size,1.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Floppy ears (flat wedges hanging down)
-	local earL = p(model,{Name="EarL",
-		Size=Vector3.new(0.5*size,0.9*size,0.15*size),Color=Color3.fromRGB(160,110,60),Material=Enum.Material.SmoothPlastic})
-	local earR = p(model,{Name="EarR",
-		Size=Vector3.new(0.5*size,0.9*size,0.15*size),Color=Color3.fromRGB(160,110,60),Material=Enum.Material.SmoothPlastic})
-	-- Snout
-	local snout = p(model,{Name="Snout",
-		Size=Vector3.new(0.7*size,0.55*size,0.5*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local nose = p(model,{Name="Nose",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.22*size,0.18*size,0.22*size),Color=Color3.new(0,0,0),Material=Enum.Material.SmoothPlastic})
-	-- Stubby wagging tail
-	local tail = p(model,{Name="Tail",Size=Vector3.new(0.3*size,0.7*size,0.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	eyes(model,head,size)
+local function buildBear(model, s, color, rColor)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH}, Vector3.new(0,0,0), 1.9*s)
+	legs(model, s, color, 1.7,1.7,1.9, 0.7)
+	local hp = Vector3.new(0,0.75,-0.95)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.25*s)
+	-- round ears
+	ball(model,{Name="EarL",Color=Color3.new(0.1,0.1,0.1),Material=SMOOTH}, hp+Vector3.new(0.45,0.55,0)*s, 0.5*s)
+	ball(model,{Name="EarR",Color=Color3.new(0.1,0.1,0.1),Material=SMOOTH}, hp+Vector3.new(-0.45,0.55,0)*s, 0.5*s)
+	-- panda-style eye patches + snout
+	ball(model,{Name="PatchL",Color=Color3.new(0.1,0.1,0.1),Material=SMOOTH}, hp+Vector3.new(0.3,0.05,-0.45)*s, 0.45*s)
+	ball(model,{Name="PatchR",Color=Color3.new(0.1,0.1,0.1),Material=SMOOTH}, hp+Vector3.new(-0.3,0.05,-0.45)*s, 0.45*s)
+	box(model,{Name="Snout",Color=Color3.new(1,1,1),Material=SMOOTH}, hp+Vector3.new(0,-0.25,-0.5)*s, Vector3.new(0.5,0.4,0.35)*s)
+	ball(model,{Name="Nose",Color=Color3.new(0.05,0.05,0.05),Material=SMOOTH}, hp+Vector3.new(0,-0.2,-0.7)*s, 0.2*s)
+	eyes(model, hp, s)
 	return body
 end
 
-local function buildBunny(model, size, color)
-	local body = p(model,{Name="HumanoidRootPart",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.6*size,1.6*size,1.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.2*size,1.2*size,1.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Long upright ears
-	local earL = p(model,{Name="EarL",
-		Size=Vector3.new(0.35*size,1.4*size,0.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earR = p(model,{Name="EarR",
-		Size=Vector3.new(0.35*size,1.4*size,0.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earInL = p(model,{Name="EarInL",
-		Size=Vector3.new(0.2*size,1.1*size,0.1*size),Color=Color3.fromRGB(255,180,180),Material=Enum.Material.SmoothPlastic})
-	local earInR = p(model,{Name="EarInR",
-		Size=Vector3.new(0.2*size,1.1*size,0.1*size),Color=Color3.fromRGB(255,180,180),Material=Enum.Material.SmoothPlastic})
-	-- Cotton tail
-	local cottontail = p(model,{Name="CottonTail",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.5*size,0.5*size,0.5*size),Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic})
-	eyes(model,head,size,Color3.fromRGB(200,100,255))
+local function buildFox(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.2,1.0,2.0)*s)
+	legs(model, s, Color3.new(0.12,0.12,0.14), 1.2,1.0,2.0, 0.8)
+	local hp = Vector3.new(0,0.5,-1.15)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.1,1.0,1.1)*s)
+	wedge(model,{Name="Snout",Color=color,Material=SMOOTH}, hp+Vector3.new(0,-0.1,-0.7)*s, Vector3.new(0.5,0.4,0.6)*s, CFrame.Angles(0,math.rad(180),0))
+	ball(model,{Name="Nose",Color=Color3.new(0.05,0.05,0.05),Material=SMOOTH}, hp+Vector3.new(0,-0.1,-1.0)*s, 0.16*s)
+	wedge(model,{Name="EarL",Color=color,Material=SMOOTH}, hp+Vector3.new(0.35,0.65,0.1)*s, Vector3.new(0.4,0.7,0.3)*s)
+	wedge(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.35,0.65,0.1)*s, Vector3.new(0.4,0.7,0.3)*s)
+	-- big bushy tail
+	box(model,{Name="Tail1",Color=color,Material=SMOOTH}, Vector3.new(0,0.3,1.1)*s, Vector3.new(0.8,0.9,1.0)*s, CFrame.Angles(math.rad(-25),0,0))
+	ball(model,{Name="TailTip",Color=Color3.new(1,1,1),Material=SMOOTH}, Vector3.new(0,0.8,1.5)*s, 0.7*s)
+	eyes(model, hp, s, Color3.fromRGB(255,180,40))
 	return body
 end
 
-local function buildFox(model, size, color)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(1.8*size,1.2*size,1.1*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.2*size,1.1*size,1.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Pointy snout
-	local snout = wedge(model,{Name="Snout",
-		Size=Vector3.new(0.6*size,0.5*size,0.8*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local noseTip = p(model,{Name="Nose",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.18*size,0.14*size,0.18*size),Color=Color3.new(0,0,0),Material=Enum.Material.SmoothPlastic})
-	-- Triangular pointy ears
-	local earL = wedge(model,{Name="EarL",
-		Size=Vector3.new(0.4*size,0.7*size,0.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earR = wedge(model,{Name="EarR",
-		Size=Vector3.new(0.4*size,0.7*size,0.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- MASSIVE bushy tail
-	local tail1 = p(model,{Name="Tail1",Size=Vector3.new(0.8*size,1.2*size,0.8*size),
-		Color=color,Material=Enum.Material.SmoothPlastic})
-	local tailTip = p(model,{Name="TailTip",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.9*size,0.9*size,0.9*size),Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic})
-	eyes(model,head,size,Color3.fromRGB(255,200,50))
+local function buildWolf(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.5,1.3,2.3)*s)
+	legs(model, s, color, 1.5,1.3,2.3, 1.0)
+	box(model,{Name="Neck",Color=color,Material=SMOOTH}, Vector3.new(0,0.4,-1.0)*s, Vector3.new(0.8,0.9,0.8)*s)
+	local hp = Vector3.new(0,0.7,-1.5)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.2,1.1,1.3)*s)
+	box(model,{Name="Snout",Color=color,Material=SMOOTH}, hp+Vector3.new(0,-0.15,-0.65)*s, Vector3.new(0.55,0.45,0.6)*s)
+	ball(model,{Name="Nose",Color=Color3.new(0.04,0.04,0.04),Material=SMOOTH}, hp+Vector3.new(0,-0.12,-0.98)*s, 0.2*s)
+	wedge(model,{Name="EarL",Color=color,Material=SMOOTH}, hp+Vector3.new(0.4,0.7,0.1)*s, Vector3.new(0.45,0.7,0.35)*s)
+	wedge(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.4,0.7,0.1)*s, Vector3.new(0.45,0.7,0.35)*s)
+	box(model,{Name="Tail",Color=color,Material=SMOOTH}, Vector3.new(0,0.35,1.3)*s, Vector3.new(0.5,0.5,1.3)*s, CFrame.Angles(math.rad(-35),0,0))
+	eyes(model, hp, s, Color3.fromRGB(255,220,60))
+	if rColor then addGlow(body, rColor, 1) end
 	return body
 end
 
-local function buildWolf(model, size, color)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.2*size,1.6*size,1.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local neck = p(model,{Name="Neck",
-		Size=Vector3.new(0.8*size,0.8*size,0.8*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.4*size,1.3*size,1.5*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Angular snout
-	local snout = p(model,{Name="Snout",
-		Size=Vector3.new(0.7*size,0.6*size,0.9*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earL = wedge(model,{Name="EarL",Size=Vector3.new(0.45*size,0.8*size,0.35*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local earR = wedge(model,{Name="EarR",Size=Vector3.new(0.45*size,0.8*size,0.35*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local tail = p(model,{Name="Tail",Size=Vector3.new(0.5*size,1.4*size,0.5*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	eyes(model,head,size,Color3.fromRGB(255,220,50))
-	return body
-end
-
-local function buildDragon(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.0*size,1.6*size,1.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local neck = p(model,{Name="Neck",
-		Size=Vector3.new(0.9*size,1.2*size,0.9*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.5*size,1.2*size,1.8*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Horns
-	local hornL = wedge(model,{Name="HornL",Size=Vector3.new(0.25*size,0.8*size,0.25*size),
-		Color=Color3.fromRGB(50,50,80),Material=Enum.Material.SmoothPlastic})
-	local hornR = wedge(model,{Name="HornR",Size=Vector3.new(0.25*size,0.8*size,0.25*size),
-		Color=Color3.fromRGB(50,50,80),Material=Enum.Material.SmoothPlastic})
-	-- Spine spikes
-	for i=1,5 do
-		local spike = wedge(model,{Name="Spine"..i,
-			Size=Vector3.new(0.2*size,(0.6-i*0.07)*size,0.2*size),
-			Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(spike,rarityColor,0.8)
+local function buildHorse(model, s, color, rColor, unicorn)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.4,1.5,2.4)*s)
+	legs(model, s, color, 1.4,1.5,2.4, 1.2)
+	box(model,{Name="Neck",Color=color,Material=SMOOTH}, Vector3.new(0,0.7,-1.0)*s, Vector3.new(0.8,1.3,0.8)*s, CFrame.Angles(math.rad(25),0,0))
+	local hp = Vector3.new(0,1.3,-1.5)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(0.9,0.9,1.4)*s)
+	-- mane
+	for i=0,3 do
+		local mc = ({Color3.fromRGB(255,120,200),Color3.fromRGB(120,200,255),Color3.fromRGB(255,210,120)})[(i%3)+1]
+		box(model,{Name="Mane",Color=mc,Material=unicorn and NEON or SMOOTH},
+			Vector3.new(0,0.95-i*0.45,-1.0+i*0.0)*s, Vector3.new(0.4,0.5,0.25)*s)
 	end
-	-- WINGS (flat angled wedges)
-	local wingL = wedge(model,{Name="WingL",
-		Size=Vector3.new(2.8*size,0.15*size,2.0*size),
-		Color=color,Material=Enum.Material.SmoothPlastic})
-	local wingR = wedge(model,{Name="WingR",
-		Size=Vector3.new(2.8*size,0.15*size,2.0*size),
-		Color=color,Material=Enum.Material.SmoothPlastic})
-	local wingLNeon = p(model,{Name="WingLNeon",
-		Size=Vector3.new(2.6*size,0.08*size,1.8*size),
-		Color=rarityColor,Material=Enum.Material.Neon,CanCollide=false})
-	local wingRNeon = p(model,{Name="WingRNeon",
-		Size=Vector3.new(2.6*size,0.08*size,1.8*size),
-		Color=rarityColor,Material=Enum.Material.Neon,CanCollide=false})
-	-- Tail
-	local tail1 = p(model,{Name="Tail1",Size=Vector3.new(0.7*size,0.7*size,1.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local tail2 = p(model,{Name="Tail2",Size=Vector3.new(0.5*size,0.5*size,1.0*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local tailTip = wedge(model,{Name="TailTip",Size=Vector3.new(0.4*size,0.7*size,0.6*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(tailTip,rarityColor,1.2)
-	-- Mouth fire particles
-	local mouthAtt = Instance.new("Attachment"); mouthAtt.Parent=head
-	local firePE = Instance.new("ParticleEmitter"); firePE.Parent=mouthAtt
-	firePE.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,100,0)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,255,0))})
-	firePE.LightEmission=1; firePE.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,0.4*size),NumberSequenceKeypoint.new(1,0)})
-	firePE.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)})
-	firePE.Speed=NumberRange.new(2,5); firePE.Lifetime=NumberRange.new(0.3,0.7)
-	firePE.Rate=20; firePE.SpreadAngle=Vector2.new(15,15)
-	addGlow(head,Color3.fromRGB(255,100,0),1.5)
-	addParticles(body,rarityColor,10)
-	eyes(model,head,size,Color3.fromRGB(255,50,50))
+	-- tail
+	box(model,{Name="Tail",Color=unicorn and (rColor or color) or color,Material=unicorn and NEON or SMOOTH},
+		Vector3.new(0,0.2,1.25)*s, Vector3.new(0.35,1.4,0.35)*s, CFrame.Angles(math.rad(20),0,0))
+	if unicorn then
+		cyl(model,{Name="Horn",Color=rColor or Color3.new(1,1,1),Material=NEON}, hp+Vector3.new(0,0.7,-0.5)*s, Vector3.new(1.0,0.25,0.25)*s, CFrame.Angles(0,0,math.rad(90)))
+		addGlow(body, rColor or Color3.fromRGB(200,150,255), 1.2)
+		addAura(body, rColor or Color3.fromRGB(200,150,255), 12)
+	end
+	eyes(model, hp, s, Color3.fromRGB(120,70,180))
 	return body
 end
 
-local function buildPhoenix(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(1.8*size,1.4*size,1.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.2*size,1.2*size,1.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Crest feathers on head
-	for i=1,3 do
-		local crest = wedge(model,{Name="Crest"..i,
-			Size=Vector3.new(0.2*size,(0.6+i*0.15)*size,0.15*size),
-			Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(crest,rarityColor,0.6)
+local function buildDragon(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.5,1.4,2.2)*s)
+	legs(model, s, color, 1.5,1.4,2.2, 0.8)
+	box(model,{Name="Neck",Color=color,Material=SMOOTH}, Vector3.new(0,0.5,-1.0)*s, Vector3.new(0.9,1.0,0.9)*s, CFrame.Angles(math.rad(20),0,0))
+	local hp = Vector3.new(0,1.0,-1.5)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.1,1.0,1.4)*s)
+	-- horns
+	wedge(model,{Name="HornL",Color=Color3.fromRGB(60,55,80),Material=SMOOTH}, hp+Vector3.new(0.3,0.6,0.2)*s, Vector3.new(0.22,0.7,0.22)*s)
+	wedge(model,{Name="HornR",Color=Color3.fromRGB(60,55,80),Material=SMOOTH}, hp+Vector3.new(-0.3,0.6,0.2)*s, Vector3.new(0.22,0.7,0.22)*s)
+	-- wings (angled flat slabs)
+	box(model,{Name="WingL",Color=color,Material=SMOOTH}, Vector3.new(1.4,0.6,0.2)*s, Vector3.new(2.4,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(35)))
+	box(model,{Name="WingR",Color=color,Material=SMOOTH}, Vector3.new(-1.4,0.6,0.2)*s, Vector3.new(2.4,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(-35)))
+	box(model,{Name="WingLNeon",Color=rColor or color,Material=NEON}, Vector3.new(1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(35)))
+	box(model,{Name="WingRNeon",Color=rColor or color,Material=NEON}, Vector3.new(-1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(-35)))
+	-- spine spikes
+	for i=0,3 do
+		wedge(model,{Name="Spine",Color=rColor or color,Material=NEON}, Vector3.new(0,0.75,-0.4+i*0.6)*s, Vector3.new(0.18,0.45,0.3)*s)
 	end
-	-- Wide spread wings
-	local wingL = p(model,{Name="WingL",
-		Size=Vector3.new(3.5*size,0.2*size,2.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local wingR = p(model,{Name="WingR",
-		Size=Vector3.new(3.5*size,0.2*size,2.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Wing neon trim
-	local wlNeon = p(model,{Name="WingLNeon",Size=Vector3.new(3.3*size,0.1*size,2.2*size),Color=rarityColor,Material=Enum.Material.Neon})
-	local wrNeon = p(model,{Name="WingRNeon",Size=Vector3.new(3.3*size,0.1*size,2.2*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(wlNeon,rarityColor,1); addGlow(wrNeon,rarityColor,1)
-	-- Tail feathers (5 long streaks)
-	for i=1,5 do
-		local feather = p(model,{Name="Feather"..i,
-			Size=Vector3.new(0.18*size,0.18*size,(1.0+i*0.3)*size),
-			Color=i%2==0 and rarityColor or color,Material=Enum.Material.Neon})
-		addGlow(feather,rarityColor,0.5)
-	end
-	-- Fire body aura
-	addParticles(body,Color3.fromRGB(255,120,0),25)
-	addParticles(wingL,rarityColor,10)
-	addParticles(wingR,rarityColor,10)
-	addGlow(body,Color3.fromRGB(255,100,0),2)
-	eyes(model,head,size,Color3.fromRGB(255,255,50))
+	-- tail
+	box(model,{Name="Tail1",Color=color,Material=SMOOTH}, Vector3.new(0,0.2,1.2)*s, Vector3.new(0.6,0.6,1.2)*s)
+	wedge(model,{Name="TailTip",Color=rColor or color,Material=NEON}, Vector3.new(0,0.2,1.95)*s, Vector3.new(0.5,0.7,0.6)*s)
+	addGlow(body, rColor or Color3.fromRGB(255,100,0), 1.2)
+	addAura(body, rColor or color, 14)
+	eyes(model, hp, s, Color3.fromRGB(255,60,60))
 	return body
 end
 
-local function buildUnicorn(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.4*size,1.6*size,1.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local neck = p(model,{Name="Neck",
-		Size=Vector3.new(0.9*size,1.4*size,0.9*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.2*size,1.2*size,1.6*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- PROMINENT HORN (3 tapering cylinders)
-	local horn1 = p(model,{Name="Horn1",
-		Size=Vector3.new(0.4*size,1.2*size,0.4*size),Color=rarityColor,Material=Enum.Material.Neon})
-	local horn2 = p(model,{Name="Horn2",
-		Size=Vector3.new(0.25*size,0.9*size,0.25*size),Color=Color3.new(1,1,1),Material=Enum.Material.Neon})
-	local hornTip = p(model,{Name="HornTip",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(0.2*size,0.2*size,0.2*size),Color=Color3.new(1,1,1),Material=Enum.Material.Neon})
-	addGlow(horn1,rarityColor,2); addGlow(hornTip,rarityColor,1.5)
-	-- Flowing mane (colored parts along neck)
-	local maneColors = {Color3.fromRGB(255,100,255),Color3.fromRGB(100,200,255),Color3.fromRGB(255,200,100)}
-	for i=1,4 do
-		local mane = p(model,{Name="Mane"..i,
-			Size=Vector3.new(0.4*size,0.5*size,0.2*size),
-			Color=maneColors[(i%3)+1],Material=Enum.Material.Neon})
-		addGlow(mane,maneColors[(i%3)+1],0.5)
+local function buildPhoenix(model, s, color, rColor)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=NEON}, Vector3.new(0,0,0), 1.5*s)
+	local hp = Vector3.new(0,0.9,-0.5)*s
+	ball(model,{Name="Head",Color=color,Material=NEON}, hp, 1.0*s)
+	wedge(model,{Name="Beak",Color=Color3.fromRGB(255,200,60),Material=SMOOTH}, hp+Vector3.new(0,-0.05,-0.55)*s, Vector3.new(0.28,0.3,0.4)*s, CFrame.Angles(0,math.rad(180),0))
+	-- crest
+	for i=0,2 do
+		wedge(model,{Name="Crest",Color=rColor or color,Material=NEON}, hp+Vector3.new(0,0.55+i*0.15,0.1+i*0.05)*s, Vector3.new(0.2,0.5+i*0.15,0.15)*s)
 	end
-	-- Legs
-	for i=1,4 do
-		local leg = p(model,{Name="Leg"..i,Size=Vector3.new(0.4*size,1.0*size,0.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-		local hoof = p(model,{Name="Hoof"..i,Size=Vector3.new(0.45*size,0.3*size,0.45*size),Color=Color3.fromRGB(80,70,100),Material=Enum.Material.SmoothPlastic})
+	-- big spread wings
+	box(model,{Name="WingL",Color=color,Material=NEON}, Vector3.new(1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(20)))
+	box(model,{Name="WingR",Color=color,Material=NEON}, Vector3.new(-1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(-20)))
+	box(model,{Name="WingLTip",Color=rColor or Color3.new(1,1,1),Material=NEON}, Vector3.new(2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(20)))
+	box(model,{Name="WingRTip",Color=rColor or Color3.new(1,1,1),Material=NEON}, Vector3.new(-2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(-20)))
+	-- tail feathers
+	for i=-1,1 do
+		box(model,{Name="TailF",Color=(i==0) and (rColor or color) or color,Material=NEON}, Vector3.new(i*0.3,0.1,1.0)*s, Vector3.new(0.2,0.2,1.4+math.abs(i)*0.3)*s, CFrame.Angles(math.rad(18),0,0))
 	end
-	-- Tail
-	local tail = p(model,{Name="Tail",Size=Vector3.new(0.6*size,1.4*size,0.3*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(tail,rarityColor,1)
-	addParticles(body,rarityColor,15)
-	addParticles(horn1,rarityColor,12)
-	eyes(model,head,size,Color3.fromRGB(180,100,255))
+	addGlow(body, rColor or Color3.fromRGB(255,120,0), 2)
+	addAura(body, Color3.fromRGB(255,120,0), 24)
+	eyes(model, hp, s, Color3.fromRGB(255,240,60))
 	return body
 end
 
-local function buildCelestialDragon(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.8*size,2.0*size,2.0*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local neck1 = p(model,{Name="Neck1",Size=Vector3.new(1.2*size,1.4*size,1.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local neck2 = p(model,{Name="Neck2",Size=Vector3.new(1.0*size,1.0*size,1.0*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",Size=Vector3.new(2.0*size,1.6*size,2.4*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Crown of 6 horns
+local function buildGriffin(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.4,1.3,2.1)*s)
+	legs(model, s, Color3.fromRGB(220,180,80), 1.4,1.3,2.1, 0.9)
+	local hp = Vector3.new(0,0.7,-1.25)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.1*s)
+	wedge(model,{Name="Beak",Color=Color3.fromRGB(255,200,60),Material=SMOOTH}, hp+Vector3.new(0,-0.1,-0.6)*s, Vector3.new(0.3,0.35,0.5)*s, CFrame.Angles(0,math.rad(180),0))
+	wedge(model,{Name="EarL",Color=color,Material=SMOOTH}, hp+Vector3.new(0.3,0.6,0.1)*s, Vector3.new(0.3,0.5,0.25)*s)
+	wedge(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.3,0.6,0.1)*s, Vector3.new(0.3,0.5,0.25)*s)
+	box(model,{Name="WingL",Color=color,Material=SMOOTH}, Vector3.new(1.5,0.5,0.1)*s, Vector3.new(2.6,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(28)))
+	box(model,{Name="WingR",Color=color,Material=SMOOTH}, Vector3.new(-1.5,0.5,0.1)*s, Vector3.new(2.6,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(-28)))
+	box(model,{Name="Tail",Color=Color3.fromRGB(220,180,80),Material=SMOOTH}, Vector3.new(0,0.2,1.2)*s, Vector3.new(0.35,0.35,1.0)*s)
+	if rColor then addGlow(body, rColor, 1); addAura(body, rColor, 16) end
+	eyes(model, hp, s, Color3.fromRGB(255,200,60))
+	return body
+end
+
+local function buildSerpent(model, s, color, rColor)
+	local body = box(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH},
+		Vector3.new(0,0,0), Vector3.new(1.2,1.2,1.6)*s)
+	-- segmented tail trailing behind, shrinking
 	for i=1,6 do
-		local ang = (i/6)*math.pi*2
-		local horn = wedge(model,{Name="Crown"..i,Size=Vector3.new(0.3*size,1.0*size,0.3*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(horn,rarityColor,0.8)
+		local seg = 1 - i*0.12
+		box(model,{Name="Seg",Color=color,Material=SMOOTH},
+			Vector3.new(0, math.sin(i*0.9)*0.3, 0.9+ (i-1)*0.85)*s,
+			Vector3.new(1.1*seg,1.1*seg,0.9)*s)
 	end
-	-- Double wings
-	for _, side in ipairs({"L","R"}) do
-		local wingUp = p(model,{Name="WingUp"..side,Size=Vector3.new(4.0*size,0.2*size,2.8*size),Color=color,Material=Enum.Material.SmoothPlastic})
-		local wingLow = p(model,{Name="WingLow"..side,Size=Vector3.new(3.0*size,0.2*size,2.0*size),Color=color,Material=Enum.Material.SmoothPlastic})
-		local wingNeon = p(model,{Name="WingNeon"..side,Size=Vector3.new(3.8*size,0.1*size,2.6*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(wingNeon,rarityColor,1.5)
-	end
-	-- Glowing spine all the way down
-	for i=1,8 do
-		local spine = wedge(model,{Name="Spine"..i,Size=Vector3.new(0.3*size,0.9*size,0.3*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(spine,rarityColor,1)
-	end
-	-- Serpentine tail
-	for i=1,4 do
-		local ts = p(model,{Name="TailSeg"..i,Size=Vector3.new((1.2-i*0.2)*size,(1.2-i*0.2)*size,(1.0-i*0.15)*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	end
-	local tailTip = p(model,{Name="TailTip",Shape=Enum.PartType.Ball,Size=Vector3.new(0.6*size,0.6*size,0.6*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(tailTip,rarityColor,2)
-	-- Massive particle aura
-	addParticles(body,rarityColor,40)
-	addParticles(head,Color3.fromRGB(200,240,255),20)
-	addGlow(body,rarityColor,3)
-	addGlow(head,rarityColor,3)
-	addTrail(tailTip,rarityColor)
-	eyes(model,head,size*1.2,Color3.fromRGB(0,220,255))
+	local hp = Vector3.new(0,0.3,-1.1)*s
+	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.4,1.0,1.5)*s)
+	-- cobra frill
+	wedge(model,{Name="FrillL",Color=rColor or color,Material=NEON}, hp+Vector3.new(0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(-90)))
+	wedge(model,{Name="FrillR",Color=rColor or color,Material=NEON}, hp+Vector3.new(-0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(90)))
+	addGlow(body, rColor or Color3.fromRGB(140,60,255), 1.5)
+	addAura(body, rColor or Color3.fromRGB(140,60,255), 22)
+	eyes(model, hp, s, rColor or Color3.fromRGB(180,80,255))
 	return body
 end
 
-local function buildStarPhoenix(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(2.2*size,1.8*size,1.5*size),Color=color,Material=Enum.Material.Neon})
-	local head = p(model,{Name="Head",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.6*size,1.6*size,1.6*size),Color=color,Material=Enum.Material.Neon})
-	-- Giant wings (3 layers each side)
-	for i,sz in ipairs({5.0,3.8,2.6}) do
-		for _,side in ipairs({"L","R"}) do
-			local wing = p(model,{Name="Wing"..i..side,
-				Size=Vector3.new(sz*size,0.12*size,(2.5-i*0.3)*size),
-				Color=i==1 and rarityColor or Color3.new(1,1,1),Material=Enum.Material.Neon})
-			addGlow(wing,rarityColor,1.2)
-		end
-	end
-	-- Crown of 8 crest feathers
-	for i=1,8 do
-		local crest=wedge(model,{Name="Crest"..i,Size=Vector3.new(0.2*size,(0.8+i*0.1)*size,0.15*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(crest,rarityColor,1)
-	end
-	-- Comet tail
-	for i=1,7 do
-		local ft=p(model,{Name="FTail"..i,Size=Vector3.new(0.2*size,0.2*size,(1.2+i*0.4)*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(ft,rarityColor,0.8)
-		addTrail(ft,rarityColor)
-	end
-	addParticles(body,rarityColor,50)
-	addParticles(head,Color3.new(1,1,1),30)
-	addGlow(body,rarityColor,4); addGlow(head,rarityColor,4)
-	eyes(model,head,size*1.3,Color3.fromRGB(255,255,0))
-	return body
-end
-
-local function buildVoidSerpent(model, size, color, rarityColor)
-	-- Serpentine body with 6 segments
-	local body = p(model,{Name="HumanoidRootPart",
-		Size=Vector3.new(1.4*size,1.4*size,2.0*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	for i=2,6 do
-		local seg=p(model,{Name="Seg"..i,
-			Size=Vector3.new((1.6-i*0.15)*size,(1.6-i*0.15)*size,(2.0-i*0.1)*size),
-			Color=color,Material=Enum.Material.SmoothPlastic})
-	end
-	local head = p(model,{Name="Head",
-		Size=Vector3.new(1.8*size,1.4*size,2.2*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	-- Frill (like a cobra hood)
-	local frillL = wedge(model,{Name="FrillL",Size=Vector3.new(1.2*size,0.1*size,1.0*size),Color=rarityColor,Material=Enum.Material.Neon})
-	local frillR = wedge(model,{Name="FrillR",Size=Vector3.new(1.2*size,0.1*size,1.0*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(frillL,rarityColor,1.5); addGlow(frillR,rarityColor,1.5)
-	-- Back fins
-	for i=1,4 do
-		local fin=wedge(model,{Name="Fin"..i,Size=Vector3.new(0.1*size,0.8*size,0.6*size),Color=rarityColor,Material=Enum.Material.Neon})
-		addGlow(fin,rarityColor,0.7)
-	end
-	local tailTip=wedge(model,{Name="TailTip",Size=Vector3.new(0.4*size,0.4*size,1.0*size),Color=rarityColor,Material=Enum.Material.Neon})
-	addGlow(tailTip,rarityColor,2); addTrail(tailTip,rarityColor)
-	addParticles(body,rarityColor,35)
-	addGlow(body,rarityColor,2.5); addGlow(head,rarityColor,2)
-	eyes(model,head,size*1.1,rarityColor)
-	return body
-end
-
-local function buildGeneric(model, size, color, rarityColor)
-	local body = p(model,{Name="HumanoidRootPart",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.8*size,1.8*size,1.8*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	local head = p(model,{Name="Head",Shape=Enum.PartType.Ball,
-		Size=Vector3.new(1.3*size,1.3*size,1.3*size),Color=color,Material=Enum.Material.SmoothPlastic})
-	addParticles(body,rarityColor,10)
-	addGlow(body,rarityColor,1.5)
-	eyes(model,head,size)
+local function buildGeneric(model, s, color, rColor)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=SMOOTH}, Vector3.new(0,0,0), 1.6*s)
+	local hp = Vector3.new(0,0.7,-0.7)*s
+	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.1*s)
+	box(model,{Name="FootL",Color=color,Material=SMOOTH}, Vector3.new(0.45,-0.7,-0.2)*s, Vector3.new(0.4,0.3,0.6)*s)
+	box(model,{Name="FootR",Color=color,Material=SMOOTH}, Vector3.new(-0.45,-0.7,-0.2)*s, Vector3.new(0.4,0.3,0.6)*s)
+	if rColor then addGlow(body, rColor, 1); addAura(body, rColor, 8) end
+	eyes(model, hp, s)
 	return body
 end
 
 -- ============================================================
--- PUBLIC: Build a pet model by name
+-- NAME -> BUILDER
 -- ============================================================
 local builders = {
-	Kitten           = buildCat,
-	Puppy            = buildDog,
-	Bunny            = buildBunny,
-	Chick            = buildGeneric,
-	Fox              = buildFox,
-	Wolf             = buildWolf,
-	Owl              = buildGeneric,
-	Panda            = buildGeneric,
-	Tiger            = buildGeneric,
-	["Snow Leopard"] = buildGeneric,
-	Dragon           = buildDragon,
-	Phoenix          = buildPhoenix,
-	Kirin            = buildGeneric,
-	Unicorn          = buildUnicorn,
-	["Cosmic Griffin"]  = buildGeneric,
-	["Shadow Wolf"]     = buildWolf,
-	["Celestial Dragon"]= buildCelestialDragon,
-	["Star Phoenix"]    = buildStarPhoenix,
-	["Void Serpent"]    = buildVoidSerpent,
+	Kitten             = buildCat,
+	Puppy              = buildDog,
+	Bunny              = buildBunny,
+	Chick              = function(m,s,c,r) return buildBird(m,s,c,r,false) end,
+	Owl                = function(m,s,c,r) return buildBird(m,s,c,r,true)  end,
+	Fox                = buildFox,
+	Wolf               = buildWolf,
+	Panda              = buildBear,
+	Tiger              = buildCat,
+	["Snow Leopard"]   = buildCat,
+	Dragon             = buildDragon,
+	Phoenix            = buildPhoenix,
+	Kirin              = function(m,s,c,r) return buildHorse(m,s,c,r,true) end,
+	Unicorn            = function(m,s,c,r) return buildHorse(m,s,c,r,true) end,
+	["Cosmic Griffin"] = buildGriffin,
+	["Shadow Wolf"]    = buildWolf,
+	["Celestial Dragon"]= buildDragon,
+	["Star Phoenix"]   = buildPhoenix,
+	["Void Serpent"]   = buildSerpent,
 }
 
+-- ============================================================
+-- PUBLIC
+-- ============================================================
 function PetModels.Build(petData, uniqueId, rarityInfo)
-	local model   = Instance.new("Model")
-	model.Name    = petData.name .. "_" .. uniqueId
-	local size    = petData.size or 1.0
-	local rColor  = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
+	local model  = Instance.new("Model")
+	model.Name   = petData.name .. "_" .. uniqueId
+	local s      = petData.size or 1.0
+	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
 
 	local builder = builders[petData.name] or buildGeneric
-	local root    = builder(model, size, petData.color, rColor)
+	local root    = builder(model, s, petData.color, rColor)
 
-	-- Billboard name tag
+	-- Name tag (only shows when near — MaxDistance)
 	local bb = Instance.new("BillboardGui")
 	bb.Size        = UDim2.new(0,150,0,52)
-	bb.StudsOffset = Vector3.new(0,2.2*size,0)
-	bb.MaxDistance = 35  -- pet name tag only shows when you're close
+	bb.StudsOffset = Vector3.new(0, 2.6*s, 0)
+	bb.MaxDistance = 35
 	bb.Adornee     = root
 	bb.AlwaysOnTop = false
 	bb.Parent      = model
@@ -498,7 +409,8 @@ function PetModels.Build(petData, uniqueId, rarityInfo)
 
 	local rarLbl = Instance.new("TextLabel")
 	rarLbl.Size=UDim2.new(1,0,0.42,0); rarLbl.Position=UDim2.new(0,0,0.58,0)
-	rarLbl.BackgroundTransparency=1; rarLbl.Text=petData.rarity
+	rarLbl.BackgroundTransparency=1
+	rarLbl.Text=(rarityInfo and (rarityInfo.displayName or rarityInfo.name)) or petData.rarity
 	rarLbl.TextColor3=rColor; rarLbl.TextScaled=true; rarLbl.Font=Enum.Font.Gotham
 	rarLbl.TextStrokeTransparency=0.4; rarLbl.TextStrokeColor3=Color3.new(0,0,0)
 	rarLbl.Parent=bb

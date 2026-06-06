@@ -145,20 +145,14 @@ local function getFollowOffset(index, total)
 end
 
 local function updateModelCFrames(model, cf, size)
+	-- The model is fully assembled (all parts positioned relative to the root),
+	-- so move it as one rigid unit. PivotTo keeps every part's offset intact.
+	if model.PrimaryPart then
+		model:PivotTo(cf)
+		return
+	end
 	local body = model:FindFirstChild("HumanoidRootPart")
-	local head = model:FindFirstChild("Head")
-	if body then
-		body.CFrame = cf
-	end
-	if head and body then
-		head.CFrame = body.CFrame * CFrame.new(0, 0.9 * size, -0.6)
-	end
-	for i, offset in ipairs({ Vector3.new(0.25, 0.15, -0.48), Vector3.new(-0.25, 0.15, -0.48) }) do
-		local eye = model:FindFirstChild("Eye" .. i)
-		if eye and head then
-			eye.CFrame = head.CFrame * CFrame.new(offset * size)
-		end
-	end
+	if body then body.CFrame = cf end
 end
 
 -- ============================================================
