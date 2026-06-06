@@ -287,6 +287,12 @@ local function buildMap()
 		for _,a in ipairs(GameConfig.Areas) do if a.id==b.id then areaConfig=a break end end
 		if not areaConfig then continue end
 
+		-- Big world-name sign floating over the middle of the biome
+		local nameAnchor=part({Name="BiomeName_"..b.id,Size=Vector3.new(1,1,1),
+			Position=Vector3.new(b.cx,30,0),Transparency=1,CanCollide=false})
+		billboard(nameAnchor,areaConfig.name,Color3.fromRGB(255,255,255),
+			areaConfig.description,Color3.fromRGB(210,210,235),UDim2.new(0,440,0,130))
+
 		local gateX=b.cx-65  -- gate sits at left edge of biome
 
 		-- Left pillar
