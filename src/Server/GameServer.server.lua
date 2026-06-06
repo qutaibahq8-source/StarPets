@@ -134,6 +134,62 @@ end
 --   Rebirth machine at x=-60 (left of spawn)
 --   Boundary walls around x=-90..610, z=-110..130
 -- ============================================================
+-- ============================================================
+-- WORLD DECORATION HELPERS (fill biomes so they aren't empty)
+-- ============================================================
+local function tree(x, z, baseY, trunkColor, leafColor, scale)
+	scale = scale or 1
+	local h = 9 * scale
+	part({Name="TreeTrunk",Size=Vector3.new(1.5*scale,h,1.5*scale),
+		Position=Vector3.new(x, baseY + h/2, z),Color=trunkColor,
+		Material=Enum.Material.Wood,CanCollide=false})
+	part({Name="TreeLeaf",Shape=Enum.PartType.Ball,Size=Vector3.new(8*scale,8*scale,8*scale),
+		Position=Vector3.new(x, baseY + h + scale, z),Color=leafColor,
+		Material=Enum.Material.Grass,CanCollide=false})
+end
+
+local function rock(x, z, baseY, color, scale)
+	scale = scale or 1
+	local s = (3 + math.random()*2.5) * scale
+	local r = part({Name="Rock",Size=Vector3.new(s,s*0.7,s),
+		Position=Vector3.new(x, baseY + s*0.35, z),Color=color,
+		Material=Enum.Material.Slate,CanCollide=false})
+	r.CFrame = r.CFrame * CFrame.Angles(math.rad(math.random(-12,12)),
+		math.rad(math.random(0,360)),math.rad(math.random(-12,12)))
+end
+
+local function decorateBiome(id, cx, baseY)
+	local function rx() return cx + math.random(-56,56) end
+	local function rz() return math.random(-88,88) end
+	if id=="Forest" then
+		for i=1,18 do tree(rx(),rz(),baseY,Color3.fromRGB(70,45,25),Color3.fromRGB(25,90,30),0.8+math.random()*0.7) end
+		for i=1,12 do rock(rx(),rz(),baseY,Color3.fromRGB(95,100,105),0.9) end
+	elseif id=="Desert" then
+		for i=1,12 do
+			local h=5+math.random()*4
+			part({Name="Cactus",Size=Vector3.new(1.6,h,1.6),Position=Vector3.new(rx(),baseY+h/2,rz()),
+				Color=Color3.fromRGB(55,120,60),Material=Enum.Material.Grass,CanCollide=false})
+		end
+		for i=1,16 do rock(rx(),rz(),baseY,Color3.fromRGB(205,170,95),1.1) end
+	elseif id=="Volcano" then
+		for i=1,18 do rock(rx(),rz(),baseY,Color3.fromRGB(38,26,22),1.2) end
+		for i=1,6 do
+			local d=8+math.random()*7
+			part({Name="LavaPool",Shape=Enum.PartType.Cylinder,Size=Vector3.new(0.4,d,d),
+				Position=Vector3.new(rx(),baseY+0.25,rz()),Color=Color3.fromRGB(255,90,0),
+				Material=Enum.Material.Neon,Orientation=Vector3.new(0,0,90),CanCollide=false})
+		end
+	elseif id=="Space" then
+		for i=1,22 do
+			local s=2+math.random()*3
+			local c=part({Name="Star",Shape=Enum.PartType.Ball,Size=Vector3.new(s,s,s),
+				Position=Vector3.new(rx(),baseY+math.random(5,26),rz()),
+				Color=Color3.fromRGB(150,180,255),Material=Enum.Material.Neon,CanCollide=false})
+			glow(c,Color3.fromRGB(120,160,255),1)
+		end
+	end
+end
+
 local function buildMap()
 	-- ---- TERRAIN BASE ----
 	workspace.Terrain:FillBlock(CFrame.new(260,-8,10), Vector3.new(760,12,280), Enum.Material.Grass)
@@ -225,6 +281,7 @@ local function buildMap()
 		-- Biome floor (130 wide x 190 deep = fits 4-5 players comfortably)
 		part({Name="Biome_"..b.id,Size=Vector3.new(130,2,190),
 			Position=Vector3.new(b.cx,-1,0),Color=b.col,Material=Enum.Material.SmoothPlastic})
+		decorateBiome(b.id, b.cx, 0)
 
 		local areaConfig=nil
 		for _,a in ipairs(GameConfig.Areas) do if a.id==b.id then areaConfig=a break end end
