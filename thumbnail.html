@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1920px; height: 1080px; overflow: hidden; background: #000; font-family: 'Arial Black', 'Impact', sans-serif; }
+
+  .bg {
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at 30% 50%, #1a0040 0%, #0a0020 40%, #000010 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Stars */
+  .stars { position: absolute; width: 100%; height: 100%; }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle 2s infinite alternate;
+  }
+  @keyframes twinkle { 0%{opacity:0.2} 100%{opacity:1} }
+
+  /* Nebula glow blobs */
+  .nebula1 { position:absolute; width:800px; height:600px; border-radius:50%;
+    background: radial-gradient(circle, rgba(120,0,200,0.35) 0%, transparent 70%);
+    top:-100px; left:-200px; }
+  .nebula2 { position:absolute; width:700px; height:500px; border-radius:50%;
+    background: radial-gradient(circle, rgba(0,100,255,0.25) 0%, transparent 70%);
+    bottom:-100px; right:200px; }
+  .nebula3 { position:absolute; width:500px; height:400px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,80,0,0.2) 0%, transparent 70%);
+    top:200px; right:-100px; }
+
+  /* Ground glow */
+  .ground-glow {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 300px;
+    background: linear-gradient(to top, rgba(80,0,160,0.6) 0%, transparent 100%);
+  }
+
+  /* Main title */
+  .title-wrap {
+    position: absolute;
+    top: 60px; left: 50%; transform: translateX(-50%);
+    text-align: center;
+    width: 900px;
+  }
+  .title-top {
+    font-size: 38px; letter-spacing: 14px; text-transform: uppercase;
+    color: #c080ff;
+    text-shadow: 0 0 20px #a040ff, 0 0 40px #8000ff;
+    margin-bottom: 4px;
+  }
+  .title-main {
+    font-size: 148px; font-weight: 900; text-transform: uppercase;
+    background: linear-gradient(135deg, #ffffff 0%, #e0b0ff 30%, #a060ff 60%, #6000ff 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    line-height: 0.9;
+    filter: drop-shadow(0 0 30px rgba(160,80,255,0.8));
+    letter-spacing: -2px;
+  }
+  .title-sub {
+    font-size: 52px; letter-spacing: 8px; text-transform: uppercase;
+    color: #ffcc00;
+    text-shadow: 0 0 20px #ff9900, 0 0 40px #ff6600;
+    margin-top: 6px;
+  }
+
+  /* Pet silhouettes / showcase area */
+  .pet-left {
+    position: absolute;
+    left: 40px; bottom: 80px;
+    width: 480px; height: 600px;
+  }
+  .pet-right {
+    position: absolute;
+    right: 40px; bottom: 80px;
+    width: 480px; height: 600px;
+  }
+
+  /* Dragon (left) */
+  .dragon {
+    position: relative;
+    width: 100%; height: 100%;
+  }
+  .dragon-body {
+    position: absolute;
+    width: 220px; height: 160px; border-radius: 50% 60% 50% 40%;
+    background: linear-gradient(135deg, #4400cc, #2200aa);
+    box-shadow: 0 0 40px #6600ff, 0 0 80px rgba(80,0,200,0.5);
+    bottom: 120px; left: 130px;
+  }
+  .dragon-head {
+    position: absolute;
+    width: 150px; height: 130px; border-radius: 40% 60% 30% 50%;
+    background: linear-gradient(135deg, #5500dd, #3300bb);
+    box-shadow: 0 0 30px #7700ff;
+    bottom: 250px; left: 240px;
+  }
+  .dragon-wing-l {
+    position: absolute;
+    width: 200px; height: 260px; border-radius: 80% 20% 80% 20%;
+    background: linear-gradient(135deg, rgba(80,0,200,0.8), rgba(40,0,120,0.6));
+    box-shadow: 0 0 20px rgba(100,0,255,0.4);
+    bottom: 200px; left: 0px;
+    transform: rotate(-20deg);
+  }
+  .dragon-wing-r {
+    position: absolute;
+    width: 180px; height: 240px; border-radius: 20% 80% 20% 80%;
+    background: linear-gradient(135deg, rgba(80,0,200,0.8), rgba(40,0,120,0.6));
+    bottom: 200px; left: 280px;
+    transform: rotate(15deg);
+  }
+  .dragon-eye {
+    position: absolute;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: radial-gradient(circle, #ff4400 30%, #ff0000 100%);
+    box-shadow: 0 0 15px #ff4400, 0 0 30px #ff0000;
+    bottom: 340px; left: 290px;
+  }
+  .dragon-flame {
+    position: absolute;
+    width: 80px; height: 40px; border-radius: 50%;
+    background: radial-gradient(ellipse, #ffaa00 0%, #ff5500 50%, transparent 100%);
+    box-shadow: 0 0 20px #ff8800;
+    bottom: 315px; left: 355px;
+    animation: flicker 0.3s infinite alternate;
+  }
+  @keyframes flicker { 0%{opacity:0.8;transform:scale(1)} 100%{opacity:1;transform:scale(1.1)} }
+
+  /* Unicorn (right) */
+  .unicorn-body {
+    position: absolute;
+    width: 210px; height: 155px; border-radius: 45% 55% 45% 55%;
+    background: linear-gradient(135deg, #ff80ff, #cc40cc);
+    box-shadow: 0 0 40px #ff00ff, 0 0 80px rgba(200,0,200,0.4);
+    bottom: 120px; right: 120px;
+  }
+  .unicorn-head {
+    position: absolute;
+    width: 140px; height: 125px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff90ff, #dd50dd);
+    box-shadow: 0 0 30px #ff00ff;
+    bottom: 250px; right: 230px;
+  }
+  .unicorn-horn {
+    position: absolute;
+    width: 18px; height: 90px; border-radius: 50% 50% 0 0;
+    background: linear-gradient(to top, #ffcc00, #ffffff);
+    box-shadow: 0 0 20px #ffcc00, 0 0 40px #ffaa00;
+    bottom: 368px; right: 277px;
+    transform: rotate(10deg);
+  }
+  .unicorn-mane {
+    position: absolute;
+    width: 30px; height: 100px; border-radius: 50%;
+    background: linear-gradient(to bottom, #ff6600, #ff00cc, #6600ff);
+    box-shadow: 0 0 15px rgba(200,0,200,0.5);
+    bottom: 270px; right: 340px;
+  }
+  .unicorn-eye {
+    position: absolute;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: radial-gradient(circle, #ffffff 30%, #cc80ff 100%);
+    box-shadow: 0 0 12px #ffffff, 0 0 24px #cc80ff;
+    bottom: 330px; right: 246px;
+  }
+
+  /* Floating coins */
+  .coin {
+    position: absolute;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffee00, #ffaa00 60%, #cc7700 100%);
+    box-shadow: 0 0 20px #ffcc00, 0 0 40px rgba(255,180,0,0.4);
+    font-size: 28px; line-height: 60px; text-align: center;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100%{transform:translateY(0) rotate(0deg)}
+    50%{transform:translateY(-20px) rotate(10deg)}
+  }
+
+  /* Eggs */
+  .egg {
+    position: absolute;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    animation: eggFloat 2.5s ease-in-out infinite;
+  }
+  @keyframes eggFloat {
+    0%,100%{transform:translateY(0) rotate(-3deg)}
+    50%{transform:translateY(-15px) rotate(3deg)}
+  }
+
+  /* Center showcase — rarity text */
+  .center-content {
+    position: absolute;
+    bottom: 60px; left: 50%; transform: translateX(-50%);
+    text-align: center;
+    width: 800px;
+  }
+  .rarity-row {
+    display: flex; gap: 16px; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .rarity-badge {
+    padding: 10px 24px; border-radius: 30px; font-size: 22px; font-weight: 900;
+    letter-spacing: 2px; text-transform: uppercase;
+    border: 2px solid;
+  }
+  .r-common  { background: rgba(180,180,180,0.15); color:#cccccc;   border-color:#cccccc; }
+  .r-rare    { background: rgba(50,100,255,0.2);   color:#6699ff;   border-color:#6699ff; }
+  .r-epic    { background: rgba(150,0,200,0.25);   color:#cc66ff;   border-color:#cc66ff; }
+  .r-leg     { background: rgba(255,165,0,0.25);   color:#ffcc44;   border-color:#ffcc44; }
+  .r-mythic  { background: rgba(0,200,255,0.2);    color:#00eeff;   border-color:#00eeff; text-shadow:0 0 10px #00ccff; }
+
+  .tagline {
+    font-size: 36px; color: #ffffff;
+    text-shadow: 0 0 20px rgba(200,100,255,0.8);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+  }
+
+  /* NEW badge */
+  .new-badge {
+    position: absolute;
+    top: 30px; right: 60px;
+    background: linear-gradient(135deg, #ff4400, #ff0000);
+    color: white; font-size: 42px; font-weight: 900;
+    padding: 14px 34px; border-radius: 12px;
+    box-shadow: 0 0 30px #ff4400, 0 0 60px rgba(255,60,0,0.4);
+    letter-spacing: 4px;
+    transform: rotate(3deg);
+  }
+
+  /* Player count hint */
+  .player-hint {
+    position: absolute;
+    top: 30px; left: 60px;
+    color: #88ffaa;
+    font-size: 30px;
+    text-shadow: 0 0 15px #00ff88;
+    letter-spacing: 2px;
+  }
+
+  /* Bottom strip */
+  .bottom-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 6px;
+    background: linear-gradient(90deg, #ff0088, #8800ff, #0088ff, #00ffcc, #ffcc00, #ff4400);
+  }
+
+  /* Glow orbs scattered */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    animation: orbPulse 2s infinite alternate;
+  }
+  @keyframes orbPulse { 0%{opacity:0.4;transform:scale(1)} 100%{opacity:1;transform:scale(1.2)} }
+</style>
+</head>
+<body>
+<div class="bg">
+
+  <!-- Background effects -->
+  <div class="nebula1"></div>
+  <div class="nebula2"></div>
+  <div class="nebula3"></div>
+  <div class="ground-glow"></div>
+
+  <!-- Scattered stars -->
+  <div class="stars">
+    <div class="star" style="width:3px;height:3px;top:5%;left:12%;animation-delay:0.2s"></div>
+    <div class="star" style="width:2px;height:2px;top:8%;left:35%;animation-delay:0.8s"></div>
+    <div class="star" style="width:4px;height:4px;top:3%;left:58%;animation-delay:0.4s"></div>
+    <div class="star" style="width:2px;height:2px;top:12%;left:72%;animation-delay:1.1s"></div>
+    <div class="star" style="width:3px;height:3px;top:20%;left:90%;animation-delay:0.6s"></div>
+    <div class="star" style="width:2px;height:2px;top:28%;left:8%;animation-delay:1.4s"></div>
+    <div class="star" style="width:3px;height:3px;top:15%;left:48%;animation-delay:0.3s"></div>
+    <div class="star" style="width:2px;height:2px;top:35%;left:82%;animation-delay:0.9s"></div>
+    <div class="star" style="width:4px;height:4px;top:6%;left:22%;animation-delay:1.6s"></div>
+    <div class="star" style="width:2px;height:2px;top:45%;left:5%;animation-delay:0.5s"></div>
+    <div class="star" style="width:3px;height:3px;top:18%;left:65%;animation-delay:1.2s"></div>
+    <div class="star" style="width:2px;height:2px;top:40%;left:95%;animation-delay:0.7s"></div>
+  </div>
+
+  <!-- Glow orbs -->
+  <div class="orb" style="width:120px;height:120px;top:300px;left:520px;background:radial-gradient(circle,rgba(255,215,0,0.6),transparent);animation-delay:0.3s"></div>
+  <div class="orb" style="width:80px;height:80px;top:200px;right:550px;background:radial-gradient(circle,rgba(0,200,255,0.5),transparent);animation-delay:0.8s"></div>
+  <div class="orb" style="width:100px;height:100px;bottom:250px;left:560px;background:radial-gradient(circle,rgba(200,80,255,0.5),transparent);animation-delay:0.5s"></div>
+  <div class="orb" style="width:60px;height:60px;top:450px;right:560px;background:radial-gradient(circle,rgba(255,100,0,0.4),transparent);animation-delay:1s"></div>
+
+  <!-- NEW badge -->
+  <div class="new-badge">🔥 NEW</div>
+
+  <!-- Player count -->
+  <div class="player-hint">🌙 Mystic Pets</div>
+
+  <!-- MAIN TITLE -->
+  <div class="title-wrap">
+    <div class="title-top">✦ Collect  •  Hatch  •  Grow ✦</div>
+    <div class="title-main">MYSTIC<br>PETS</div>
+    <div class="title-sub">⭐ Roblox Pet Simulator ⭐</div>
+  </div>
+
+  <!-- LEFT PET — Dragon -->
+  <div class="pet-left">
+    <div class="dragon">
+      <div class="dragon-wing-l"></div>
+      <div class="dragon-wing-r"></div>
+      <div class="dragon-body"></div>
+      <div class="dragon-head"></div>
+      <div class="dragon-eye"></div>
+      <div class="dragon-flame"></div>
+    </div>
+    <!-- Dragon label -->
+    <div style="position:absolute;bottom:50px;left:60px;font-size:28px;color:#aa66ff;
+      text-shadow:0 0 15px #8800ff;letter-spacing:2px;text-transform:uppercase;font-weight:900;">
+      🐉 Dragon<br>
+      <span style="font-size:20px;color:#6633cc;letter-spacing:1px;">Epic Rarity</span>
+    </div>
+  </div>
+
+  <!-- RIGHT PET — Unicorn -->
+  <div class="pet-right">
+    <div class="unicorn-body"></div>
+    <div class="unicorn-mane"></div>
+    <div class="unicorn-head"></div>
+    <div class="unicorn-horn"></div>
+    <div class="unicorn-eye"></div>
+    <!-- Unicorn label -->
+    <div style="position:absolute;bottom:50px;right:40px;font-size:28px;color:#ff88ff;
+      text-shadow:0 0 15px #ff00ff;letter-spacing:2px;text-transform:uppercase;font-weight:900;text-align:right;">
+      🦄 Unicorn<br>
+      <span style="font-size:20px;color:#cc44cc;letter-spacing:1px;">Legendary Rarity</span>
+    </div>
+  </div>
+
+  <!-- Floating coins -->
+  <div class="coin" style="top:420px;left:500px;animation-delay:0.3s">💰</div>
+  <div class="coin" style="top:380px;right:480px;animation-delay:1.1s;width:50px;height:50px;font-size:22px;line-height:50px;">💰</div>
+  <div class="coin" style="top:550px;left:560px;animation-delay:0.7s;width:44px;height:44px;font-size:20px;line-height:44px;">💎</div>
+  <div class="coin" style="top:500px;right:540px;animation-delay:1.5s;width:44px;height:44px;font-size:20px;line-height:44px;background:radial-gradient(circle at 35% 35%,#00eeff,#0099cc);box-shadow:0 0 20px #00ccff;">💎</div>
+
+  <!-- Floating eggs -->
+  <div class="egg" style="width:70px;height:85px;top:440px;left:800px;
+    background:linear-gradient(135deg,#44cc44,#228822);
+    box-shadow:0 0 20px #44cc44;animation-delay:0.4s;"></div>
+  <div class="egg" style="width:60px;height:74px;top:480px;right:770px;
+    background:linear-gradient(135deg,#ffdd00,#cc8800);
+    box-shadow:0 0 20px #ffcc00;animation-delay:1.2s;"></div>
+  <div class="egg" style="width:55px;height:68px;top:530px;left:870px;
+    background:linear-gradient(135deg,#aa44ff,#6600cc);
+    box-shadow:0 0 20px #8800ff;animation-delay:0.9s;"></div>
+
+  <!-- Center bottom content -->
+  <div class="center-content">
+    <div class="tagline">100+ Mythic Pets to Collect!</div>
+    <div class="rarity-row">
+      <div class="rarity-badge r-common">Common</div>
+      <div class="rarity-badge r-rare">Rare</div>
+      <div class="rarity-badge r-epic">Epic</div>
+      <div class="rarity-badge r-leg">Legendary</div>
+      <div class="rarity-badge r-mythic">✨ Mythic</div>
+    </div>
+  </div>
+
+  <!-- Bottom rainbow strip -->
+  <div class="bottom-strip"></div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# Roblox / Rojo
+/build
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+.DS_Store

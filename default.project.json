@@ -1,0 +1,96 @@
+{
+  "name": "MysticPets",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$className": "Folder",
+        "GameConfig": {
+          "$path": "src/Shared/GameConfig.lua"
+        }
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$className": "Folder",
+        "GameServer": {
+          "$path": "src/Server/GameServer.server.lua"
+        },
+        "DataManager": {
+          "$path": "src/Server/DataManager.lua"
+        },
+        "PetService": {
+          "$path": "src/Server/PetService.lua"
+        },
+        "EggService": {
+          "$path": "src/Server/EggService.lua"
+        },
+        "CurrencyService": {
+          "$path": "src/Server/CurrencyService.lua"
+        },
+        "RebirthService": {
+          "$path": "src/Server/RebirthService.lua"
+        },
+        "GamepassService": {
+          "$path": "src/Server/GamepassService.lua"
+        },
+        "PetModels": {
+          "$path": "src/Server/PetModels.lua"
+        },
+        "BadgeService": {
+          "$path": "src/Server/BadgeService.lua"
+        },
+        "UpgradeService": {
+          "$path": "src/Server/UpgradeService.lua"
+        },
+        "LeaderboardService": {
+          "$path": "src/Server/LeaderboardService.lua"
+        }
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "Client": {
+          "$className": "Folder",
+          "GameClient": {
+            "$path": "src/Client/GameClient.client.lua"
+          },
+          "UI": {
+            "$className": "Folder",
+            "UIController": {
+              "$path": "src/Client/UI/UIController.lua"
+            },
+            "PetsPanel": {
+              "$path": "src/Client/UI/PetsPanel.lua"
+            },
+            "HatchPanel": {
+              "$path": "src/Client/UI/HatchUI.lua"
+            },
+            "ShopPanel": {
+              "$path": "src/Client/UI/ShopPanel.lua"
+            },
+            "RebirthPanel": {
+              "$path": "src/Client/UI/RebirthPanel.lua"
+            },
+            "BadgePopup": {
+              "$path": "src/Client/UI/BadgePopup.lua"
+            },
+            "UpgradePanel": {
+              "$path": "src/Client/UI/UpgradePanel.lua"
+            },
+            "LeaderboardPanel": {
+              "$path": "src/Client/UI/LeaderboardPanel.lua"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,775 @@
+-- MysticPets: GameServer.server.lua
+local Players      = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Lighting     = game:GetService("Lighting")
+
+local DataManager     = require(script.Parent.DataManager)
+local PetService      = require(script.Parent.PetService)
+local EggService      = require(script.Parent.EggService)
+local CurrencyService = require(script.Parent.CurrencyService)
+local RebirthService  = require(script.Parent.RebirthService)
+local GamepassService = require(script.Parent.GamepassService)
+local BadgeService         = require(script.Parent.BadgeService)
+local UpgradeService       = require(script.Parent.UpgradeService)
+local LeaderboardService   = require(script.Parent.LeaderboardService)
+local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
+
+-- ============================================================
+-- REMOTES
+-- ============================================================
+local Remotes = Instance.new("Folder")
+Remotes.Name  = "Remotes"
+Remotes.Parent = game.ReplicatedStorage
+
+local function makeEvent(name)
+	local e = Instance.new("RemoteEvent"); e.Name = name; e.Parent = Remotes; return e
+end
+local function makeFunction(name)
+	local f = Instance.new("RemoteFunction"); f.Name = name; f.Parent = Remotes; return f
+end
+
+local RE_DataUpdated     = makeEvent("DataUpdated")
+local RE_HatchResult     = makeEvent("HatchResult")
+local RE_Notification    = makeEvent("Notification")
+local RE_BadgeEarned     = makeEvent("BadgeEarned")
+local RE_RebirthConfirm  = makeEvent("RebirthConfirm")
+local RE_BuyUpgrade      = makeEvent("BuyUpgrade")
+local RE_SecretFound     = makeEvent("SecretFound")
+local RE_TitleUpdate     = makeEvent("TitleUpdate")
+local RF_GetLeaderboard  = makeFunction("GetLeaderboard")
+local RE_HatchEgg     = makeEvent("HatchEgg")
+local RE_EquipPet     = makeEvent("EquipPet")
+local RE_UnequipPet   = makeEvent("UnequipPet")
+local RE_BuyArea      = makeEvent("BuyArea")
+local RE_Rebirth      = makeEvent("Rebirth")
+local RE_DeletePet    = makeEvent("DeletePet")
+local RE_BuyGamepass  = makeEvent("BuyGamepass")
+local RF_GetData      = makeFunction("GetData")
+
+-- ============================================================
+-- LIGHTING & ATMOSPHERE
+-- ============================================================
+local function setupLighting()
+	Lighting.Ambient        = Color3.fromRGB(80, 80, 120)
+	Lighting.OutdoorAmbient = Color3.fromRGB(120, 140, 180)
+	Lighting.Brightness     = 2
+	Lighting.ClockTime      = 14
+	Lighting.ShadowSoftness = 0.5
+
+	local atmo = Instance.new("Atmosphere")
+	atmo.Density  = 0.25; atmo.Offset = 0.1
+	atmo.Color    = Color3.fromRGB(199, 220, 255)
+	atmo.Decay    = Color3.fromRGB(100, 140, 200)
+	atmo.Glare    = 0.3; atmo.Haze = 1.2
+	atmo.Parent   = Lighting
+
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.7; bloom.Size = 24; bloom.Threshold = 0.95
+	bloom.Parent = Lighting
+
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Brightness = 0.02; cc.Contrast = 0.08; cc.Saturation = 0.2
+	cc.TintColor  = Color3.fromRGB(240, 245, 255)
+	cc.Parent     = Lighting
+
+	local sun = Instance.new("SunRaysEffect")
+	sun.Intensity = 0.15; sun.Spread = 0.5; sun.Parent = Lighting
+end
+
+-- ============================================================
+-- MAP HELPERS
+-- ============================================================
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true; p.CastShadow = false
+	for k,v in pairs(props) do p[k] = v end
+	p.Parent = workspace; return p
+end
+
+local function glow(p, color, brightness)
+	local l = Instance.new("PointLight")
+	l.Color = color; l.Brightness = brightness or 2; l.Range = 18; l.Parent = p
+end
+
+local function particles(p, color, rate)
+	local att = Instance.new("Attachment"); att.Parent = p
+	local pe = Instance.new("ParticleEmitter")
+	pe.Parent        = att
+	pe.Color         = ColorSequence.new({ColorSequenceKeypoint.new(0,color),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
+	pe.LightEmission = 0.8; pe.LightInfluence = 0.2
+	pe.Size          = NumberSequence.new({NumberSequenceKeypoint.new(0,0.25),NumberSequenceKeypoint.new(1,0)})
+	pe.Transparency  = NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,1)})
+	pe.Speed         = NumberRange.new(1,3); pe.Lifetime = NumberRange.new(1,2)
+	pe.Rate          = rate or 12; pe.SpreadAngle = Vector2.new(180,180)
+	pe.RotSpeed      = NumberRange.new(-60,60); pe.Rotation = NumberRange.new(0,360)
+end
+
+local function billboard(adornee, line1, col1, line2, col2, size)
+	size = size or UDim2.new(0,180,0,70)
+	local bb = Instance.new("BillboardGui")
+	bb.Size = size; bb.StudsOffset = Vector3.new(0,4,0)
+	bb.Adornee = adornee; bb.AlwaysOnTop = false; bb.Parent = adornee
+	local t1 = Instance.new("TextLabel"); t1.Size = UDim2.new(1,0,0.55,0)
+	t1.BackgroundTransparency=1; t1.Text=line1; t1.TextColor3=col1
+	t1.TextScaled=true; t1.Font=Enum.Font.GothamBold
+	t1.TextStrokeTransparency=0.4; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=bb
+	if line2 then
+		local t2 = Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.45,0)
+		t2.Position=UDim2.new(0,0,0.55,0); t2.BackgroundTransparency=1
+		t2.Text=line2; t2.TextColor3=col2 or Color3.fromRGB(255,215,0)
+		t2.TextScaled=true; t2.Font=Enum.Font.Gotham
+		t2.TextStrokeTransparency=0.4; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=bb
+	end
+end
+
+-- ============================================================
+-- MAP BUILD  (sized for 20 players)
+-- Layout (X axis = progression east):
+--   Spawn x=0      Egg area z=-90
+--   Meadow   orbs x=-50..50,  z=20..110
+--   Forest   x=80..210,  z=-95..95
+--   Desert   x=210..340, z=-95..95
+--   Volcano  x=340..470, z=-95..95
+--   Space    x=470..590, z=-95..95
+--   Rebirth machine at x=-60 (left of spawn)
+--   Boundary walls around x=-90..610, z=-110..130
+-- ============================================================
+local function buildMap()
+	-- ---- TERRAIN BASE ----
+	workspace.Terrain:FillBlock(CFrame.new(260,-8,10), Vector3.new(760,12,280), Enum.Material.Grass)
+
+	-- ---- SPAWN PLATFORM (60x60, fits 20 players) ----
+	part({Name="SpawnPlat",Size=Vector3.new(60,2,60),Position=Vector3.new(0,-1,0),
+		Color=Color3.fromRGB(50,44,78),Material=Enum.Material.SmoothPlastic})
+	part({Name="SpawnRing",Size=Vector3.new(62,0.25,62),Position=Vector3.new(0,0.12,0),
+		Color=Color3.fromRGB(95,65,150),Material=Enum.Material.SmoothPlastic,CanCollide=false})
+
+	-- SpawnLocation — invisible
+	local sp = Instance.new("SpawnLocation")
+	sp.Size=Vector3.new(6,0.2,6); sp.Position=Vector3.new(0,0,0)
+	sp.Transparency=1; sp.Anchored=true; sp.Parent=workspace
+
+	-- Crystals around spawn (decorative, inside the 60x60 pad boundary)
+	for i=1,12 do
+		local ang=(i/12)*math.pi*2; local r=28
+		local h=math.random(4,9)
+		local c=part({Name="Crystal"..i,Size=Vector3.new(1.1,h,1.1),
+			Position=Vector3.new(math.cos(ang)*r,h/2-1,math.sin(ang)*r),
+			Color=Color3.fromHSV(i/12,0.8,1),Material=Enum.Material.Neon,CanCollide=false})
+		glow(c,Color3.fromHSV(i/12,0.8,1),1)
+	end
+
+	-- ---- EGG AREA (behind spawn, 130 wide x 60 deep) ----
+	part({Name="EggPlat",Size=Vector3.new(130,2,60),Position=Vector3.new(0,-1,-90),
+		Color=Color3.fromRGB(38,32,62),Material=Enum.Material.SmoothPlastic})
+	-- Connecting strip between spawn and egg area
+	part({Name="EggConnector",Size=Vector3.new(60,2,60),Position=Vector3.new(0,-1,-60),
+		Color=Color3.fromRGB(44,38,70),Material=Enum.Material.SmoothPlastic})
+
+	local eggSign=part({Name="EggSignA",Size=Vector3.new(1,1,1),Position=Vector3.new(0,9,-100),
+		Transparency=1,CanCollide=false})
+	billboard(eggSign,"🥚  HATCH EGGS",Color3.fromRGB(255,220,100),"Click an egg to start!",
+		Color3.fromRGB(200,200,200),UDim2.new(0,240,0,60))
+
+	-- Egg stands (4 eggs spread 26 studs apart)
+	local eggDefs={{id="StarterEgg"},{id="CoolEgg"},{id="RareEgg"},{id="LegendaryEgg"}}
+	for i,eDef in ipairs(eggDefs) do
+		local eggCfg=nil
+		for _,e in ipairs(GameConfig.Eggs) do if e.id==eDef.id then eggCfg=e break end end
+		if not eggCfg then continue end
+		local x=-39+(i-1)*26
+
+		part({Name="EggBase_"..eDef.id,Size=Vector3.new(7,0.5,7),
+			Position=Vector3.new(x,-0.75,-90),Color=Color3.fromRGB(32,28,52),Material=Enum.Material.SmoothPlastic})
+		local rng=part({Name="EggRing_"..eDef.id,Size=Vector3.new(7.4,0.3,7.4),
+			Position=Vector3.new(x,-0.3,-90),Color=eggCfg.color,Material=Enum.Material.Neon,CanCollide=false})
+		glow(rng,eggCfg.color,2)
+		part({Name="EggCol_"..eDef.id,Size=Vector3.new(2.8,2.2,2.8),
+			Position=Vector3.new(x,0.6,-90),Color=Color3.fromRGB(48,42,70),Material=Enum.Material.SmoothPlastic})
+
+		local egg=part({Name="Egg_"..eDef.id,Shape=Enum.PartType.Ball,
+			Size=Vector3.new(3.2,4,3.2),Position=Vector3.new(x,3.8,-90),
+			Color=eggCfg.color,Material=Enum.Material.Neon,CanCollide=false})
+		glow(egg,eggCfg.color,3); particles(egg,eggCfg.color,20)
+
+		local costText = eggCfg.id=="StarterEgg"
+			and ("🆓 FREE → then 💰 "..(eggCfg.costAfterFirst or 150))
+			or ("💰 "..eggCfg.cost.." "..eggCfg.currency)
+		billboard(egg,eggCfg.name,Color3.new(1,1,1),costText,Color3.fromRGB(255,215,0),UDim2.new(0,180,0,72))
+
+		local sp2=Vector3.new(x,3.8,-90)
+		task.spawn(function()
+			local t=0
+			while egg and egg.Parent do
+				t=t+task.wait(0.03)
+				egg.CFrame=CFrame.new(sp2+Vector3.new(0,math.sin(t*1.5)*0.5,0))*CFrame.Angles(0,t*0.7,math.sin(t*0.4)*0.08)
+			end
+		end)
+		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=22; cd.Parent=egg
+		cd.MouseClick:Connect(function(player) RE_HatchEgg:FireClient(player,eDef.id) end)
+	end
+
+	-- ---- MEADOW ORB AREA (behind spawn between z=20 and z=110) ----
+	-- (no separate platform needed, orbs float on terrain)
+
+	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
+	local biomes={
+		{id="Forest",  cx=145, col=Color3.fromRGB(22,85,22)},
+		{id="Desert",  cx=275, col=Color3.fromRGB(160,132,35)},
+		{id="Volcano", cx=405, col=Color3.fromRGB(120,22,0)},
+		{id="Space",   cx=535, col=Color3.fromRGB(8,8,38)},
+	}
+	for _,b in ipairs(biomes) do
+		-- Biome floor (130 wide x 190 deep = fits 4-5 players comfortably)
+		part({Name="Biome_"..b.id,Size=Vector3.new(130,2,190),
+			Position=Vector3.new(b.cx,-1,0),Color=b.col,Material=Enum.Material.SmoothPlastic})
+
+		local areaConfig=nil
+		for _,a in ipairs(GameConfig.Areas) do if a.id==b.id then areaConfig=a break end end
+		if not areaConfig then continue end
+
+		local gateX=b.cx-65  -- gate sits at left edge of biome
+
+		-- Left pillar
+		local lPil=part({Name="GPL_"..b.id,Size=Vector3.new(3,20,3),
+			Position=Vector3.new(gateX,-1+10,-20),Color=b.col,Material=Enum.Material.SmoothPlastic})
+		glow(lPil,b.col,1.2)
+		-- Right pillar
+		local rPil=part({Name="GPR_"..b.id,Size=Vector3.new(3,20,3),
+			Position=Vector3.new(gateX,-1+10,20),Color=b.col,Material=Enum.Material.SmoothPlastic})
+		glow(rPil,b.col,1.2)
+		-- Top bar
+		local topBar=part({Name="GTop_"..b.id,Size=Vector3.new(3,2.5,44),
+			Position=Vector3.new(gateX,19.5,0),Color=b.col,Material=Enum.Material.Neon,CanCollide=false})
+		glow(topBar,b.col,3); particles(topBar,b.col,6)
+
+		local cost=areaConfig.unlockCost==0 and "🆓 FREE" or ("💰 "..areaConfig.unlockCost)
+		billboard(topBar,areaConfig.name,Color3.new(1,1,1),cost,Color3.fromRGB(255,215,0),UDim2.new(0,220,0,80))
+
+		-- Invisible click trigger (wide gate opening)
+		local trigger=part({Name="GTrig_"..b.id,Size=Vector3.new(3,18,36),
+			Position=Vector3.new(gateX,8,0),Transparency=1,CanCollide=false})
+		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=28; cd.Parent=trigger
+		cd.MouseClick:Connect(function(player) RE_BuyArea:FireClient(player,b.id) end)
+	end
+
+	-- ============================================================
+	-- PHYSICAL SHOP BUILDING (east side of spawn, x=65)
+	-- ============================================================
+	local shopPos = Vector3.new(65, 0, 0)
+
+	-- Shop floor
+	part({Name="ShopFloor",Size=Vector3.new(22,2,22),Position=shopPos+Vector3.new(0,-1,0),
+		Color=Color3.fromRGB(45,38,68),Material=Enum.Material.SmoothPlastic})
+	-- Walls
+	part({Name="ShopWallF",Size=Vector3.new(22,10,1),Position=shopPos+Vector3.new(0,4,-11),
+		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
+	part({Name="ShopWallB",Size=Vector3.new(22,10,1),Position=shopPos+Vector3.new(0,4,11),
+		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
+	part({Name="ShopWallL",Size=Vector3.new(1,10,22),Position=shopPos+Vector3.new(-11,4,0),
+		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
+	part({Name="ShopWallR",Size=Vector3.new(1,10,22),Position=shopPos+Vector3.new(11,4,0),
+		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
+	-- Roof
+	local roof=part({Name="ShopRoof",Size=Vector3.new(24,1,24),Position=shopPos+Vector3.new(0,9.5,0),
+		Color=Color3.fromRGB(80,50,130),Material=Enum.Material.SmoothPlastic})
+	-- Roof neon trim
+	local roofNeon=part({Name="ShopRoofNeon",Size=Vector3.new(24.5,0.5,24.5),Position=shopPos+Vector3.new(0,10.1,0),
+		Color=Color3.fromRGB(160,80,255),Material=Enum.Material.Neon,CanCollide=false})
+	glow(roofNeon,Color3.fromRGB(160,80,255),2)
+	-- Door opening (gap in front wall left side)
+	-- Sign above door
+	local shopSign=part({Name="ShopSign",Size=Vector3.new(1,1,1),Position=shopPos+Vector3.new(0,12,-11),
+		Transparency=1,CanCollide=false})
+	billboard(shopSign,"🛒  UPGRADE SHOP",Color3.fromRGB(255,180,50),"Click inside to upgrade!",
+		Color3.fromRGB(200,200,255),UDim2.new(0,240,0,70))
+
+	-- Interior upgrade pads (4 colored circles on the floor)
+	local upgradeColors = {
+		SpeedBoost = Color3.fromRGB(255,200,0),
+		JumpBoost  = Color3.fromRGB(100,200,255),
+		LuckyCharm = Color3.fromRGB(50,220,80),
+		CoinBonus  = Color3.fromRGB(255,140,0),
+	}
+	local upgradePositions = {
+		Vector3.new(-4,0,-4), Vector3.new(4,0,-4),
+		Vector3.new(-4,0,4),  Vector3.new(4,0,4),
+	}
+	for i, upg in ipairs(GameConfig.Upgrades) do
+		local pos = shopPos + upgradePositions[i] + Vector3.new(0,-0.9,0)
+		local col = upgradeColors[upg.key] or Color3.fromRGB(200,200,200)
+		local pad = part({Name="UpgPad_"..upg.key,Size=Vector3.new(5,0.3,5),Position=pos,
+			Color=col,Material=Enum.Material.Neon,CanCollide=false})
+		glow(pad,col,1.5)
+
+		-- Floating icon above pad
+		local iconAnchor=part({Name="UpgIcon_"..upg.key,Size=Vector3.new(1,1,1),
+			Position=pos+Vector3.new(0,3,0),Transparency=1,CanCollide=false})
+		local currentLevelCost = upg.levels[1].cost
+		billboard(iconAnchor,upg.icon.." "..upg.name,col,
+			"Lvl 1: 💰 "..currentLevelCost,Color3.fromRGB(220,220,220),UDim2.new(0,180,0,65))
+
+		-- Click to buy
+		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=16; cd.Parent=pad
+		cd.MouseClick:Connect(function(player)
+			-- Fire to client to open the upgrade panel
+			RE_HatchEgg:FireClient(player, "__upgrade__"..upg.key)
+		end)
+	end
+
+	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
+	local wallColor = Color3.fromRGB(30,25,50)
+	local wallNeon  = Color3.fromRGB(80,60,140)
+	local wallH = 25
+
+	local function buildWall(name, size, pos)
+		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.SmoothPlastic})
+		-- Invisible tall extension above (blocks jumping over)
+		part({Name=name.."Ext",Size=Vector3.new(size.X,40,size.Z),
+			Position=pos+Vector3.new(0,30,0),Transparency=1,CanCollide=true})
+		-- Neon trim on top
+		local top=part({Name=name.."Top",Size=Vector3.new(size.X,0.8,size.Z),
+			Position=pos+Vector3.new(0,wallH/2+0.4,0),Color=wallNeon,Material=Enum.Material.Neon,CanCollide=false})
+		glow(top,wallNeon,0.8)
+	end
+
+	buildWall("WallN", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1, 126))
+	buildWall("WallS", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1,-116))
+	buildWall("WallW", Vector3.new(4,wallH,246), Vector3.new(-91,wallH/2-1,  5))
+	buildWall("WallE", Vector3.new(4,wallH,246), Vector3.new(606,wallH/2-1,  5))
+
+	-- ============================================================
+	-- 🗝️ SECRET SPOT  (hidden — tell nobody)
+	-- Location: northwest corner, tight against north wall at z=122, x=-82
+	-- Looks like a plain dark rock, tiny glow only visible up close
+	-- ============================================================
+	local secretPos = Vector3.new(-82, 0.5, 118)
+
+	-- The "rock" — blends with wall color
+	local secretChest=part({Name="SecretChest",Size=Vector3.new(2.2,2.2,2.2),
+		Position=secretPos,Color=Color3.fromRGB(28,22,44),Material=Enum.Material.SmoothPlastic})
+	-- Very faint glow — only visible when you're within 8 studs
+	local secretLight=Instance.new("PointLight")
+	secretLight.Color=Color3.fromRGB(255,215,0)
+	secretLight.Brightness=0.15  -- barely visible
+	secretLight.Range=6
+	secretLight.Parent=secretChest
+
+	-- Click detector with very short range — must be RIGHT next to it
+	local secretCD=Instance.new("ClickDetector")
+	secretCD.MaxActivationDistance=7
+	secretCD.Parent=secretChest
+	secretCD.MouseClick:Connect(function(player)
+		local data=DataManager.GetData(player)
+		if not data then return end
+		if data.FoundSecret then
+			RE_Notification:FireClient(player,"info","You already found this secret! 🗝️")
+			return
+		end
+		data.FoundSecret=true
+		local reward=GameConfig.SecretReward
+		data.Coins=data.Coins+(reward.coins or 0)
+		data.Gems=data.Gems+(reward.gems or 0)
+		DataManager.IncrementData(player,"TotalCoinsEarned",reward.coins or 0)
+		RE_SecretFound:FireClient(player,reward)
+		BadgeService.Grant(player,"secret_finder")
+		syncData(player)
+		print("[Secret] "..player.Name.." found the secret spot!")
+	end)
+
+	-- ============================================================
+	-- PHYSICAL LEADERBOARD BOARD (left side of spawn, z=-35)
+	-- ============================================================
+	local boardPos = Vector3.new(-55, 0, -35)
+
+	-- Board backing
+	part({Name="LBBase",Size=Vector3.new(28,1,14),Position=boardPos+Vector3.new(0,-0.5,0),
+		Color=Color3.fromRGB(25,18,45),Material=Enum.Material.SmoothPlastic})
+	local boardBack=part({Name="LBBack",Size=Vector3.new(28,20,1),Position=boardPos+Vector3.new(0,10,-7),
+		Color=Color3.fromRGB(20,14,38),Material=Enum.Material.SmoothPlastic})
+	-- Neon frame
+	local lbFrame=part({Name="LBFrame",Size=Vector3.new(30,22,0.5),Position=boardPos+Vector3.new(0,11,-7.3),
+		Color=Color3.fromRGB(255,215,0),Material=Enum.Material.Neon,CanCollide=false})
+	glow(lbFrame,Color3.fromRGB(255,215,0),2)
+
+	-- Title sign on board
+	local lbTitleAnchor=part({Name="LBTitle",Size=Vector3.new(1,1,1),
+		Position=boardPos+Vector3.new(0,21,-6),Transparency=1,CanCollide=false})
+	billboard(lbTitleAnchor,"🏆  TOP PLAYERS",Color3.fromRGB(255,215,0),
+		"Updates every 90s",Color3.fromRGB(180,180,200),UDim2.new(0,260,0,60))
+
+	-- Clickable board to open leaderboard UI
+	local lbClick=Instance.new("ClickDetector"); lbClick.MaxActivationDistance=30; lbClick.Parent=boardBack
+	lbClick.MouseClick:Connect(function(player)
+		RE_TitleUpdate:FireClient(player,"__openleaderboard__")
+	end)
+
+	-- Live text rows on the board (updated by server loop)
+	local lbRows = {}
+	for i=1,5 do
+		local anchor=part({Name="LBRow"..i,Size=Vector3.new(1,1,1),
+			Position=boardPos+Vector3.new(0,18-(i-1)*3.2,-6.5),Transparency=1,CanCollide=false})
+		local bb=Instance.new("BillboardGui")
+		bb.Size=UDim2.new(0,340,0,36); bb.Adornee=anchor; bb.AlwaysOnTop=false; bb.Parent=anchor
+		local lbl=Instance.new("TextLabel")
+		lbl.Size=UDim2.new(1,0,1,0); lbl.BackgroundTransparency=1
+		lbl.Text="Loading..."; lbl.TextColor3=Color3.fromRGB(200,200,200)
+		lbl.TextScaled=true; lbl.Font=Enum.Font.GothamBold
+		lbl.TextStrokeTransparency=0.4; lbl.TextStrokeColor3=Color3.new(0,0,0)
+		lbl.Parent=bb
+		table.insert(lbRows, lbl)
+	end
+
+	-- Update board every 90s
+	task.spawn(function()
+		local medals = {"🥇","🥈","🥉","4.","5."}
+		while true do
+			task.wait(5) -- initial delay for DataStore
+			local ok, entries = pcall(function()
+				return LeaderboardService.GetTop("Coins", 5)
+			end)
+			if ok then
+				for i,row in ipairs(lbRows) do
+					local e = entries[i]
+					if e then
+						local name = e.name:sub(1,14)
+						row.Text = medals[i].." "..name.." — 💰 "..tostring(e.score)
+						local rColors={Color3.fromRGB(255,215,0),Color3.fromRGB(192,192,192),Color3.fromRGB(205,127,50)}
+						row.TextColor3 = rColors[i] or Color3.fromRGB(200,200,200)
+					else
+						row.Text = medals[i].." —"
+					end
+				end
+			end
+			task.wait(85)
+		end
+	end)
+
+	-- ---- ORB SEEDING (100 per area for 20 players) ----
+	local origins={
+		Meadow  = Vector3.new(0,1,65),
+		Forest  = Vector3.new(145,1,0),
+		Desert  = Vector3.new(275,1,0),
+		Volcano = Vector3.new(405,1,0),
+		Space   = Vector3.new(535,1,0),
+	}
+	for areaId,origin in pairs(origins) do
+		CurrencyService.SeedArea(areaId,origin,100)  -- 100 orbs per area
+	end
+	CurrencyService.SetupOrbTouches()
+
+	-- ============================================================
+	-- REBIRTH MACHINE
+	-- ============================================================
+	local machinePos = Vector3.new(-55, 0, 0)  -- left of spawn, not blocking egg area or biomes
+
+	-- Base slab
+	part({Name="RMBase",Size=Vector3.new(14,1,14),Position=machinePos+Vector3.new(0,-0.5,0),
+		Color=Color3.fromRGB(30,20,50),Material=Enum.Material.SmoothPlastic})
+
+	-- Base glow ring
+	local rmRing = part({Name="RMRing",Size=Vector3.new(15,0.3,15),Position=machinePos+Vector3.new(0,0.15,0),
+		Color=Color3.fromRGB(180,0,255),Material=Enum.Material.Neon,CanCollide=false})
+	glow(rmRing,Color3.fromRGB(180,0,255),2)
+	particles(rmRing,Color3.fromRGB(180,0,255),8)
+
+	-- Four corner pillars
+	local pillarColor = Color3.fromRGB(40,30,65)
+	local corners = {Vector3.new(5,0,5),Vector3.new(-5,0,5),Vector3.new(5,0,-5),Vector3.new(-5,0,-5)}
+	for i,c in ipairs(corners) do
+		local pil = part({Name="RMPillar"..i,Size=Vector3.new(2,8,2),
+			Position=machinePos+c+Vector3.new(0,4,0),Color=pillarColor,Material=Enum.Material.SmoothPlastic})
+		-- Pillar top glow cap
+		local cap = part({Name="RMCap"..i,Size=Vector3.new(2.4,0.5,2.4),
+			Position=machinePos+c+Vector3.new(0,8.3,0),Color=Color3.fromRGB(180,0,255),
+			Material=Enum.Material.Neon,CanCollide=false})
+		glow(cap,Color3.fromRGB(180,0,255),1.5)
+	end
+
+	-- Top arch connecting pillars
+	part({Name="RMArchFront",Size=Vector3.new(12,1.5,2),Position=machinePos+Vector3.new(0,8.5,5),
+		Color=pillarColor,Material=Enum.Material.SmoothPlastic})
+	part({Name="RMArchBack",Size=Vector3.new(12,1.5,2),Position=machinePos+Vector3.new(0,8.5,-5),
+		Color=pillarColor,Material=Enum.Material.SmoothPlastic})
+
+	-- Central glowing core (the machine itself)
+	local core = part({Name="RMCore",Size=Vector3.new(4,6,4),
+		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(50,30,80),
+		Material=Enum.Material.SmoothPlastic})
+	-- Core neon inner
+	local coreGlow = part({Name="RMCoreGlow",Size=Vector3.new(3,5,3),
+		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(150,0,255),
+		Material=Enum.Material.Neon,CanCollide=false})
+	glow(coreGlow,Color3.fromRGB(150,0,255),4)
+	particles(coreGlow,Color3.fromRGB(200,50,255),30)
+	-- Spinning energy ball on top
+	local orb = part({Name="RMOrb",Shape=Enum.PartType.Ball,Size=Vector3.new(2.5,2.5,2.5),
+		Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(220,100,255),
+		Material=Enum.Material.Neon,CanCollide=false})
+	glow(orb,Color3.fromRGB(220,100,255),5)
+	particles(orb,Color3.fromRGB(255,200,255),40)
+
+	-- Orbit rings around the orb
+	for i=1,3 do
+		local ring = part({Name="RMOrbRing"..i,Size=Vector3.new(4+i*0.5,0.15,4+i*0.5),
+			Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(180,0,255),
+			Material=Enum.Material.Neon,CanCollide=false})
+		glow(ring,Color3.fromRGB(180,0,255),1)
+		task.spawn(function()
+			local t = (i/3)*math.pi*2
+			while ring and ring.Parent do
+				t=t+task.wait(0.03)*0.8
+				ring.CFrame = CFrame.new(machinePos+Vector3.new(0,7.5,0))
+					* CFrame.Angles(i*0.6, t, i*0.4)
+			end
+		end)
+	end
+
+	-- Orb bob animation
+	task.spawn(function()
+		local t=0
+		while orb and orb.Parent do
+			t=t+task.wait(0.03)
+			orb.Position = machinePos+Vector3.new(0, 7.5+math.sin(t*1.2)*0.5, 0)
+			orb.CFrame = CFrame.new(orb.Position)*CFrame.Angles(0,t*0.6,0)
+		end
+	end)
+
+	-- Sign billboard
+	local signAnchor = part({Name="RMSign",Size=Vector3.new(1,1,1),
+		Position=machinePos+Vector3.new(0,12,0),Transparency=1,CanCollide=false})
+	local bb = Instance.new("BillboardGui")
+	bb.Size=UDim2.new(0,220,0,80); bb.StudsOffset=Vector3.new(0,0,0)
+	bb.Adornee=signAnchor; bb.AlwaysOnTop=false; bb.Parent=signAnchor
+
+	local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.5,0)
+	t1.BackgroundTransparency=1; t1.Text="♻️  REBIRTH"
+	t1.TextColor3=Color3.fromRGB(220,100,255); t1.TextScaled=true
+	t1.Font=Enum.Font.GothamBold
+	t1.TextStrokeTransparency=0.3; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=bb
+
+	local t2=Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.5,0)
+	t2.Position=UDim2.new(0,0,0.5,0); t2.BackgroundTransparency=1
+	t2.Text="Click to reset & multiply!"; t2.TextColor3=Color3.fromRGB(200,200,220)
+	t2.TextScaled=true; t2.Font=Enum.Font.Gotham
+	t2.TextStrokeTransparency=0.4; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=bb
+
+	-- Click detector on core
+	local cd = Instance.new("ClickDetector"); cd.MaxActivationDistance=20; cd.Parent=core
+	cd.MouseClick:Connect(function(player)
+		RE_Rebirth:FireClient(player)  -- send to client to show confirmation popup
+	end)
+	-- Also clickable on the orb
+	local cd2 = Instance.new("ClickDetector"); cd2.MaxActivationDistance=20; cd2.Parent=orb
+	cd2.MouseClick:Connect(function(player)
+		RE_Rebirth:FireClient(player)
+	end)
+end
+
+-- ============================================================
+-- DATA SYNC
+-- ============================================================
+local function syncData(player)
+	local data = DataManager.GetData(player)
+	if data then RE_DataUpdated:FireClient(player,data) end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(2)
+		for _,p in ipairs(Players:GetPlayers()) do syncData(p) end
+	end
+end)
+
+-- ============================================================
+-- PLAYER JOIN / LEAVE
+-- ============================================================
+local function onPlayerAdded(player)
+	DataManager.LoadPlayer(player)
+	GamepassService.CheckAllForPlayer(player)
+	-- Check badges on join (gives Welcome badge + any already earned)
+	task.delay(2, function()
+		BadgeService.CheckAll(player)
+	end)
+	local function applyTitle(char, data)
+		-- Remove existing title GUI
+		local existing = char:FindFirstChild("TitleGui")
+		if existing then existing:Destroy() end
+
+		local titleDef = LeaderboardService.GetTitle(data)
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if not hrp then return end
+
+		local bg = Instance.new("BillboardGui")
+		bg.Name          = "TitleGui"
+		bg.Size          = UDim2.new(0, 160, 0, 28)
+		bg.StudsOffset   = Vector3.new(0, 3.2, 0)
+		bg.Adornee       = hrp
+		bg.AlwaysOnTop   = false
+		bg.Parent        = char
+
+		local lbl = Instance.new("TextLabel")
+		lbl.Size             = UDim2.new(1, 0, 1, 0)
+		lbl.BackgroundColor3 = Color3.fromRGB(12, 9, 24)
+		lbl.BackgroundTransparency = 0.25
+		lbl.Text             = titleDef.label
+		lbl.TextColor3       = titleDef.color
+		lbl.TextScaled       = true
+		lbl.Font             = Enum.Font.GothamBold
+		lbl.TextStrokeTransparency = 0.4
+		lbl.TextStrokeColor3 = Color3.new(0, 0, 0)
+		lbl.Parent           = bg
+		Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 6)
+		local stroke = Instance.new("UIStroke", lbl)
+		stroke.Color = titleDef.color; stroke.Transparency = 0.5
+	end
+
+	player.CharacterAdded:Connect(function(char)
+		char:WaitForChild("HumanoidRootPart")
+		task.wait(0.5)
+		PetService.RestoreEquipped(player)
+		UpgradeService.ApplyToCharacter(player)
+		local d = DataManager.GetData(player)
+		if d then applyTitle(char, d) end
+		syncData(player)
+	end)
+
+	-- Re-apply title whenever data syncs (title can change mid-session)
+	local lastTitleId = ""
+	task.spawn(function()
+		while player.Parent do
+			task.wait(10)
+			local d = DataManager.GetData(player)
+			if d and player.Character then
+				local titleDef = LeaderboardService.GetTitle(d)
+				if titleDef.id ~= lastTitleId then
+					lastTitleId = titleDef.id
+					applyTitle(player.Character, d)
+				end
+			end
+		end
+	end)
+	if player.Character then
+		task.wait(0.5)
+		PetService.RestoreEquipped(player)
+		local d = DataManager.GetData(player)
+		if d then applyTitle(player.Character, d) end
+	end
+	-- Submit initial scores
+	task.delay(3, function() pcall(LeaderboardService.UpdatePlayer, player) end)
+	syncData(player)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(function(player)
+	PetService.DespawnAllPets(player)
+	DataManager.RemovePlayer(player)
+end)
+for _,p in ipairs(Players:GetPlayers()) do task.spawn(onPlayerAdded,p) end
+
+-- ============================================================
+-- REMOTE HANDLERS
+-- ============================================================
+RF_GetData.OnServerInvoke = function(player)
+	return DataManager.GetData(player)
+end
+
+RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
+	count = type(count)=="number" and math.clamp(count,1,10) or 1
+	local results,errors = EggService.HatchMultiple(player,eggId,count)
+	if #results>0 then
+		RE_HatchResult:FireClient(player,results,eggId)
+		syncData(player)
+		BadgeService.CheckAll(player)
+	else
+		RE_Notification:FireClient(player,"error",errors[1] or "Hatch failed")
+	end
+end)
+
+RE_EquipPet.OnServerEvent:Connect(function(player,uniqueId)
+	local ok,msg = PetService.EquipPet(player,uniqueId)
+	if ok then syncData(player)
+	else RE_Notification:FireClient(player,"error",msg or "Cannot equip") end
+end)
+
+RE_UnequipPet.OnServerEvent:Connect(function(player,uniqueId)
+	PetService.UnequipPet(player,uniqueId); syncData(player)
+end)
+
+RE_BuyArea.OnServerEvent:Connect(function(player,areaId)
+	local data = DataManager.GetData(player)
+	if not data then return end
+	for _,id in ipairs(data.UnlockedAreas) do
+		if id==areaId then RE_Notification:FireClient(player,"info","Already unlocked!"); return end
+	end
+	local areaConfig=nil
+	for _,a in ipairs(GameConfig.Areas) do if a.id==areaId then areaConfig=a break end end
+	if not areaConfig then return end
+	if areaConfig.currency=="Coins" then
+		if data.Coins<areaConfig.unlockCost then
+			RE_Notification:FireClient(player,"error","Need 💰 "..areaConfig.unlockCost.." Coins!"); return
+		end
+		data.Coins=data.Coins-areaConfig.unlockCost
+	elseif areaConfig.currency=="Gems" then
+		if data.Gems<areaConfig.unlockCost then
+			RE_Notification:FireClient(player,"error","Need 💎 "..areaConfig.unlockCost.." Gems!"); return
+		end
+		data.Gems=data.Gems-areaConfig.unlockCost
+	end
+	table.insert(data.UnlockedAreas,areaId)
+	RE_Notification:FireClient(player,"success","🎉 Unlocked "..areaConfig.name.."!")
+	syncData(player)
+	BadgeService.CheckAll(player)
+end)
+
+-- Machine click → open popup on client
+RE_Rebirth.OnClientEvent = nil  -- machine fires this to client (handled in client)
+
+-- Client confirms rebirth → server executes
+RE_RebirthConfirm.OnServerEvent:Connect(function(player)
+	local ok,result = RebirthService.DoRebirth(player)
+	if ok then
+		RE_Notification:FireClient(player,"success","♻️ Reborn as "..result.title.."! "..result.multiplier.."x earnings!")
+		syncData(player)
+		BadgeService.CheckAll(player)
+	else RE_Notification:FireClient(player,"error",result) end
+end)
+
+RE_DeletePet.OnServerEvent:Connect(function(player,uniqueId)
+	local data = DataManager.GetData(player)
+	if not data then return end
+	PetService.UnequipPet(player,uniqueId)
+	for i,pet in ipairs(data.Pets) do
+		if pet.uniqueId==uniqueId then table.remove(data.Pets,i); break end
+	end
+	syncData(player)
+end)
+
+RE_BuyGamepass.OnServerEvent:Connect(function(player,gpKey)
+	GamepassService.PromptPurchase(player,gpKey)
+end)
+
+RF_GetLeaderboard.OnServerInvoke = function(player, category)
+	return LeaderboardService.GetTop(category or "Coins", 10)
+end
+
+RE_BuyUpgrade.OnServerEvent:Connect(function(player,upgradeKey)
+	local ok,result = UpgradeService.Buy(player,upgradeKey)
+	if ok then
+		RE_Notification:FireClient(player,"success","✅ "..result.label.." upgrade bought!")
+		syncData(player)
+	else
+		RE_Notification:FireClient(player,"error",result)
+	end
+end)
+
+-- ============================================================
+-- INIT
+-- ============================================================
+setupLighting()
+PetService.Init()
+CurrencyService.Init()
+buildMap()
+BadgeService.SetRemote(RE_BadgeEarned)
+CurrencyService.StartPassiveIncome(PetService)
+print("[MysticPets] Server ready!")
