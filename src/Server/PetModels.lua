@@ -71,12 +71,26 @@ local function addAura(part, color, rate)
 end
 
 local function eyes(model, headPos, s, eyeColor)
-	eyeColor = eyeColor or Color3.fromRGB(25,25,25)
-	for _, x in ipairs({0.3, -0.3}) do
+	eyeColor = eyeColor or Color3.fromRGB(26,28,52)  -- soft navy, not harsh black
+	for _, x in ipairs({0.32, -0.32}) do
+		-- white sclera
 		ball(model,{Name="EyeW",Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic},
-			headPos + Vector3.new(x,0.08,-0.5)*s, 0.34*s)
+			headPos + Vector3.new(x,0.1,-0.5)*s, 0.40*s)
+		-- iris
 		ball(model,{Name="Eye",Color=eyeColor,Material=Enum.Material.SmoothPlastic},
-			headPos + Vector3.new(x,0.08,-0.62)*s, 0.18*s)
+			headPos + Vector3.new(x,0.08,-0.66)*s, 0.24*s)
+		-- big shine
+		ball(model,{Name="Shine",Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic},
+			headPos + Vector3.new(x+0.08,0.18,-0.80)*s, 0.11*s)
+		-- small shine
+		ball(model,{Name="Shine2",Color=Color3.new(1,1,1),Material=Enum.Material.SmoothPlastic},
+			headPos + Vector3.new(x-0.07,0.0,-0.80)*s, 0.055*s)
+	end
+	-- blush cheeks
+	for _, x in ipairs({0.55, -0.55}) do
+		local b = ball(model,{Name="Blush",Color=Color3.fromRGB(255,135,145),Material=Enum.Material.SmoothPlastic},
+			headPos + Vector3.new(x,-0.12,-0.36)*s, 0.2*s)
+		b.Size = Vector3.new(0.3,0.14,0.22)*s
 	end
 end
 
