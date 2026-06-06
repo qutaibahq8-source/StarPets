@@ -87,8 +87,9 @@ local function part(props)
 end
 
 local function glow(p, color, brightness)
+	-- Subtle by default — too many bright PointLights washed the map out
 	local l = Instance.new("PointLight")
-	l.Color = color; l.Brightness = brightness or 2; l.Range = 18; l.Parent = p
+	l.Color = color; l.Brightness = (brightness or 2) * 0.35; l.Range = 9; l.Parent = p
 end
 
 local function particles(p, color, rate)

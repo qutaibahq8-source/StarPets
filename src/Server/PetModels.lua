@@ -29,7 +29,7 @@ end
 
 local function addGlow(part, color, brightness)
 	local l = Instance.new("PointLight")
-	l.Color = color; l.Brightness = brightness or 2; l.Range = 14; l.Parent = part
+	l.Color = color; l.Brightness = (brightness or 2) * 0.4; l.Range = 9; l.Parent = part
 end
 
 local function addParticles(part, color, rate)
