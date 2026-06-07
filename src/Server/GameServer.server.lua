@@ -17,6 +17,7 @@ local LeaderboardService   = require(script.Parent.LeaderboardService)
 local QuestService         = require(script.Parent.QuestService)
 local MerchantService      = require(script.Parent.MerchantService)
 local EventService         = require(script.Parent.EventService)
+local TradeService         = require(script.Parent.TradeService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -57,6 +58,9 @@ local RF_GetMerchant  = makeFunction("GetMerchant")
 local RE_BuyMerchant  = makeEvent("BuyMerchant")
 local RF_GetEvent     = makeFunction("GetEvent")
 local RE_BuyEvent     = makeEvent("BuyEvent")
+local RE_Trade        = makeEvent("Trade")        -- client -> server commands
+local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
+local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
 
 -- ============================================================
 -- LIGHTING & ATMOSPHERE
@@ -967,6 +971,26 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- TRADING
+-- ============================================================
+TradeService.Init(
+	function(player, state) RE_TradeState:FireClient(player, state) end,
+	function(player, fromName, fromId) RE_TradeReq:FireClient(player, fromName, fromId) end
+)
+TradeService.onComplete = function(p)
+	syncData(p); RE_Notification:FireClient(p, "success", "✅ Trade complete!")
+end
+RE_Trade.OnServerEvent:Connect(function(player, cmd, a)
+	if cmd == "request" then TradeService.Request(player, a)
+	elseif cmd == "respond" then TradeService.Respond(player, a)
+	elseif cmd == "add" then TradeService.Add(player, a)
+	elseif cmd == "remove" then TradeService.Remove(player, a)
+	elseif cmd == "accept" then TradeService.Accept(player, a)
+	elseif cmd == "cancel" then TradeService.Cancel(player)
 	end
 end)
 

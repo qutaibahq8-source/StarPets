@@ -267,9 +267,10 @@ local function buildHUD()
 		{ name="Shop",    emoji="🛒", panel="ShopPanel",        color=Color3.fromRGB(255,140,0)  },
 		{ name="Merchant",emoji="🪙", panel="MerchantPanel",   color=Color3.fromRGB(255,180,90) },
 		{ name="Event",   emoji="🎉", panel="EventPanel",      color=Color3.fromRGB(255,120,200) },
+		{ name="Trade",   emoji="🤝", panel="TradePanel",      color=Color3.fromRGB(90,200,120) },
 	}
-	local btnSize = 72
-	local btnGap  = 10
+	local btnSize = 58
+	local btnGap  = 8
 	local totalH  = #navButtons * btnSize + (#navButtons-1) * btnGap
 	local startY  = 0.5 - (totalH/2) / 600  -- rough center
 
@@ -504,6 +505,7 @@ _G.MysticPets = {
 	RE_BuyGamepass=RE_BuyGamepass, RE_BuyUpgrade=RE_BuyUpgrade,
 	RF_Admin=RF_Admin,
 	getPlayer=function() return Player end,
+	getData=function() return CurrentData end,
 }
 
 -- Admin button — only appears for authorized users (server decides)

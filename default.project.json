@@ -58,6 +58,9 @@
         },
         "EventService": {
           "$path": "src/Server/EventService.lua"
+        },
+        "TradeService": {
+          "$path": "src/Server/TradeService.lua"
         }
       }
     },
@@ -108,6 +111,9 @@
             },
             "EventPanel": {
               "$path": "src/Client/UI/EventPanel.lua"
+            },
+            "TradePanel": {
+              "$path": "src/Client/UI/TradePanel.lua"
             }
           }
         }
