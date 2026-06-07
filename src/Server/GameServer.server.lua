@@ -74,7 +74,7 @@ local function setupLighting()
 	Lighting.ShadowSoftness = 0.4
 	Lighting.GlobalShadows  = true
 	-- Best-quality lighting engine — biggest free visual upgrade for the look
-	pcall(function() Lighting.Technology = Enum.Technology.Future end)
+	pcall(function() Lighting.Technology = Enum.Technology.ShadowMap end)  -- good quality, far lighter than Future (fixes lag)
 	Lighting.ExposureCompensation = 0.15
 	pcall(function()
 		Lighting.EnvironmentDiffuseScale  = 0.65
@@ -255,7 +255,7 @@ end
 local function buildMap()
 	-- ---- GROUND: flat static green floor (no terrain grass blades) ----
 	pcall(function() workspace.Terrain:Clear() end)  -- remove any terrain grass
-	part({Name="GroundFloor",Size=Vector3.new(820,2,300),Position=Vector3.new(260,-1.1,5),
+	part({Name="GroundFloor",Size=Vector3.new(820,2,300),Position=Vector3.new(260,-1.6,5),  -- well below other floors (no z-fight flicker)
 		Color=Color3.fromRGB(96,168,76),Material=Enum.Material.Grass})
 
 	-- ---- SPAWN PLATFORM (60x60, fits 20 players) ----
@@ -546,7 +546,7 @@ local function buildMap()
 		-- Bushy hedge top so it reads as a hedge, not a flat wall
 		local alongX = size.X > size.Z
 		local len = alongX and size.X or size.Z
-		local n = math.max(1, math.floor(len/9))
+		local n = math.max(1, math.floor(len/16))
 		for i=0,n do
 			local t = -len/2 + (i/n)*len
 			local bpos = alongX and Vector3.new(pos.X+t, pos.Y+wallH/2, pos.Z)
@@ -691,7 +691,7 @@ local function buildMap()
 		Space   = Vector3.new(535,1,0),
 	}
 	for areaId,origin in pairs(origins) do
-		CurrencyService.SeedArea(areaId,origin,100)  -- 100 orbs per area
+		CurrencyService.SeedArea(areaId,origin,45)  -- fewer orbs = less lag
 	end
 	CurrencyService.SetupOrbTouches()
 
