@@ -952,7 +952,17 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 	if action == "check" then return isAdmin(player) end
 	if not isAdmin(player) then return false end          -- hard server gate
 	arg = arg or {}
-	local data = DataManager.GetData(player)
+	-- Resolve target player (blank = yourself). Matches by name prefix / display name.
+	local target = player
+	if arg.target and arg.target ~= "" then
+		local q = string.lower(arg.target)
+		for _, p in ipairs(Players:GetPlayers()) do
+			if string.sub(string.lower(p.Name), 1, #q) == q or string.lower(p.DisplayName) == q then
+				target = p; break
+			end
+		end
+	end
+	local data = DataManager.GetData(target)
 
 	if action == "give" and data then
 		if arg.coins then
@@ -960,20 +970,20 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 			if arg.coins > 0 then data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + arg.coins end
 		end
 		if arg.gems then data.Gems = math.max(0, (data.Gems or 0) + arg.gems) end
-		syncData(player)
+		syncData(target)
 	elseif action == "givePet" and data and arg.name then
 		table.insert(data.Pets, { name=arg.name, rarity=arg.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
-		syncData(player); pcall(BadgeService.CheckAll, player)
+		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "unlockAll" and data then
 		data.UnlockedAreas = {}
 		for _, a in ipairs(GameConfig.Areas) do table.insert(data.UnlockedAreas, a.id) end
-		syncData(player)
+		syncData(target)
 	elseif action == "maxUpgrades" and data then
 		data.Upgrades = data.Upgrades or {}
 		for _, u in ipairs(GameConfig.Upgrades) do data.Upgrades[u.key] = #u.levels end
-		syncData(player)
+		syncData(target)
 	elseif action == "toggleGamepass" and data and arg.key then
-		data[arg.key] = not data[arg.key]; syncData(player)
+		data[arg.key] = not data[arg.key]; syncData(target)
 	elseif action == "godMode" and data then
 		data.Coins = 1e9; data.Gems = 1e6
 		data.TotalCoinsEarned = math.max(data.TotalCoinsEarned or 0, 1e9)
@@ -982,9 +992,9 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		data.Upgrades = data.Upgrades or {}
 		for _, u in ipairs(GameConfig.Upgrades) do data.Upgrades[u.key] = #u.levels end
 		for _, k in ipairs(ADMIN_GP) do data[k] = true end
-		syncData(player)
+		syncData(target)
 	elseif action == "teleport" and arg.area then
-		local pos, char = ADMIN_AREA_POS[arg.area], player.Character
+		local pos, char = ADMIN_AREA_POS[arg.area], target.Character
 		if pos and char and char:FindFirstChild("HumanoidRootPart") then char:PivotTo(CFrame.new(pos)) end
 	elseif action == "bringPlayers" then
 		local char = player.Character
@@ -1003,7 +1013,7 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 			else data[k] = v end
 		end
 		data.Pets = {}; data.EquippedPets = {}; data.UnlockedAreas = { "Meadow" }
-		pcall(PetService.DespawnAllPets, player); syncData(player)
+		pcall(PetService.DespawnAllPets, target); syncData(target)
 	elseif action == "broadcast" and arg.msg then
 		RE_Notification:FireAllClients("info", "📢 " .. tostring(arg.msg))
 	elseif action == "kick" and arg.userId then
@@ -1017,9 +1027,9 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		end
 		return out
 	elseif action == "claimQuests" then
-		QuestService.ClaimAll(player); syncData(player)
+		QuestService.ClaimAll(target); syncData(target)
 	elseif action == "resetQuests" then
-		QuestService.Reset(player); syncData(player)
+		QuestService.Reset(target); syncData(target)
 	elseif action == "spawnMerchant" then
 		MerchantService.ForceSpawn()
 		RE_Notification:FireAllClients("info", "🛒 The Traveling Merchant has arrived!")

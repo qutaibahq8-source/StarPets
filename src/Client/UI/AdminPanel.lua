@@ -8,7 +8,12 @@ local AdminPanel = {}
 local function G() return _G.MysticPets end
 
 function AdminPanel.Build(data)
-	local R = function(action, arg) return G().RF_Admin:InvokeServer(action, arg) end
+	local targetBox  -- set after helpers; lets the admin act on another player
+	local R = function(action, arg)
+		arg = arg or {}
+		if targetBox and targetBox.Text ~= "" then arg.target = targetBox.Text end
+		return G().RF_Admin:InvokeServer(action, arg)
+	end
 
 	local screen = Instance.new("ScreenGui")
 	screen.Name="AdminPanel"; screen.ResetOnSpawn=false
@@ -61,6 +66,9 @@ function AdminPanel.Build(data)
 		tb.Font=Enum.Font.Gotham; tb.BorderSizePixel=0; tb.ClearTextOnFocus=false; tb.LayoutOrder=order; tb.Parent=scroll
 		Instance.new("UICorner",tb).CornerRadius=UDim.new(0,8); return tb
 	end
+
+	section("🎯 Target player (blank = yourself)")
+	targetBox = textbox("Type a player's name to give to them")
 
 	section("💰 Currency")
 	button("+10,000 Coins", Color3.fromRGB(120,90,20), function() R("give",{coins=10000}) end)
