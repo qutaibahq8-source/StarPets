@@ -366,6 +366,28 @@ local function buildMap()
 	pe.SpreadAngle=Vector2.new(16,16); pe.Acceleration=Vector3.new(0,-32,0)
 	pe.EmissionDirection=Enum.NormalId.Top; pe.LightEmission=0.25; pe.Rotation=NumberRange.new(0,360)
 
+	-- ---- HUB DECOR: lamp posts, hedges, benches ----
+	local function lamp(x, z)
+		part({Name="LampPost",Size=Vector3.new(0.5,7,0.5),Position=Vector3.new(x,3.5,z),Color=Color3.fromRGB(38,38,46),Material=Enum.Material.Metal,CanCollide=false})
+		part({Name="LampArm",Size=Vector3.new(1.6,0.4,0.4),Position=Vector3.new(x,6.9,z),Color=Color3.fromRGB(38,38,46),Material=Enum.Material.Metal,CanCollide=false})
+		part({Name="LampHead",Shape=Enum.PartType.Ball,Size=Vector3.new(1.2,1.2,1.2),Position=Vector3.new(x,6.6,z),Color=Color3.fromRGB(255,238,180),Material=Enum.Material.Neon,CanCollide=false})
+	end
+	for _, p in ipairs({{26,26},{-26,26},{26,-26},{-26,-26},{30,0},{-30,0}}) do lamp(p[1],p[2]) end
+	-- hedge ring around the plaza (gaps where the 4 paths exit)
+	for a=0,11 do
+		local ang=(a/12)*math.pi*2; local r=32
+		local x=math.cos(ang)*r; local z=math.sin(ang)*r
+		if math.abs(x)>9 or math.abs(z)>9 then
+			part({Name="Hedge",Size=Vector3.new(5,3.2,3),Position=Vector3.new(x,0.6,z),Color=Color3.fromRGB(42,108,46),Material=Enum.Material.Grass,CanCollide=false})
+		end
+	end
+	-- benches facing the fountain
+	local function bench(x,z,rot)
+		part({Name="BenchSeat",Size=Vector3.new(5,0.4,1.3),Position=Vector3.new(x,1.0,z),Orientation=Vector3.new(0,rot,0),Color=Color3.fromRGB(120,82,46),Material=Enum.Material.Wood,CanCollide=false})
+		part({Name="BenchBack",Size=Vector3.new(5,1.3,0.3),Position=Vector3.new(x,1.7,z-0.5),Orientation=Vector3.new(0,rot,0),Color=Color3.fromRGB(120,82,46),Material=Enum.Material.Wood,CanCollide=false})
+	end
+	bench(12,16,0); bench(-12,16,0); bench(0,38,180)
+
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
 	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = workspace
