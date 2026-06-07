@@ -332,13 +332,25 @@ local function buildMap()
 	local fp = Vector3.new(0, 0, 26)
 	local STONE = Color3.fromRGB(150,145,135)
 	local WATER = Color3.fromRGB(90,170,230)
+	-- stone tiers
 	part({Name="FtnBase", Size=Vector3.new(1.6,16,16),Position=fp+Vector3.new(0,0.8,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate})
-	part({Name="FtnWaterL",Size=Vector3.new(0.6,13,13),Position=fp+Vector3.new(0,1.7,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.25,CanCollide=false})
-	part({Name="FtnCol",  Size=Vector3.new(3.4,3,3),Position=fp+Vector3.new(0,3.0,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
-	part({Name="FtnBowl", Size=Vector3.new(0.8,7,7),Position=fp+Vector3.new(0,4.7,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
-	part({Name="FtnWaterU",Size=Vector3.new(0.4,6,6),Position=fp+Vector3.new(0,5.2,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.25,CanCollide=false})
-	part({Name="FtnSpout",Size=Vector3.new(2.6,1.2,1.2),Position=fp+Vector3.new(0,6.4,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
-	part({Name="FtnTop",Shape=Enum.PartType.Ball,Size=Vector3.new(1.5,1.5,1.5),Position=fp+Vector3.new(0,7.3,0),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.2,CanCollide=false})
+	part({Name="FtnRim",  Size=Vector3.new(1.4,16.8,16.8),Position=fp+Vector3.new(0,1.5,0),Orientation=Vector3.new(0,0,90),Color=Color3.fromRGB(172,167,158),Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnCol",  Size=Vector3.new(3.6,3,3),Position=fp+Vector3.new(0,3.2,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnBowl", Size=Vector3.new(0.7,7,7),Position=fp+Vector3.new(0,4.9,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnSpout",Size=Vector3.new(2.2,0.8,0.8),Position=fp+Vector3.new(0,6.2,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	-- glassy, reflective water pools (look like water, not plastic discs)
+	local wL=part({Name="FtnWaterL",Size=Vector3.new(0.35,14,14),Position=fp+Vector3.new(0,1.7,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.Glass,Transparency=0.4,CanCollide=false}); wL.Reflectance=0.25
+	local wU=part({Name="FtnWaterU",Size=Vector3.new(0.3,6,6),Position=fp+Vector3.new(0,5.3,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.Glass,Transparency=0.4,CanCollide=false}); wU.Reflectance=0.25
+	-- water spray that arcs up from the top and falls (a real fountain jet)
+	local sprayA=part({Name="FtnSpray",Size=Vector3.new(0.4,0.4,0.4),Position=fp+Vector3.new(0,6.8,0),Transparency=1,CanCollide=false})
+	local att=Instance.new("Attachment"); att.Parent=sprayA
+	local pe=Instance.new("ParticleEmitter"); pe.Parent=att
+	pe.Color=ColorSequence.new(Color3.fromRGB(160,215,255),Color3.fromRGB(225,240,255))
+	pe.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,0.5),NumberSequenceKeypoint.new(1,0.15)})
+	pe.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.25),NumberSequenceKeypoint.new(1,1)})
+	pe.Lifetime=NumberRange.new(1.0,1.5); pe.Rate=45; pe.Speed=NumberRange.new(9,12)
+	pe.SpreadAngle=Vector2.new(16,16); pe.Acceleration=Vector3.new(0,-32,0)
+	pe.EmissionDirection=Enum.NormalId.Top; pe.LightEmission=0.25; pe.Rotation=NumberRange.new(0,360)
 
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
