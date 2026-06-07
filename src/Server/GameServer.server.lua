@@ -365,12 +365,29 @@ local function buildMap()
 		-- Force-field barrier blocking the gate until the area is unlocked.
 		-- Server keeps CanCollide=false; each client enables it for areas
 		-- THAT player hasn't unlocked yet (see updateBarriers on the client).
-		-- Full-width, full-depth wall across the whole entrance line so players
-		-- can't walk around the gate. Toggled per-player on the client.
-		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(2.5,30,245),
-			Position=Vector3.new(gateX,13,5),Color=b.col,
-			Material=Enum.Material.ForceField,Transparency=0.45,CanCollide=false})
+		-- SOLID wall that COVERS the locked island (can't see inside). Toggled
+		-- per-player on the client: locked = opaque + blocks; unlocked = gone.
+		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(3,36,250),
+			Position=Vector3.new(gateX,16,5),Color=Color3.fromRGB(52,50,66),
+			Material=Enum.Material.SmoothPlastic,Transparency=0,CanCollide=false})
 		barrier.Parent=AreaBarriers
+		-- biome-colored stripe along the top (no glow)
+		part({Name="BStripe",Size=Vector3.new(3.2,3.5,250),
+			Position=Vector3.new(gateX,33,5),Color=b.col,
+			Material=Enum.Material.SmoothPlastic,CanCollide=false}).Parent=barrier
+		-- big NAME + PRICE sign on the wall
+		local sign=Instance.new("BillboardGui")
+		sign.Name="WallSign"; sign.Size=UDim2.new(0,480,0,180); sign.StudsOffset=Vector3.new(0,3,0)
+		sign.MaxDistance=170; sign.Adornee=barrier; sign.Parent=barrier
+		local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.5,0); t1.BackgroundTransparency=1
+		t1.Text="🔒 "..areaConfig.name; t1.TextColor3=Color3.new(1,1,1); t1.TextScaled=true
+		t1.Font=Enum.Font.GothamBold; t1.TextStrokeTransparency=0.3; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=sign
+		local t2=Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.32,0); t2.Position=UDim2.new(0,0,0.5,0)
+		t2.BackgroundTransparency=1; t2.Text=cost; t2.TextColor3=Color3.fromRGB(255,215,0); t2.TextScaled=true
+		t2.Font=Enum.Font.GothamBold; t2.TextStrokeTransparency=0.3; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=sign
+		local t3=Instance.new("TextLabel"); t3.Size=UDim2.new(1,0,0.18,0); t3.Position=UDim2.new(0,0,0.82,0)
+		t3.BackgroundTransparency=1; t3.Text="Walk up & click the gate to unlock"; t3.TextColor3=Color3.fromRGB(180,200,255)
+		t3.TextScaled=true; t3.Font=Enum.Font.Gotham; t3.Parent=sign
 	end
 
 	-- ============================================================

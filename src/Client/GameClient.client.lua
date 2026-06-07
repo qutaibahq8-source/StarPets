@@ -95,8 +95,17 @@ local function updateBarriers(data)
 	local unlocked = {}
 	for _, id in ipairs(data.UnlockedAreas or {}) do unlocked[id] = true end
 	for _, bar in ipairs(AreaBarriers:GetChildren()) do
-		local id = string.gsub(bar.Name, "^Barrier_", "")
-		bar.CanCollide = not unlocked[id]
+		if string.sub(bar.Name, 1, 8) == "Barrier_" then
+			local id = string.gsub(bar.Name, "^Barrier_", "")
+			local locked = not unlocked[id]
+			bar.CanCollide = locked
+			bar.Transparency = locked and 0 or 1
+			-- hide the stripe + name/price sign too once unlocked
+			for _, d in ipairs(bar:GetDescendants()) do
+				if d:IsA("BasePart") then d.Transparency = locked and 0 or 1
+				elseif d:IsA("BillboardGui") then d.Enabled = locked end
+			end
+		end
 	end
 end
 
