@@ -73,6 +73,18 @@ local function setupLighting()
 	Lighting.ClockTime      = 14
 	Lighting.ShadowSoftness = 0.4
 	Lighting.GlobalShadows  = true
+	-- Best-quality lighting engine — biggest free visual upgrade for the look
+	pcall(function() Lighting.Technology = Enum.Technology.Future end)
+	Lighting.ExposureCompensation = 0.15
+	pcall(function()
+		Lighting.EnvironmentDiffuseScale  = 0.65
+		Lighting.EnvironmentSpecularScale = 0.5
+	end)
+	if not Lighting:FindFirstChildOfClass("Sky") then
+		local sky = Instance.new("Sky")
+		sky.SunAngularSize = 11; sky.StarCount = 4000
+		sky.Parent = Lighting
+	end
 
 	-- Clean grass green (terrain grass base was rendering dull/tinted)
 	-- Turn OFF the tall overgrown grass blades FIRST, on its own, so it always
