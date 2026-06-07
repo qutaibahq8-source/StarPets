@@ -313,6 +313,26 @@ local function buildMap()
 		flower(math.random(-48,48), math.random(24,110), 0)
 	end
 
+	-- ---- SPAWN HUB: stone paths + centerpiece fountain ----
+	local function path(cx, cz, sx, sz)
+		part({Name="Path",Size=Vector3.new(sx,0.3,sz),Position=Vector3.new(cx,0.16,cz),
+			Color=Color3.fromRGB(122,114,102),Material=Enum.Material.Slate,CanCollide=false})
+	end
+	path(40, 0, 80, 9)    -- east, toward the gates
+	path(-44, 0, 80, 9)   -- west, toward shop + rebirth
+	path(0, -46, 9, 92)   -- south, toward the eggs
+	path(0, 26, 9, 56)    -- north, toward the fountain & meadow
+	local fp = Vector3.new(0, 0, 26)
+	local STONE = Color3.fromRGB(150,145,135)
+	local WATER = Color3.fromRGB(90,170,230)
+	part({Name="FtnBase", Size=Vector3.new(1.6,16,16),Position=fp+Vector3.new(0,0.8,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate})
+	part({Name="FtnWaterL",Size=Vector3.new(0.6,13,13),Position=fp+Vector3.new(0,1.7,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.25,CanCollide=false})
+	part({Name="FtnCol",  Size=Vector3.new(3.4,3,3),Position=fp+Vector3.new(0,3.0,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnBowl", Size=Vector3.new(0.8,7,7),Position=fp+Vector3.new(0,4.7,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnWaterU",Size=Vector3.new(0.4,6,6),Position=fp+Vector3.new(0,5.2,0),Orientation=Vector3.new(0,0,90),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.25,CanCollide=false})
+	part({Name="FtnSpout",Size=Vector3.new(2.6,1.2,1.2),Position=fp+Vector3.new(0,6.4,0),Orientation=Vector3.new(0,0,90),Color=STONE,Material=Enum.Material.Slate,CanCollide=false})
+	part({Name="FtnTop",Shape=Enum.PartType.Ball,Size=Vector3.new(1.5,1.5,1.5),Position=fp+Vector3.new(0,7.3,0),Color=WATER,Material=Enum.Material.SmoothPlastic,Transparency=0.2,CanCollide=false})
+
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
 	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = workspace
