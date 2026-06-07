@@ -408,6 +408,12 @@ local function normalizeTemplate(inst)
 		model = Instance.new("Model")
 		inst.Parent = model
 	end
+	-- Safety: strip any scripts / humanoids that ship inside Toolbox models
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Humanoid") or d:IsA("AnimationController") then
+			d:Destroy()
+		end
+	end
 	local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
 	if not root then
 		local bestVol
