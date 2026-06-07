@@ -235,6 +235,8 @@ GameConfig.DefaultData = {
 	},
 	FoundSecret = false,
 	Quests = { claimed = {} },
+	EventTokens = 0,
+	EventClaimed = {},
 }
 
 -- ============================================================
@@ -272,6 +274,30 @@ GameConfig.MerchantPool = {
 	{ kind="gems",  amount=500,           cost=200000, cur="Coins", label="💎 500 Gems" },
 	{ kind="boost", key="GP_2xCoins",     cost=3000,   cur="Gems",  label="⚡ 2x Coins (perk)" },
 	{ kind="boost", key="GP_LuckyBoost",  cost=3500,   cur="Gems",  label="🍀 Lucky Boost (perk)" },
+}
+
+-- ============================================================
+-- LIMITED-TIME EVENTS  (toggle on/off; earn event tokens, spend in event shop)
+-- ============================================================
+GameConfig.Events = {
+	summer = {
+		name = "☀️ Summer Festival",
+		tokenName = "Sun Tokens", tokenIcon = "☀️",
+		shop = {
+			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
+			{ kind="pet", name="Phoenix",      rarity="Legendary", cost=120, label="🔥 Phoenix" },
+			{ kind="pet", name="Star Phoenix", rarity="Mythic",    cost=600, label="🌟 Star Phoenix (EVENT)" },
+		},
+	},
+	winter = {
+		name = "❄️ Winter Wonderland",
+		tokenName = "Snowflakes", tokenIcon = "❄️",
+		shop = {
+			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
+			{ kind="pet", name="Snow Leopard", rarity="Rare",   cost=80,  label="🐆 Snow Leopard" },
+			{ kind="pet", name="Celestial Dragon", rarity="Mythic", cost=600, label="🐉 Celestial Dragon (EVENT)" },
+		},
+	},
 }
 
 -- ============================================================

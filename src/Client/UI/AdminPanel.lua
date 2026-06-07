@@ -106,6 +106,11 @@ function AdminPanel.Build(data)
 	button("Force Spawn Merchant", Color3.fromRGB(120,90,40), function() R("spawnMerchant") end)
 	button("Despawn Merchant", Color3.fromRGB(80,60,40), function() R("despawnMerchant") end)
 
+	section("🎉 Events")
+	button("Start ☀️ Summer Event", Color3.fromRGB(150,80,40), function() R("startEvent",{id="summer"}) end)
+	button("Start ❄️ Winter Event", Color3.fromRGB(40,90,140), function() R("startEvent",{id="winter"}) end)
+	button("Stop Event", Color3.fromRGB(80,60,40), function() R("stopEvent") end)
+
 	section("🦸 Power")
 	button("⭐ GOD MODE (everything)", Color3.fromRGB(160,40,40), function() R("godMode") end)
 

@@ -55,6 +55,9 @@
         },
         "MerchantService": {
           "$path": "src/Server/MerchantService.lua"
+        },
+        "EventService": {
+          "$path": "src/Server/EventService.lua"
         }
       }
     },
@@ -102,6 +105,9 @@
             },
             "MerchantPanel": {
               "$path": "src/Client/UI/MerchantPanel.lua"
+            },
+            "EventPanel": {
+              "$path": "src/Client/UI/EventPanel.lua"
             }
           }
         }

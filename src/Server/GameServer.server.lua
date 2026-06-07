@@ -16,6 +16,7 @@ local UpgradeService       = require(script.Parent.UpgradeService)
 local LeaderboardService   = require(script.Parent.LeaderboardService)
 local QuestService         = require(script.Parent.QuestService)
 local MerchantService      = require(script.Parent.MerchantService)
+local EventService         = require(script.Parent.EventService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -54,6 +55,8 @@ local RF_GetQuests    = makeFunction("GetQuests")
 local RE_ClaimQuest   = makeEvent("ClaimQuest")
 local RF_GetMerchant  = makeFunction("GetMerchant")
 local RE_BuyMerchant  = makeEvent("BuyMerchant")
+local RF_GetEvent     = makeFunction("GetEvent")
+local RE_BuyEvent     = makeEvent("BuyEvent")
 
 -- ============================================================
 -- LIGHTING & ATMOSPHERE
@@ -968,6 +971,22 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 end)
 
 -- ============================================================
+-- LIMITED-TIME EVENTS
+-- ============================================================
+RF_GetEvent.OnServerInvoke = function(player)
+	return EventService.GetState(player)
+end
+RE_BuyEvent.OnServerEvent:Connect(function(player, index)
+	local ok, res = EventService.Buy(player, index)
+	if ok then
+		RE_Notification:FireClient(player, "success", "🎟️ Bought " .. tostring(res) .. "!")
+		syncData(player); pcall(BadgeService.CheckAll, player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
 -- ADMIN / DEV PANEL  (server-authoritative — UI can't be trusted)
 -- ============================================================
 local AUTHORIZED = {
@@ -1072,6 +1091,14 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		RE_Notification:FireAllClients("info", "🛒 The Traveling Merchant has arrived!")
 	elseif action == "despawnMerchant" then
 		MerchantService.ForceDespawn()
+	elseif action == "startEvent" and arg.id then
+		if EventService.Start(arg.id) then
+			local d = GameConfig.Events[arg.id]
+			RE_Notification:FireAllClients("success", "🎉 Event started: " .. (d and d.name or arg.id) .. "!")
+		end
+	elseif action == "stopEvent" then
+		EventService.Stop()
+		RE_Notification:FireAllClients("info", "The event has ended.")
 	end
 	return true
 end
@@ -1088,4 +1115,5 @@ CurrencyService.StartPassiveIncome(PetService)
 MerchantService.Start(function()
 	RE_Notification:FireAllClients("info", "🛒 The Traveling Merchant has arrived — limited stock!")
 end)
+EventService.Init()
 print("[MysticPets] Server ready!")
