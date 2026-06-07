@@ -275,15 +275,15 @@ local function buildMap()
 		local h=math.random(3,6)
 		part({Name="Crystal"..i,Size=Vector3.new(1.0,h,1.0),
 			Position=Vector3.new(math.cos(ang)*r,h/2-1,math.sin(ang)*r),
-			Color=Color3.fromHSV(i/10,0.45,0.8),Material=Enum.Material.Glass,CanCollide=false})
+			Color=Color3.fromRGB(120,195,160),Material=Enum.Material.Glass,CanCollide=false})
 	end
 
 	-- ---- EGG AREA (behind spawn, 130 wide x 60 deep) ----
 	part({Name="EggPlat",Size=Vector3.new(130,2,60),Position=Vector3.new(0,-1,-90),
-		Color=Color3.fromRGB(38,32,62),Material=Enum.Material.SmoothPlastic})
+		Color=Color3.fromRGB(182,176,164),Material=Enum.Material.Cobblestone})
 	-- Connecting strip between spawn and egg area
 	part({Name="EggConnector",Size=Vector3.new(60,2,60),Position=Vector3.new(0,-1,-60),
-		Color=Color3.fromRGB(44,38,70),Material=Enum.Material.SmoothPlastic})
+		Color=Color3.fromRGB(182,176,164),Material=Enum.Material.Cobblestone})
 
 	local eggSign=part({Name="EggSignA",Size=Vector3.new(1,1,1),Position=Vector3.new(0,9,-100),
 		Transparency=1,CanCollide=false})
