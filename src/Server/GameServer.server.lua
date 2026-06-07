@@ -247,6 +247,11 @@ local function decorateBiome(id, cx, baseY)
 	end
 end
 
+local function comma(n)
+	local s = tostring(math.floor(n))
+	return (s:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
+end
+
 local function buildMap()
 	-- ---- GROUND: flat static green floor (no terrain grass blades) ----
 	pcall(function() workspace.Terrain:Clear() end)  -- remove any terrain grass
@@ -428,7 +433,7 @@ local function buildMap()
 			Position=Vector3.new(gateX,19.5,0),Color=b.col,Material=Enum.Material.Neon,CanCollide=false})
 		glow(topBar,b.col,3); particles(topBar,b.col,6)
 
-		local cost=areaConfig.unlockCost==0 and "🆓 FREE" or ("💰 "..areaConfig.unlockCost)
+		local cost=areaConfig.unlockCost==0 and "🆓 FREE" or ("💰 "..comma(areaConfig.unlockCost).." Coins")
 		billboard(topBar,areaConfig.name,Color3.new(1,1,1),cost,Color3.fromRGB(255,215,0),UDim2.new(0,220,0,80))
 
 		-- Invisible click trigger (wide gate opening)
@@ -450,18 +455,18 @@ local function buildMap()
 		part({Name="BStripe",Size=Vector3.new(3.2,3.5,250),
 			Position=Vector3.new(gateX,33,5),Color=b.col,
 			Material=Enum.Material.SmoothPlastic,CanCollide=false}).Parent=barrier
-		-- big NAME + PRICE sign on the wall
+		-- BIG name + requirement sign, floating above the wall, visible from far
 		local sign=Instance.new("BillboardGui")
-		sign.Name="WallSign"; sign.Size=UDim2.new(0,480,0,180); sign.StudsOffset=Vector3.new(0,3,0)
-		sign.MaxDistance=170; sign.Adornee=barrier; sign.Parent=barrier
-		local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.5,0); t1.BackgroundTransparency=1
+		sign.Name="WallSign"; sign.Size=UDim2.new(0,640,0,240); sign.StudsOffset=Vector3.new(0,20,0)
+		sign.MaxDistance=400; sign.Adornee=barrier; sign.Parent=barrier
+		local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.42,0); t1.BackgroundTransparency=1
 		t1.Text="🔒 "..areaConfig.name; t1.TextColor3=Color3.new(1,1,1); t1.TextScaled=true
-		t1.Font=Enum.Font.GothamBold; t1.TextStrokeTransparency=0.3; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=sign
-		local t2=Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.32,0); t2.Position=UDim2.new(0,0,0.5,0)
-		t2.BackgroundTransparency=1; t2.Text=cost; t2.TextColor3=Color3.fromRGB(255,215,0); t2.TextScaled=true
-		t2.Font=Enum.Font.GothamBold; t2.TextStrokeTransparency=0.3; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=sign
+		t1.Font=Enum.Font.GothamBold; t1.TextStrokeTransparency=0.25; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=sign
+		local t2=Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.4,0); t2.Position=UDim2.new(0,0,0.42,0)
+		t2.BackgroundTransparency=1; t2.Text="Costs "..cost; t2.TextColor3=Color3.fromRGB(255,215,0); t2.TextScaled=true
+		t2.Font=Enum.Font.GothamBold; t2.TextStrokeTransparency=0.25; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=sign
 		local t3=Instance.new("TextLabel"); t3.Size=UDim2.new(1,0,0.18,0); t3.Position=UDim2.new(0,0,0.82,0)
-		t3.BackgroundTransparency=1; t3.Text="Walk up & click the gate to unlock"; t3.TextColor3=Color3.fromRGB(180,200,255)
+		t3.BackgroundTransparency=1; t3.Text="Walk up & click to unlock"; t3.TextColor3=Color3.fromRGB(185,205,255)
 		t3.TextScaled=true; t3.Font=Enum.Font.Gotham; t3.Parent=sign
 	end
 
