@@ -376,7 +376,7 @@ local function buildMap()
 	-- ============================================================
 	-- PHYSICAL SHOP BUILDING (east side of spawn, x=65)
 	-- ============================================================
-	local shopPos = Vector3.new(58, 0, 42)  -- moved off the central spawn axis (was crowding other signs)
+	local shopPos = Vector3.new(-55, 0, 34)  -- next to the rebirth machine (west of spawn)
 
 	-- Shop floor
 	part({Name="ShopFloor",Size=Vector3.new(22,2,22),Position=shopPos+Vector3.new(0,-1,0),

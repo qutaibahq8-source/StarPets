@@ -8,30 +8,30 @@ local GameConfig = {}
 -- ============================================================
 GameConfig.Pets = {
 	-- Common
-	{ name = "Kitten",          rarity = "Common",    coinMult = 1,    gemMult = 0,    size = 1.0,  color = Color3.fromRGB(220, 220, 220) },
-	{ name = "Puppy",           rarity = "Common",    coinMult = 1.2,  gemMult = 0,    size = 1.0,  color = Color3.fromRGB(190, 150, 90)  },
-	{ name = "Bunny",           rarity = "Common",    coinMult = 1.5,  gemMult = 0,    size = 0.9,  color = Color3.fromRGB(255, 255, 255) },
-	{ name = "Chick",           rarity = "Common",    coinMult = 1.3,  gemMult = 0,    size = 0.8,  color = Color3.fromRGB(255, 230, 50)  },
+	{ name = "Kitten",          rarity = "Common",    coinMult = 100,    gemMult = 0,    size = 1.0,  color = Color3.fromRGB(220, 220, 220) },
+	{ name = "Puppy",           rarity = "Common",    coinMult = 130,    gemMult = 0,    size = 1.0,  color = Color3.fromRGB(190, 150, 90)  },
+	{ name = "Bunny",           rarity = "Common",    coinMult = 180,    gemMult = 0,    size = 0.9,  color = Color3.fromRGB(255, 255, 255) },
+	{ name = "Chick",           rarity = "Common",    coinMult = 150,    gemMult = 0,    size = 0.8,  color = Color3.fromRGB(255, 230, 50)  },
 	-- Uncommon
-	{ name = "Fox",             rarity = "Uncommon",  coinMult = 3,    gemMult = 0.1,  size = 1.1,  color = Color3.fromRGB(230, 120, 30)  },
-	{ name = "Wolf",            rarity = "Uncommon",  coinMult = 4,    gemMult = 0.1,  size = 1.2,  color = Color3.fromRGB(100, 100, 130) },
-	{ name = "Owl",             rarity = "Uncommon",  coinMult = 3.5,  gemMult = 0.1,  size = 0.9,  color = Color3.fromRGB(120, 80, 40)   },
+	{ name = "Fox",             rarity = "Uncommon",  coinMult = 400,    gemMult = 0.1,  size = 1.1,  color = Color3.fromRGB(230, 120, 30)  },
+	{ name = "Wolf",            rarity = "Uncommon",  coinMult = 600,    gemMult = 0.1,  size = 1.2,  color = Color3.fromRGB(100, 100, 130) },
+	{ name = "Owl",             rarity = "Uncommon",  coinMult = 500,    gemMult = 0.1,  size = 0.9,  color = Color3.fromRGB(120, 80, 40)   },
 	-- Rare
-	{ name = "Panda",           rarity = "Rare",      coinMult = 8,    gemMult = 0.5,  size = 1.3,  color = Color3.fromRGB(40, 40, 40)    },
-	{ name = "Tiger",           rarity = "Rare",      coinMult = 10,   gemMult = 0.5,  size = 1.3,  color = Color3.fromRGB(255, 140, 0)   },
-	{ name = "Snow Leopard",    rarity = "Rare",      coinMult = 12,   gemMult = 0.7,  size = 1.2,  color = Color3.fromRGB(220, 220, 255) },
+	{ name = "Panda",           rarity = "Rare",      coinMult = 1500,   gemMult = 0.5,  size = 1.3,  color = Color3.fromRGB(40, 40, 40)    },
+	{ name = "Tiger",           rarity = "Rare",      coinMult = 2200,   gemMult = 0.5,  size = 1.3,  color = Color3.fromRGB(255, 140, 0)   },
+	{ name = "Snow Leopard",    rarity = "Rare",      coinMult = 3000,   gemMult = 0.7,  size = 1.2,  color = Color3.fromRGB(220, 220, 255) },
 	-- Epic
-	{ name = "Dragon",          rarity = "Epic",      coinMult = 25,   gemMult = 2,    size = 1.5,  color = Color3.fromRGB(150, 0, 200)   },
-	{ name = "Phoenix",         rarity = "Epic",      coinMult = 30,   gemMult = 2,    size = 1.4,  color = Color3.fromRGB(255, 80, 0)    },
-	{ name = "Kirin",           rarity = "Epic",      coinMult = 28,   gemMult = 2.5,  size = 1.5,  color = Color3.fromRGB(0, 200, 150)   },
+	{ name = "Dragon",          rarity = "Epic",      coinMult = 9000,   gemMult = 2,    size = 1.5,  color = Color3.fromRGB(150, 0, 200)   },
+	{ name = "Phoenix",         rarity = "Epic",      coinMult = 14000,  gemMult = 2,    size = 1.4,  color = Color3.fromRGB(255, 80, 0)    },
+	{ name = "Kirin",           rarity = "Epic",      coinMult = 12000,  gemMult = 2.5,  size = 1.5,  color = Color3.fromRGB(0, 200, 150)   },
 	-- Legendary
-	{ name = "Unicorn",         rarity = "Legendary", coinMult = 75,   gemMult = 5,    size = 1.8,  color = Color3.fromRGB(255, 100, 255) },
-	{ name = "Cosmic Griffin",  rarity = "Legendary", coinMult = 100,  gemMult = 7,    size = 1.8,  color = Color3.fromRGB(255, 215, 0)   },
-	{ name = "Shadow Wolf",     rarity = "Legendary", coinMult = 90,   gemMult = 6,    size = 1.7,  color = Color3.fromRGB(30, 0, 60)     },
+	{ name = "Unicorn",         rarity = "Legendary", coinMult = 45000,  gemMult = 5,    size = 1.8,  color = Color3.fromRGB(255, 100, 255) },
+	{ name = "Cosmic Griffin",  rarity = "Legendary", coinMult = 85000,  gemMult = 7,    size = 1.8,  color = Color3.fromRGB(255, 215, 0)   },
+	{ name = "Shadow Wolf",     rarity = "Legendary", coinMult = 65000,  gemMult = 6,    size = 1.7,  color = Color3.fromRGB(30, 0, 60)     },
 	-- Mythic
-	{ name = "Celestial Dragon",rarity = "Mythic",    coinMult = 300,  gemMult = 20,   size = 2.2,  color = Color3.fromRGB(0, 200, 255)   },
-	{ name = "Star Phoenix",    rarity = "Mythic",    coinMult = 500,  gemMult = 30,   size = 2.2,  color = Color3.fromRGB(255, 255, 100) },
-	{ name = "Void Serpent",    rarity = "Mythic",    coinMult = 400,  gemMult = 25,   size = 2.4,  color = Color3.fromRGB(180, 0, 255)   },
+	{ name = "Celestial Dragon",rarity = "Mythic",    coinMult = 400000, gemMult = 20,   size = 2.2,  color = Color3.fromRGB(0, 200, 255)   },
+	{ name = "Star Phoenix",    rarity = "Mythic",    coinMult = 900000, gemMult = 30,   size = 2.2,  color = Color3.fromRGB(255, 255, 100) },
+	{ name = "Void Serpent",    rarity = "Mythic",    coinMult = 650000, gemMult = 25,   size = 2.4,  color = Color3.fromRGB(180, 0, 255)   },
 }
 
 -- ============================================================
