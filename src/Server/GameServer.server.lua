@@ -360,9 +360,11 @@ local function buildMap()
 		-- Force-field barrier blocking the gate until the area is unlocked.
 		-- Server keeps CanCollide=false; each client enables it for areas
 		-- THAT player hasn't unlocked yet (see updateBarriers on the client).
-		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(2,22,46),
-			Position=Vector3.new(gateX,10,0),Color=b.col,
-			Material=Enum.Material.ForceField,Transparency=0.4,CanCollide=false})
+		-- Full-width, full-depth wall across the whole entrance line so players
+		-- can't walk around the gate. Toggled per-player on the client.
+		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(2.5,30,245),
+			Position=Vector3.new(gateX,13,5),Color=b.col,
+			Material=Enum.Material.ForceField,Transparency=0.45,CanCollide=false})
 		barrier.Parent=AreaBarriers
 	end
 
