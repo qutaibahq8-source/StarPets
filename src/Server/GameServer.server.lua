@@ -75,12 +75,12 @@ local function setupLighting()
 	Lighting.GlobalShadows  = true
 
 	-- Clean grass green (terrain grass base was rendering dull/tinted)
+	-- Turn OFF the tall overgrown grass blades FIRST, on its own, so it always
+	-- runs even if SetMaterialColor errors (that's why it didn't take before).
+	pcall(function() workspace.Terrain.Decoration = false end)
 	pcall(function()
 		workspace.Terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(95, 160, 70))
 		workspace.Terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(90, 155, 65))
-		-- Turn OFF the tall overgrown grass blades — they buried orbs/flowers
-		-- and showed the purple ground between them. Clean flat grass instead.
-		workspace.Terrain.Decoration = false
 	end)
 
 	local atmo = Instance.new("Atmosphere")
