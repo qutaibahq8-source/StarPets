@@ -140,7 +140,7 @@ GameConfig.Areas = {
 	{
 		id = "Space",
 		name = "Star Space",
-		unlockCost = 150000000, -- ~10 min of Volcano income (legendary pets)
+		unlockCost = 200000000, -- last island
 		currency = "Coins",
 		coinOrbValue = 2000,
 		gemOrbChance = 0.08,
