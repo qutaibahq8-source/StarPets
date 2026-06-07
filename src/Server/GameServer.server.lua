@@ -530,19 +530,25 @@ local function buildMap()
 	end
 
 	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
-	local wallColor = Color3.fromRGB(118,116,128)  -- neutral stone (was harsh navy blue)
-	local wallTrim  = Color3.fromRGB(150,148,160)
+	local wallColor = Color3.fromRGB(46,104,46)    -- hedge green (was gray concrete slab)
 	local wallH = 25
 
 	local function buildWall(name, size, pos)
-		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.Concrete})
+		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.Grass})
 		-- Invisible tall extension above (blocks jumping over)
 		part({Name=name.."Ext",Size=Vector3.new(size.X,40,size.Z),
 			Position=pos+Vector3.new(0,30,0),Transparency=1,CanCollide=true})
-		-- Subtle (non-glowing) trim on top
-		part({Name=name.."Top",Size=Vector3.new(size.X,0.8,size.Z),
-			Position=pos+Vector3.new(0,wallH/2+0.4,0),Color=wallTrim,
-			Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		-- Bushy hedge top so it reads as a hedge, not a flat wall
+		local alongX = size.X > size.Z
+		local len = alongX and size.X or size.Z
+		local n = math.max(1, math.floor(len/9))
+		for i=0,n do
+			local t = -len/2 + (i/n)*len
+			local bpos = alongX and Vector3.new(pos.X+t, pos.Y+wallH/2, pos.Z)
+			                     or Vector3.new(pos.X, pos.Y+wallH/2, pos.Z+t)
+			part({Name="Hedge",Shape=Enum.PartType.Ball,Size=Vector3.new(7,6,7),
+				Position=bpos,Color=Color3.fromRGB(56,122,56),Material=Enum.Material.Grass,CanCollide=false})
+		end
 	end
 
 	buildWall("WallN", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1, 126))
