@@ -130,7 +130,7 @@ function UpgradePanel.Build(data)
 		buyBtn.Size=UDim2.new(1,-16,0,36); buyBtn.Position=UDim2.new(0,8,1,-46)
 		buyBtn.BackgroundColor3=isMaxed and Color3.fromRGB(60,50,80) or col
 		buyBtn.Text=isMaxed and "MAXED ✨"
-			or ("Buy Lv"..currentLevel+1.." — 💰 "..fmt(nextLevel.cost))
+			or ("Buy Lv"..(currentLevel+1).." — 💰 "..fmt(nextLevel.cost))
 		buyBtn.TextColor3=Color3.new(1,1,1); buyBtn.TextScaled=true
 		buyBtn.Font=Enum.Font.GothamBold; buyBtn.BorderSizePixel=0
 		buyBtn.Active=not isMaxed; buyBtn.Parent=card
