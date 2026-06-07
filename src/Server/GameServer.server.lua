@@ -240,14 +240,13 @@ local function buildMap()
 	sp.Size=Vector3.new(6,0.2,6); sp.Position=Vector3.new(0,0,0)
 	sp.Transparency=1; sp.Anchored=true; sp.Parent=workspace
 
-	-- Crystals around spawn (decorative, inside the 60x60 pad boundary)
-	for i=1,12 do
-		local ang=(i/12)*math.pi*2; local r=28
-		local h=math.random(4,9)
-		local c=part({Name="Crystal"..i,Size=Vector3.new(1.1,h,1.1),
+	-- Subtle decorative crystals around spawn (no glow — were glowing purple)
+	for i=1,10 do
+		local ang=(i/10)*math.pi*2; local r=30
+		local h=math.random(3,6)
+		part({Name="Crystal"..i,Size=Vector3.new(1.0,h,1.0),
 			Position=Vector3.new(math.cos(ang)*r,h/2-1,math.sin(ang)*r),
-			Color=Color3.fromHSV(i/12,0.8,1),Material=Enum.Material.Neon,CanCollide=false})
-		glow(c,Color3.fromHSV(i/12,0.8,1),1)
+			Color=Color3.fromHSV(i/10,0.45,0.8),Material=Enum.Material.Glass,CanCollide=false})
 	end
 
 	-- ---- EGG AREA (behind spawn, 130 wide x 60 deep) ----
@@ -374,7 +373,7 @@ local function buildMap()
 	-- ============================================================
 	-- PHYSICAL SHOP BUILDING (east side of spawn, x=65)
 	-- ============================================================
-	local shopPos = Vector3.new(65, 0, 0)
+	local shopPos = Vector3.new(58, 0, 42)  -- moved off the central spawn axis (was crowding other signs)
 
 	-- Shop floor
 	part({Name="ShopFloor",Size=Vector3.new(22,2,22),Position=shopPos+Vector3.new(0,-1,0),
