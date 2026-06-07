@@ -256,6 +256,7 @@ local function buildHUD()
 		{ name="Ranks",   emoji="🏆", panel="LeaderboardPanel", color=Color3.fromRGB(255,215,0)  },
 		{ name="Upgrade", emoji="⚡", panel="UpgradePanel",     color=Color3.fromRGB(255,200,0)  },
 		{ name="Shop",    emoji="🛒", panel="ShopPanel",        color=Color3.fromRGB(255,140,0)  },
+		{ name="Merchant",emoji="🪙", panel="MerchantPanel",   color=Color3.fromRGB(255,180,90) },
 	}
 	local btnSize = 72
 	local btnGap  = 10

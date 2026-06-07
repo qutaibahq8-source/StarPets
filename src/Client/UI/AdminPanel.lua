@@ -94,6 +94,10 @@ function AdminPanel.Build(data)
 	button("Complete ALL Quests", Color3.fromRGB(40,80,120), function() R("claimQuests") end)
 	button("Reset My Quests", Color3.fromRGB(80,60,40), function() R("resetQuests") end)
 
+	section("🛒 Merchant")
+	button("Force Spawn Merchant", Color3.fromRGB(120,90,40), function() R("spawnMerchant") end)
+	button("Despawn Merchant", Color3.fromRGB(80,60,40), function() R("despawnMerchant") end)
+
 	section("🦸 Power")
 	button("⭐ GOD MODE (everything)", Color3.fromRGB(160,40,40), function() R("godMode") end)
 

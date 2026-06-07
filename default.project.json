@@ -52,6 +52,9 @@
         },
         "QuestService": {
           "$path": "src/Server/QuestService.lua"
+        },
+        "MerchantService": {
+          "$path": "src/Server/MerchantService.lua"
         }
       }
     },
@@ -96,6 +99,9 @@
             },
             "QuestPanel": {
               "$path": "src/Client/UI/QuestPanel.lua"
+            },
+            "MerchantPanel": {
+              "$path": "src/Client/UI/MerchantPanel.lua"
             }
           }
         }

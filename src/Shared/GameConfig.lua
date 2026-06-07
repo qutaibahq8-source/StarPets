@@ -253,6 +253,28 @@ GameConfig.Quests = {
 }
 
 -- ============================================================
+-- TRAVELING MERCHANT  (spawns on a cycle, sells rotating stock)
+-- ============================================================
+GameConfig.Merchant = {
+	StayTime = 120,   -- seconds the merchant stays
+	GapTime  = 240,   -- seconds between visits
+	StockSize = 4,    -- items offered per visit
+}
+-- Pool the merchant draws its rotating stock from
+GameConfig.MerchantPool = {
+	{ kind="pet",   name="Dragon",        rarity="Legendary", cost=4000,   cur="Gems",  label="🐉 Dragon" },
+	{ kind="pet",   name="Phoenix",       rarity="Legendary", cost=6000,   cur="Gems",  label="🔥 Phoenix" },
+	{ kind="pet",   name="Unicorn",       rarity="Legendary", cost=5000,   cur="Gems",  label="🦄 Unicorn" },
+	{ kind="pet",   name="Shadow Wolf",   rarity="Epic",      cost=2500,   cur="Gems",  label="🐺 Shadow Wolf" },
+	{ kind="pet",   name="Kirin",         rarity="Mythic",    cost=12000,  cur="Gems",  label="✨ Kirin" },
+	{ kind="coins", amount=100000,        cost=300,    cur="Gems",  label="💰 100K Coins" },
+	{ kind="coins", amount=1000000,       cost=2000,   cur="Gems",  label="💰 1M Coins" },
+	{ kind="gems",  amount=500,           cost=200000, cur="Coins", label="💎 500 Gems" },
+	{ kind="boost", key="GP_2xCoins",     cost=3000,   cur="Gems",  label="⚡ 2x Coins (perk)" },
+	{ kind="boost", key="GP_LuckyBoost",  cost=3500,   cur="Gems",  label="🍀 Lucky Boost (perk)" },
+}
+
+-- ============================================================
 -- UPGRADES
 -- ============================================================
 GameConfig.Upgrades = {
