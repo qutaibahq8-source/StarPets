@@ -19,7 +19,7 @@ local PanelModules = {
 
 -- Every panel's ScreenGui is named after its module, so we can sweep them all
 local PANEL_NAMES = {
-	"PetsPanel","HatchPanel","ShopPanel","RebirthPanel","UpgradePanel","LeaderboardPanel",
+	"PetsPanel","HatchPanel","ShopPanel","RebirthPanel","UpgradePanel","LeaderboardPanel","AdminPanel",
 }
 
 local function destroyAllPanels()

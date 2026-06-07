@@ -2,6 +2,8 @@
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Lighting     = game:GetService("Lighting")
+local RunService   = game:GetService("RunService")
+local HttpService  = game:GetService("HttpService")
 
 local DataManager     = require(script.Parent.DataManager)
 local PetService      = require(script.Parent.PetService)
@@ -45,6 +47,7 @@ local RE_Rebirth      = makeEvent("Rebirth")
 local RE_DeletePet    = makeEvent("DeletePet")
 local RE_BuyGamepass  = makeEvent("BuyGamepass")
 local RF_GetData      = makeFunction("GetData")
+local RF_Admin        = makeFunction("AdminCmd")
 
 -- ============================================================
 -- LIGHTING & ATMOSPHERE
@@ -886,6 +889,96 @@ RE_BuyUpgrade.OnServerEvent:Connect(function(player,upgradeKey)
 		RE_Notification:FireClient(player,"error",result)
 	end
 end)
+
+-- ============================================================
+-- ADMIN / DEV PANEL  (server-authoritative — UI can't be trusted)
+-- ============================================================
+local AUTHORIZED = {
+	-- [123456789] = true,   -- add extra admin UserIds here
+}
+local function isAdmin(player)
+	if RunService:IsStudio() then return true end                 -- you, while testing
+	if game.CreatorId ~= 0 and player.UserId == game.CreatorId then return true end
+	return AUTHORIZED[player.UserId] == true
+end
+
+local ADMIN_AREA_POS = {
+	Meadow=Vector3.new(0,6,65), Forest=Vector3.new(145,6,0), Desert=Vector3.new(275,6,0),
+	Volcano=Vector3.new(405,6,0), Space=Vector3.new(535,6,0),
+}
+local ADMIN_GP = {"GP_2xCoins","GP_AutoCollect","GP_VIP","GP_PetSlots","GP_LuckyBoost"}
+
+RF_Admin.OnServerInvoke = function(player, action, arg)
+	if action == "check" then return isAdmin(player) end
+	if not isAdmin(player) then return false end          -- hard server gate
+	arg = arg or {}
+	local data = DataManager.GetData(player)
+
+	if action == "give" and data then
+		if arg.coins then
+			data.Coins = math.max(0, (data.Coins or 0) + arg.coins)
+			if arg.coins > 0 then data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + arg.coins end
+		end
+		if arg.gems then data.Gems = math.max(0, (data.Gems or 0) + arg.gems) end
+		syncData(player)
+	elseif action == "givePet" and data and arg.name then
+		table.insert(data.Pets, { name=arg.name, rarity=arg.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
+		syncData(player); pcall(BadgeService.CheckAll, player)
+	elseif action == "unlockAll" and data then
+		data.UnlockedAreas = {}
+		for _, a in ipairs(GameConfig.Areas) do table.insert(data.UnlockedAreas, a.id) end
+		syncData(player)
+	elseif action == "maxUpgrades" and data then
+		data.Upgrades = data.Upgrades or {}
+		for _, u in ipairs(GameConfig.Upgrades) do data.Upgrades[u.key] = #u.levels end
+		syncData(player)
+	elseif action == "toggleGamepass" and data and arg.key then
+		data[arg.key] = not data[arg.key]; syncData(player)
+	elseif action == "godMode" and data then
+		data.Coins = 1e9; data.Gems = 1e6
+		data.TotalCoinsEarned = math.max(data.TotalCoinsEarned or 0, 1e9)
+		data.UnlockedAreas = {}
+		for _, a in ipairs(GameConfig.Areas) do table.insert(data.UnlockedAreas, a.id) end
+		data.Upgrades = data.Upgrades or {}
+		for _, u in ipairs(GameConfig.Upgrades) do data.Upgrades[u.key] = #u.levels end
+		for _, k in ipairs(ADMIN_GP) do data[k] = true end
+		syncData(player)
+	elseif action == "teleport" and arg.area then
+		local pos, char = ADMIN_AREA_POS[arg.area], player.Character
+		if pos and char and char:FindFirstChild("HumanoidRootPart") then char:PivotTo(CFrame.new(pos)) end
+	elseif action == "bringPlayers" then
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+					p.Character:PivotTo(hrp.CFrame * CFrame.new(math.random(-6,6), 0, math.random(4,9)))
+				end
+			end
+		end
+	elseif action == "resetData" and data then
+		for k, v in pairs(GameConfig.DefaultData) do
+			if typeof(v) == "table" then
+				local t = {}; for kk, vv in pairs(v) do t[kk] = vv end; data[k] = t
+			else data[k] = v end
+		end
+		data.Pets = {}; data.EquippedPets = {}; data.UnlockedAreas = { "Meadow" }
+		pcall(PetService.DespawnAllPets, player); syncData(player)
+	elseif action == "broadcast" and arg.msg then
+		RE_Notification:FireAllClients("info", "📢 " .. tostring(arg.msg))
+	elseif action == "kick" and arg.userId then
+		local t = Players:GetPlayerByUserId(arg.userId)
+		if t and t ~= player then t:Kick("Kicked by an admin") end
+	elseif action == "stats" then
+		local out = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			local d = DataManager.GetData(p)
+			if d then table.insert(out, {name=p.Name, userId=p.UserId, coins=d.Coins or 0, gems=d.Gems or 0, pets=#(d.Pets or {}), rebirths=d.Rebirths or 0}) end
+		end
+		return out
+	end
+	return true
+end
 
 -- ============================================================
 -- INIT

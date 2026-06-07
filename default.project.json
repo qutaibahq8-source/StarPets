@@ -87,6 +87,9 @@
             },
             "LeaderboardPanel": {
               "$path": "src/Client/UI/LeaderboardPanel.lua"
+            },
+            "AdminPanel": {
+              "$path": "src/Client/UI/AdminPanel.lua"
             }
           }
         }

@@ -86,6 +86,7 @@ local RE_BuyUpgrade     = Remotes:WaitForChild("BuyUpgrade")
 local RE_SecretFound    = Remotes:WaitForChild("SecretFound")
 local RE_TitleUpdate    = Remotes:WaitForChild("TitleUpdate")
 local RF_GetData        = Remotes:WaitForChild("GetData")
+local RF_Admin          = Remotes:WaitForChild("AdminCmd")
 
 -- Area barriers: block locked areas for THIS player only (client-side collision)
 local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
@@ -489,8 +490,25 @@ _G.MysticPets = {
 	RE_HatchEgg=RE_HatchEgg, RE_EquipPet=RE_EquipPet, RE_UnequipPet=RE_UnequipPet,
 	RE_BuyArea=RE_BuyArea, RE_Rebirth=RE_Rebirth, RE_DeletePet=RE_DeletePet,
 	RE_BuyGamepass=RE_BuyGamepass, RE_BuyUpgrade=RE_BuyUpgrade,
+	RF_Admin=RF_Admin,
 	getPlayer=function() return Player end,
 }
+
+-- Admin button — only appears for authorized users (server decides)
+task.spawn(function()
+	local ok, isAdm = pcall(function() return RF_Admin:InvokeServer("check") end)
+	if not (ok and isAdm) then return end
+	local btn = Instance.new("TextButton")
+	btn.Name="AdminBtn"; btn.Size=UDim2.new(0,96,0,40); btn.Position=UDim2.new(0,10,1,-52)
+	btn.BackgroundColor3=Color3.fromRGB(150,30,30); btn.Text="🛠 Admin"
+	btn.TextColor3=Color3.new(1,1,1); btn.TextScaled=true; btn.Font=Enum.Font.GothamBold
+	btn.BorderSizePixel=0; btn.Parent=HUD
+	Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
+	Instance.new("UIStroke",btn).Color=Color3.fromRGB(255,120,120)
+	btn.MouseButton1Click:Connect(function()
+		require(script.Parent.UI.UIController).TogglePanel("AdminPanel", CurrentData)
+	end)
+end)
 
 -- ============================================================
 -- INIT
