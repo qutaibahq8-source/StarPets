@@ -251,6 +251,7 @@ local function buildHUD()
 	-- RIGHT SIDE NAV (vertical stack, no Rebirth — that's in the world)
 	local navButtons = {
 		{ name="Pets",    emoji="🐾", panel="PetsPanel",        color=Color3.fromRGB(140,80,255) },
+		{ name="Quests",  emoji="📜", panel="QuestPanel",       color=Color3.fromRGB(90,160,255) },
 		{ name="Hatch",   emoji="🥚", panel="HatchPanel",       color=Color3.fromRGB(50,160,255) },
 		{ name="Ranks",   emoji="🏆", panel="LeaderboardPanel", color=Color3.fromRGB(255,215,0)  },
 		{ name="Upgrade", emoji="⚡", panel="UpgradePanel",     color=Color3.fromRGB(255,200,0)  },

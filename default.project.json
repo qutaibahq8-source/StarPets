@@ -49,6 +49,9 @@
         },
         "LeaderboardService": {
           "$path": "src/Server/LeaderboardService.lua"
+        },
+        "QuestService": {
+          "$path": "src/Server/QuestService.lua"
         }
       }
     },
@@ -90,6 +93,9 @@
             },
             "AdminPanel": {
               "$path": "src/Client/UI/AdminPanel.lua"
+            },
+            "QuestPanel": {
+              "$path": "src/Client/UI/QuestPanel.lua"
             }
           }
         }

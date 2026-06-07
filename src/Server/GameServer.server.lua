@@ -14,6 +14,7 @@ local GamepassService = require(script.Parent.GamepassService)
 local BadgeService         = require(script.Parent.BadgeService)
 local UpgradeService       = require(script.Parent.UpgradeService)
 local LeaderboardService   = require(script.Parent.LeaderboardService)
+local QuestService         = require(script.Parent.QuestService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -48,6 +49,8 @@ local RE_DeletePet    = makeEvent("DeletePet")
 local RE_BuyGamepass  = makeEvent("BuyGamepass")
 local RF_GetData      = makeFunction("GetData")
 local RF_Admin        = makeFunction("AdminCmd")
+local RF_GetQuests    = makeFunction("GetQuests")
+local RE_ClaimQuest   = makeEvent("ClaimQuest")
 
 -- ============================================================
 -- LIGHTING & ATMOSPHERE
@@ -893,6 +896,23 @@ RE_BuyUpgrade.OnServerEvent:Connect(function(player,upgradeKey)
 end)
 
 -- ============================================================
+-- QUESTS
+-- ============================================================
+RF_GetQuests.OnServerInvoke = function(player)
+	return QuestService.GetAll(player)
+end
+RE_ClaimQuest.OnServerEvent:Connect(function(player, id)
+	local ok, res = QuestService.Claim(player, id)
+	if ok then
+		RE_Notification:FireClient(player, "success", "🎉 Quest complete: " .. res.name .. "!")
+		syncData(player)
+		pcall(BadgeService.CheckAll, player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot claim")
+	end
+end)
+
+-- ============================================================
 -- ADMIN / DEV PANEL  (server-authoritative — UI can't be trusted)
 -- ============================================================
 local AUTHORIZED = {
@@ -978,6 +998,10 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 			if d then table.insert(out, {name=p.Name, userId=p.UserId, coins=d.Coins or 0, gems=d.Gems or 0, pets=#(d.Pets or {}), rebirths=d.Rebirths or 0}) end
 		end
 		return out
+	elseif action == "claimQuests" then
+		QuestService.ClaimAll(player); syncData(player)
+	elseif action == "resetQuests" then
+		QuestService.Reset(player); syncData(player)
 	end
 	return true
 end

@@ -234,6 +234,22 @@ GameConfig.DefaultData = {
 		CoinBonus  = 0,
 	},
 	FoundSecret = false,
+	Quests = { claimed = {} },
+}
+
+-- ============================================================
+-- QUESTS  (progress is read from existing stats; claim for reward)
+-- ============================================================
+GameConfig.Quests = {
+	{ id="hatch5",   name="First Hatches",  desc="Hatch 5 eggs",          type="hatch",   goal=5,        reward={coins=2500} },
+	{ id="hatch25",  name="Egg Enjoyer",    desc="Hatch 25 eggs",         type="hatch",   goal=25,       reward={gems=100} },
+	{ id="hatch100", name="Egg Master",     desc="Hatch 100 eggs",        type="hatch",   goal=100,      reward={gems=500} },
+	{ id="coins10k", name="Coin Collector", desc="Earn 10,000 coins",     type="coins",   goal=10000,    reward={gems=50} },
+	{ id="coins1m",  name="Coin Tycoon",    desc="Earn 1,000,000 coins",  type="coins",   goal=1000000,  reward={gems=300} },
+	{ id="unlock2",  name="Explorer",       desc="Unlock 2 worlds",       type="areas",   goal=2,        reward={coins=15000} },
+	{ id="unlock5",  name="Globetrotter",   desc="Unlock all worlds",     type="areas",   goal=4,        reward={gems=400} },
+	{ id="rebirth1", name="Reborn",         desc="Rebirth once",          type="rebirth", goal=1,        reward={gems=250} },
+	{ id="equip3",   name="Pet Squad",      desc="Equip 3 pets at once",  type="equip",   goal=3,        reward={coins=8000} },
 }
 
 -- ============================================================
