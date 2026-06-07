@@ -18,21 +18,29 @@ local OrbCooldown = {}  -- [Part] -> bool (collected, waiting to respawn)
 -- ============================================================
 local function createOrb(position, value, isGem, areaId)
 	local orb = Instance.new("Part")
-	orb.Name       = isGem and "GemOrb" or "CoinOrb"
-	orb.Shape      = Enum.PartType.Ball
-	orb.Size       = Vector3.new(1.4, 1.4, 1.4)
-	orb.Color      = isGem and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(255, 215, 0)
-	orb.Material   = Enum.Material.Neon
+	if isGem then
+		-- gem: shiny cyan crystal
+		orb.Name     = "GemOrb"
+		orb.Shape    = Enum.PartType.Ball
+		orb.Size     = Vector3.new(1.2, 1.6, 1.2)
+		orb.Color    = Color3.fromRGB(70, 215, 255)
+		orb.Material  = Enum.Material.Glass
+		orb.Reflectance = 0.3
+	else
+		-- coin: gold disc (reads as a coin, not a glowing orb)
+		orb.Name     = "CoinOrb"
+		orb.Shape    = Enum.PartType.Cylinder
+		orb.Size     = Vector3.new(0.35, 1.8, 1.8)
+		orb.Orientation = Vector3.new(0, 0, 90)   -- lay the disc flat
+		orb.Color    = Color3.fromRGB(255, 200, 40)
+		orb.Material  = Enum.Material.Foil
+		orb.Reflectance = 0.15
+	end
 	orb.Anchored   = true
 	orb.CanCollide = false
 	orb.CastShadow = false
 	orb.Position   = position
 	orb.Parent     = OrbsFolder
-
-	-- NOTE: no per-orb PointLight. With hundreds of orbs that was ~500 lights
-	-- washing the whole map out. The Neon material already makes them pop.
-
-	-- Float bob (client handles visuals, server just positions)
 	OrbData[orb] = { value = value, isGem = isGem, areaId = areaId }
 	return orb
 end

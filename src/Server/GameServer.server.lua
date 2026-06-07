@@ -301,15 +301,20 @@ local function buildMap()
 		part({Name="EggBase_"..eDef.id,Size=Vector3.new(7,0.5,7),
 			Position=Vector3.new(x,-0.75,-90),Color=Color3.fromRGB(32,28,52),Material=Enum.Material.SmoothPlastic})
 		local rng=part({Name="EggRing_"..eDef.id,Size=Vector3.new(7.4,0.3,7.4),
-			Position=Vector3.new(x,-0.3,-90),Color=eggCfg.color,Material=Enum.Material.Neon,CanCollide=false})
-		glow(rng,eggCfg.color,2)
+			Position=Vector3.new(x,-0.3,-90),Color=eggCfg.color,Material=Enum.Material.SmoothPlastic,CanCollide=false})
 		part({Name="EggCol_"..eDef.id,Size=Vector3.new(2.8,2.2,2.8),
-			Position=Vector3.new(x,0.6,-90),Color=Color3.fromRGB(48,42,70),Material=Enum.Material.SmoothPlastic})
+			Position=Vector3.new(x,0.6,-90),Color=Color3.fromRGB(120,110,135),Material=Enum.Material.Slate})
 
+		-- Actual egg: smooth tapered oval (no glow), with spots welded so they bob with it
 		local egg=part({Name="Egg_"..eDef.id,Shape=Enum.PartType.Ball,
-			Size=Vector3.new(3.2,4,3.2),Position=Vector3.new(x,3.8,-90),
-			Color=eggCfg.color,Material=Enum.Material.Neon,CanCollide=false})
-		glow(egg,eggCfg.color,3); particles(egg,eggCfg.color,20)
+			Size=Vector3.new(3,4.2,3),Position=Vector3.new(x,3.8,-90),
+			Color=eggCfg.color,Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		for _,off in ipairs({Vector3.new(0.55,0.5,0.95),Vector3.new(-0.7,-0.2,0.85),Vector3.new(0.15,1.3,0.7)}) do
+			local spot=part({Name="EggSpot",Shape=Enum.PartType.Ball,Size=Vector3.new(0.95,0.95,0.5),
+				Position=Vector3.new(x,3.8,-90)+off,Color=Color3.fromRGB(255,255,255),Material=Enum.Material.SmoothPlastic,CanCollide=false})
+			spot.Anchored=false
+			local w=Instance.new("WeldConstraint"); w.Part0=egg; w.Part1=spot; w.Parent=egg
+		end
 
 		local costText = eggCfg.id=="StarterEgg"
 			and ("🆓 FREE → then 💰 "..(eggCfg.costAfterFirst or 150))
