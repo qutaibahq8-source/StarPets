@@ -236,8 +236,10 @@ local function decorateBiome(id, cx, baseY)
 end
 
 local function buildMap()
-	-- ---- TERRAIN BASE ----
-	workspace.Terrain:FillBlock(CFrame.new(260,-8,10), Vector3.new(760,12,280), Enum.Material.Grass)
+	-- ---- GROUND: flat static green floor (no terrain grass blades) ----
+	pcall(function() workspace.Terrain:Clear() end)  -- remove any terrain grass
+	part({Name="GroundFloor",Size=Vector3.new(820,2,300),Position=Vector3.new(260,-1.1,5),
+		Color=Color3.fromRGB(96,168,76),Material=Enum.Material.Grass})
 
 	-- ---- SPAWN PLATFORM (60x60, fits 20 players) ----
 	part({Name="SpawnPlat",Size=Vector3.new(60,2,60),Position=Vector3.new(0,-1,0),
