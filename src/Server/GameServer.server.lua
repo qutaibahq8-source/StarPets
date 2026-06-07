@@ -243,9 +243,9 @@ local function buildMap()
 
 	-- ---- SPAWN PLATFORM (60x60, fits 20 players) ----
 	part({Name="SpawnPlat",Size=Vector3.new(60,2,60),Position=Vector3.new(0,-1,0),
-		Color=Color3.fromRGB(50,44,78),Material=Enum.Material.SmoothPlastic})
+		Color=Color3.fromRGB(188,182,170),Material=Enum.Material.Cobblestone})
 	part({Name="SpawnRing",Size=Vector3.new(62,0.25,62),Position=Vector3.new(0,0.12,0),
-		Color=Color3.fromRGB(95,65,150),Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		Color=Color3.fromRGB(205,180,120),Material=Enum.Material.SmoothPlastic,CanCollide=false})
 
 	-- SpawnLocation — invisible
 	local sp = Instance.new("SpawnLocation")
