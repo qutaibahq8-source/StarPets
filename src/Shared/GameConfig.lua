@@ -107,7 +107,7 @@ GameConfig.Areas = {
 	{
 		id = "Forest",
 		name = "Mystic Forest",
-		unlockCost = 5000,
+		unlockCost = 250000,    -- ~10 min of Meadow income (commons)
 		currency = "Coins",
 		coinOrbValue = 8,
 		gemOrbChance = 0.015,
@@ -118,7 +118,7 @@ GameConfig.Areas = {
 	{
 		id = "Desert",
 		name = "Golden Desert",
-		unlockCost = 75000,
+		unlockCost = 4000000,   -- ~10 min of Forest income (uncommon/rare pets)
 		currency = "Coins",
 		coinOrbValue = 40,
 		gemOrbChance = 0.025,
@@ -129,7 +129,7 @@ GameConfig.Areas = {
 	{
 		id = "Volcano",
 		name = "Inferno Volcano",
-		unlockCost = 2000000,
+		unlockCost = 20000000,  -- ~10 min of Desert income (epic pets)
 		currency = "Coins",
 		coinOrbValue = 200,
 		gemOrbChance = 0.04,
@@ -140,7 +140,7 @@ GameConfig.Areas = {
 	{
 		id = "Space",
 		name = "Star Space",
-		unlockCost = 50000000,
+		unlockCost = 150000000, -- ~10 min of Volcano income (legendary pets)
 		currency = "Coins",
 		coinOrbValue = 2000,
 		gemOrbChance = 0.08,
