@@ -30,7 +30,7 @@ local function createOrb(position, value, isGem, areaId)
 		-- coin: VERTICAL gold disc with a paw emblem on each face
 		orb.Name     = "CoinOrb"
 		orb.Shape    = Enum.PartType.Cylinder
-		orb.Size     = Vector3.new(0.4, 2.0, 2.0)   -- thin disc, axis on X = stands vertical
+		orb.Size     = Vector3.new(0.45, 2.7, 2.7)  -- big disc (~stomach height), axis on X = vertical
 		orb.Color    = Color3.fromRGB(255, 200, 40)
 		orb.Material  = Enum.Material.Foil
 		orb.Reflectance = 0.15
@@ -73,7 +73,7 @@ function CurrencyService.SeedArea(areaId, areaOrigin, orbCount)
 	for i = 1, orbCount do
 		local x = areaOrigin.X + math.random(-58, 58)
 		local z = areaOrigin.Z + math.random(-85, 85)
-		local y = areaOrigin.Y + 3.5  -- float above the tall grass so orbs are visible
+		local y = areaOrigin.Y + 0.4  -- low so the coin sits at ~stomach height (grass is flat now)
 		local pos = Vector3.new(x, y, z)
 
 		local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))
