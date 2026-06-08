@@ -129,7 +129,7 @@ end
 local function glow(p, color, brightness)
 	-- Subtle by default — too many bright PointLights washed the map out
 	local l = Instance.new("PointLight")
-	l.Color = color; l.Brightness = (brightness or 2) * 0.35; l.Range = 9; l.Parent = p
+	l.Color = color; l.Brightness = (brightness or 2) * 0.15; l.Range = 7; l.Parent = p
 end
 
 local function particles(p, color, rate)
@@ -312,7 +312,7 @@ local function buildMap()
 		for _,off in ipairs({Vector3.new(0.55,0.5,0.95),Vector3.new(-0.7,-0.2,0.85),Vector3.new(0.15,1.3,0.7)}) do
 			local spot=part({Name="EggSpot",Shape=Enum.PartType.Ball,Size=Vector3.new(0.95,0.95,0.5),
 				Position=Vector3.new(x,3.8,-90)+off,Color=Color3.fromRGB(255,255,255),Material=Enum.Material.SmoothPlastic,CanCollide=false})
-			spot.Anchored=false
+			spot.Anchored=false; spot.CanQuery=false  -- don't block clicks on the egg
 			local w=Instance.new("WeldConstraint"); w.Part0=egg; w.Part1=spot; w.Parent=egg
 		end
 
@@ -329,7 +329,7 @@ local function buildMap()
 				egg.CFrame=CFrame.new(sp2+Vector3.new(0,math.sin(t*1.5)*0.5,0))*CFrame.Angles(0,t*0.7,math.sin(t*0.4)*0.08)
 			end
 		end)
-		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=22; cd.Parent=egg
+		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=egg
 		cd.MouseClick:Connect(function(player) RE_HatchEgg:FireClient(player,eDef.id) end)
 	end
 
@@ -433,10 +433,9 @@ local function buildMap()
 		local rPil=part({Name="GPR_"..b.id,Size=Vector3.new(3,20,3),
 			Position=Vector3.new(gateX,-1+10,20),Color=b.col,Material=Enum.Material.SmoothPlastic})
 		glow(rPil,b.col,1.2)
-		-- Top bar
+		-- Top bar (no glow/particles — was a glowy neon beam)
 		local topBar=part({Name="GTop_"..b.id,Size=Vector3.new(3,2.5,44),
-			Position=Vector3.new(gateX,19.5,0),Color=b.col,Material=Enum.Material.Neon,CanCollide=false})
-		glow(topBar,b.col,3); particles(topBar,b.col,6)
+			Position=Vector3.new(gateX,19.5,0),Color=b.col,Material=Enum.Material.SmoothPlastic,CanCollide=false})
 
 		local cost=areaConfig.unlockCost==0 and "🆓 FREE" or ("💰 "..comma(areaConfig.unlockCost).." Coins")
 		billboard(topBar,areaConfig.name,Color3.new(1,1,1),cost,Color3.fromRGB(255,215,0),UDim2.new(0,220,0,80))
