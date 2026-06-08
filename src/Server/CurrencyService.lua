@@ -27,14 +27,22 @@ local function createOrb(position, value, isGem, areaId)
 		orb.Material  = Enum.Material.Glass
 		orb.Reflectance = 0.3
 	else
-		-- coin: gold disc (reads as a coin, not a glowing orb)
+		-- coin: VERTICAL gold disc with a paw emblem on each face
 		orb.Name     = "CoinOrb"
 		orb.Shape    = Enum.PartType.Cylinder
-		orb.Size     = Vector3.new(0.35, 1.8, 1.8)
-		orb.Orientation = Vector3.new(0, 0, 90)   -- lay the disc flat
+		orb.Size     = Vector3.new(0.4, 2.0, 2.0)   -- thin disc, axis on X = stands vertical
 		orb.Color    = Color3.fromRGB(255, 200, 40)
 		orb.Material  = Enum.Material.Foil
 		orb.Reflectance = 0.15
+		for _, face in ipairs({Enum.NormalId.Right, Enum.NormalId.Left}) do
+			local sg = Instance.new("SurfaceGui")
+			sg.Face = face; sg.Adornee = orb; sg.CanvasSize = Vector2.new(100,100)
+			sg.LightInfluence = 1; sg.Parent = orb
+			local paw = Instance.new("TextLabel")
+			paw.Size = UDim2.new(1,0,1,0); paw.BackgroundTransparency = 1
+			paw.Text = "🐾"; paw.TextColor3 = Color3.fromRGB(150,105,10)
+			paw.TextScaled = true; paw.Font = Enum.Font.GothamBold; paw.Parent = sg
+		end
 	end
 	orb.Anchored   = true
 	orb.CanCollide = false
