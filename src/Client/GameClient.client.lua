@@ -109,6 +109,18 @@ local function updateBarriers(data)
 	end
 end
 
+-- Slowly spin the coins (client-side, visual only — no lag, no replication)
+task.spawn(function()
+	local Orbs = workspace:WaitForChild("Orbs", 30)
+	if not Orbs then return end
+	game:GetService("RunService").RenderStepped:Connect(function(dt)
+		local spin = CFrame.Angles(0, dt * 1.1, 0)
+		for _, orb in ipairs(Orbs:GetChildren()) do
+			if orb.Name == "CoinOrb" then orb.CFrame = orb.CFrame * spin end
+		end
+	end)
+end)
+
 local CurrentData = nil
 
 -- ============================================================
