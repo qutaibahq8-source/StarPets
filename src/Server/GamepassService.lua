@@ -97,11 +97,11 @@ function GamepassService.GrantVIPPet(player)
 
 	-- Check if already has VIP pet
 	for _, pet in ipairs(data.Pets) do
-		if pet.name == "Celestial Dragon" and pet.isVIPGrant then return end
+		if pet.name == "goldenpeacock" and pet.isVIPGrant then return end
 	end
 
 	local newPet = {
-		name     = "Celestial Dragon",
+		name     = "goldenpeacock",
 		rarity   = "Mythic",
 		uniqueId = "VIP_" .. player.UserId,
 		isVIPGrant = true,

@@ -1171,6 +1171,16 @@ end
 -- ============================================================
 -- INIT
 -- ============================================================
+-- Move the imported pet-model pack into ReplicatedStorage if it was left in
+-- Workspace, so PetModels can clone from it (and it's out of the world).
+do
+	local pm = ReplicatedStorage:FindFirstChild("PetMeshes")
+		or workspace:FindFirstChild("PetMeshes")
+		or workspace:FindFirstChild("PetMashes")
+		or ReplicatedStorage:FindFirstChild("PetMashes")
+	if pm then pm.Name = "PetMeshes"; pm.Parent = ReplicatedStorage end
+end
+
 setupLighting()
 PetService.Init()
 CurrencyService.Init()
