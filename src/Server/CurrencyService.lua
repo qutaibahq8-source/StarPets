@@ -34,22 +34,6 @@ local function createOrb(position, value, isGem, areaId)
 		orb.Color    = Color3.fromRGB(255, 200, 40)
 		orb.Material  = Enum.Material.Foil
 		orb.Reflectance = 0.15
-		-- one cool minted face: gold ring border + a paw stamped in the middle
-		local sg = Instance.new("SurfaceGui")
-		sg.Face = Enum.NormalId.Right; sg.Adornee = orb; sg.CanvasSize = Vector2.new(140,140)
-		sg.LightInfluence = 1; sg.Parent = orb
-		local ring = Instance.new("Frame")
-		ring.Size = UDim2.new(0.92,0,0.92,0); ring.Position = UDim2.new(0.04,0,0.04,0)
-		ring.BackgroundColor3 = Color3.fromRGB(210,160,30); ring.BorderSizePixel = 0; ring.Parent = sg
-		Instance.new("UICorner", ring).CornerRadius = UDim.new(1,0)
-		local inner = Instance.new("Frame")
-		inner.Size = UDim2.new(0.84,0,0.84,0); inner.Position = UDim2.new(0.08,0,0.08,0)
-		inner.BackgroundColor3 = Color3.fromRGB(255,212,70); inner.BorderSizePixel = 0; inner.Parent = ring
-		Instance.new("UICorner", inner).CornerRadius = UDim.new(1,0)
-		local paw = Instance.new("TextLabel")
-		paw.Size = UDim2.new(0.8,0,0.8,0); paw.Position = UDim2.new(0.1,0,0.1,0)
-		paw.BackgroundTransparency = 1; paw.Text = "🐾"; paw.TextColor3 = Color3.fromRGB(120,80,5)
-		paw.TextScaled = true; paw.Font = Enum.Font.GothamBold; paw.Parent = inner
 	end
 	orb.Anchored   = true
 	orb.CanCollide = false
