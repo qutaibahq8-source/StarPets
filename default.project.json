@@ -114,6 +114,9 @@
             },
             "TradePanel": {
               "$path": "src/Client/UI/TradePanel.lua"
+            },
+            "PetIndexPanel": {
+              "$path": "src/Client/UI/PetIndexPanel.lua"
             }
           }
         }

@@ -272,6 +272,7 @@ local function buildHUD()
 	-- RIGHT SIDE NAV (vertical stack, no Rebirth — that's in the world)
 	local navButtons = {
 		{ name="Pets",    emoji="🐾", panel="PetsPanel",        color=Color3.fromRGB(140,80,255) },
+		{ name="Index",   emoji="📖", panel="PetIndexPanel",    color=Color3.fromRGB(150,120,255) },
 		{ name="Quests",  emoji="📜", panel="QuestPanel",       color=Color3.fromRGB(90,160,255) },
 		-- Hatch removed from HUD on purpose: hatching is via the physical eggs in the world
 		{ name="Ranks",   emoji="🏆", panel="LeaderboardPanel", color=Color3.fromRGB(255,215,0)  },
