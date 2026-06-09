@@ -425,29 +425,31 @@ local function buildMap()
 
 		local gateX=b.cx-65  -- gate sits at left edge of biome
 
-		-- Left pillar
-		local lPil=part({Name="GPL_"..b.id,Size=Vector3.new(3,20,3),
-			Position=Vector3.new(gateX,-1+10,-20),Color=b.col,Material=Enum.Material.SmoothPlastic})
-		glow(lPil,b.col,1.2)
-		-- Right pillar
-		local rPil=part({Name="GPR_"..b.id,Size=Vector3.new(3,20,3),
-			Position=Vector3.new(gateX,-1+10,20),Color=b.col,Material=Enum.Material.SmoothPlastic})
-		glow(rPil,b.col,1.2)
-		-- Top bar (no glow/particles — was a glowy neon beam)
-		local topBar=part({Name="GTop_"..b.id,Size=Vector3.new(3,2.5,44),
-			Position=Vector3.new(gateX,19.5,0),Color=b.col,Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		local cost=areaConfig.unlockCost==0 and "FREE" or ("💰 "..comma(areaConfig.unlockCost).." Coins")
 
-		local cost=areaConfig.unlockCost==0 and "🆓 FREE" or ("💰 "..comma(areaConfig.unlockCost).." Coins")
-		billboard(topBar,areaConfig.name,Color3.new(1,1,1),cost,Color3.fromRGB(255,215,0),UDim2.new(0,220,0,80))
-
-		-- Invisible click trigger (wide gate opening)
-		local trigger=part({Name="GTrig_"..b.id,Size=Vector3.new(3,18,36),
-			Position=Vector3.new(gateX,8,0),Transparency=1,CanCollide=false})
-		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=28; cd.Parent=trigger
+		-- BLACK WALL that closes off the locked island (no gate/door arch).
+		-- Click it to unlock; it vanishes per-player once unlocked (updateBarriers).
+		local barrier=part({Name="Barrier_"..b.id,Size=Vector3.new(3,36,250),
+			Position=Vector3.new(gateX,16,5),Color=Color3.fromRGB(22,20,30),
+			Material=Enum.Material.SmoothPlastic,Transparency=0,CanCollide=false})
+		barrier.Parent=AreaBarriers
+		part({Name="BStripe",Size=Vector3.new(3.2,3.5,250),Position=Vector3.new(gateX,33,5),
+			Color=b.col,Material=Enum.Material.SmoothPlastic,CanCollide=false}).Parent=barrier
+		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=barrier
 		cd.MouseClick:Connect(function(player) RE_BuyArea:FireClient(player,b.id) end)
-
-		-- Doors removed: no barrier wall covering the island (open access).
-		-- Cost is still shown on the gate sign above.
+		-- requirement sign on the wall
+		local sign=Instance.new("BillboardGui")
+		sign.Name="WallSign"; sign.Size=UDim2.new(0,640,0,240); sign.StudsOffset=Vector3.new(0,20,0)
+		sign.MaxDistance=400; sign.Adornee=barrier; sign.Parent=barrier
+		local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.42,0); t1.BackgroundTransparency=1
+		t1.Text="🔒 "..areaConfig.name; t1.TextColor3=Color3.new(1,1,1); t1.TextScaled=true
+		t1.Font=Enum.Font.GothamBold; t1.TextStrokeTransparency=0.25; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=sign
+		local t2=Instance.new("TextLabel"); t2.Size=UDim2.new(1,0,0.4,0); t2.Position=UDim2.new(0,0,0.42,0)
+		t2.BackgroundTransparency=1; t2.Text="Costs "..cost; t2.TextColor3=Color3.fromRGB(255,215,0); t2.TextScaled=true
+		t2.Font=Enum.Font.GothamBold; t2.TextStrokeTransparency=0.25; t2.TextStrokeColor3=Color3.new(0,0,0); t2.Parent=sign
+		local t3=Instance.new("TextLabel"); t3.Size=UDim2.new(1,0,0.18,0); t3.Position=UDim2.new(0,0,0.82,0)
+		t3.BackgroundTransparency=1; t3.Text="Click to unlock"; t3.TextColor3=Color3.fromRGB(185,205,255)
+		t3.TextScaled=true; t3.Font=Enum.Font.Gotham; t3.Parent=sign
 	end
 
 	-- ============================================================
