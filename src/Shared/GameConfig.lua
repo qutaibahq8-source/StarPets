@@ -85,12 +85,14 @@ end
 -- ============================================================
 -- CODES  (redeemable for rewards; add more any time)
 -- ============================================================
+-- Keep these modest — small early-game boosts, NOT game-breakers.
+-- (No best pets, no huge sums that skip islands. Forest costs 250k, so
+--  rewards stay well under that.)
 GameConfig.Codes = {
-	WELCOME  = { coins=50000,   gems=100,  label="Welcome gift" },
-	RELEASE  = { coins=250000,  gems=250,  label="Release reward" },
-	SHINY    = { gems=500,                 label="Shiny luck" },
-	VOIDKING = { pet="Void Serpent", petRarity="Mythic", label="The Void King!" },
-	THANKYOU = { coins=1000000,            label="Thank you!" },
+	WELCOME = { coins=15000, gems=30,  label="Welcome gift" },
+	RELEASE = { coins=30000, gems=60,  label="Release reward" },
+	LUCKY   = { gems=120,              label="Lucky gems" },
+	THANKS  = { coins=50000,           label="Thank you!" },
 }
 
 -- ============================================================
