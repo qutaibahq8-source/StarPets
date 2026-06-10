@@ -10,7 +10,7 @@ local ActiveGui  = nil
 local ActiveData = nil
 
 local function G() return _G.MysticPets end
-local function fmt(n) return G().formatNum(n) end
+local function fmt(n) return (G().formatNum or G().fmt or tostring)(n) end
 
 local rarityOrder = { "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common" }
 local rarityRank  = {}
@@ -48,6 +48,7 @@ end
 
 function PetsPanel.Build(data)
 	ActiveData = data
+	lastSig = sigOf(data)
 
 	local screen = Instance.new("ScreenGui")
 	screen.Name           = "PetsPanel"
