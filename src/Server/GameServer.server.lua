@@ -1187,19 +1187,25 @@ end
 -- INIT
 -- ============================================================
 -- Move the imported pet-model pack into ReplicatedStorage if it was left in
--- Workspace, so PetModels can clone from it (and it's out of the world).
-do
-	local pm = ReplicatedStorage:FindFirstChild("PetMeshes")
-		or workspace:FindFirstChild("PetMeshes")
-		or workspace:FindFirstChild("PetMashes")
-		or ReplicatedStorage:FindFirstChild("PetMashes")
-	if pm then pm.Name = "PetMeshes"; pm.Parent = ReplicatedStorage end
-end
+-- Workspace. PROTECTED — this must never be able to kill the rest of init.
+pcall(function()
+	local wsPM = workspace:FindFirstChild("PetMeshes") or workspace:FindFirstChild("PetMashes")
+	if wsPM then
+		local rsPM = ReplicatedStorage:FindFirstChild("PetMeshes")
+		if rsPM and rsPM ~= wsPM then
+			for _, m in ipairs(wsPM:GetChildren()) do m.Parent = rsPM end
+			wsPM:Destroy()
+		else
+			wsPM.Name = "PetMeshes"; wsPM.Parent = ReplicatedStorage
+		end
+	end
+end)
 
 setupLighting()
 PetService.Init()
 CurrencyService.Init()
-buildMap()
+local mapOk, mapErr = pcall(buildMap)
+if not mapOk then warn("[StarPets] buildMap error: " .. tostring(mapErr)) end
 BadgeService.SetRemote(RE_BadgeEarned)
 CurrencyService.StartPassiveIncome(PetService)
 MerchantService.Start(function()

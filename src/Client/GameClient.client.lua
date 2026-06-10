@@ -283,17 +283,20 @@ local function buildHUD()
 		{ name="Trade",   emoji="🤝", panel="TradePanel",      color=Color3.fromRGB(90,200,120) },
 		{ name="Codes",   emoji="🎁", panel="CodesPanel",      color=Color3.fromRGB(90,200,150) },
 	}
-	local btnSize = 58
-	local btnGap  = 8
-	local totalH  = #navButtons * btnSize + (#navButtons-1) * btnGap
-	local startY  = 0.5 - (totalH/2) / 600  -- rough center
+	local btnSize = 56
+	local btnGap  = 7
+	local cols    = 2
+	local rows    = math.ceil(#navButtons / cols)
+	local totalH  = rows * btnSize + (rows-1) * btnGap
 
 	for i, btn in ipairs(navButtons) do
-		local yOffset = (i-1) * (btnSize + btnGap)
+		local col = (i-1) % cols            -- 0 = left, 1 = right (edge)
+		local row = math.floor((i-1) / cols)
 
 		local b = Instance.new("TextButton")
 		b.Size     = UDim2.new(0, btnSize, 0, btnSize)
-		b.Position = UDim2.new(1, -(btnSize+10), 0.5, -totalH/2 + yOffset)
+		b.Position = UDim2.new(1, -(btnSize+10) - (cols-1-col)*(btnSize+btnGap),
+			0.5, -totalH/2 + row*(btnSize+btnGap))
 		b.BackgroundColor3 = Color3.fromRGB(18,14,35)
 		b.BackgroundTransparency = 0.15
 		b.Text     = btn.emoji.."\n"..btn.name
