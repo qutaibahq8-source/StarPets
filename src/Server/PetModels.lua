@@ -414,30 +414,33 @@ local function normalizeTemplate(inst)
 			d:Destroy()
 		end
 	end
-	local root = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
-	if not root then
-		local bestVol
-		for _, d in ipairs(model:GetDescendants()) do
-			if d:IsA("BasePart") then
-				local v = d.Size.X * d.Size.Y * d.Size.Z
-				if not bestVol or v > bestVol then root, bestVol = d, v end
-			end
-		end
-	end
-	if not root then return nil end
+	-- prep all parts
+	local hasPart = false
 	for _, d in ipairs(model:GetDescendants()) do
 		if d:IsA("BasePart") then
-			d.Anchored = true; d.CanCollide = false; d.CastShadow = false
+			d.Anchored = true; d.CanCollide = false; d.CastShadow = false; d.Massless = true
+			hasPart = true
 		end
 	end
-	root.Name = "HumanoidRootPart"
+	if not hasPart then return nil end
+
+	-- bounding box BEFORE adding our own root
+	local bbCF, bbSize
+	pcall(function() bbCF, bbSize = model:GetBoundingBox() end)
+	local center = (bbCF and bbCF.Position) or Vector3.new()
+	bbSize = bbSize or Vector3.new(3,3,3)
+
+	-- a clean, UPRIGHT, centered root so the model isn't tilted by a random part
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"; root.Size = Vector3.new(0.4,0.4,0.4)
+	root.Transparency = 1; root.CanCollide = false; root.Anchored = true; root.Massless = true
+	root.CFrame = CFrame.new(center)
+	root.Parent = model
 	model.PrimaryPart = root
-	-- Auto-scale to a sane size regardless of how it was exported from Blender
-	local ext = model:GetExtentsSize()
-	local biggest = math.max(ext.X, ext.Y, ext.Z)
-	if biggest > 0.01 then
-		model:ScaleTo(3.5 / biggest)
-	end
+
+	-- scale to a consistent size
+	local biggest = math.max(bbSize.X, bbSize.Y, bbSize.Z)
+	if biggest > 0.01 then pcall(function() model:ScaleTo(3.2 / biggest) end) end
 	return model, root
 end
 
@@ -445,7 +448,7 @@ local function addNameTag(model, root, petData, rarityInfo, s, mut)
 	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
 	local bb = Instance.new("BillboardGui")
 	bb.Size=UDim2.new(0,160,0,52); bb.StudsOffset=Vector3.new(0,2.6*s,0)
-	bb.MaxDistance=40; bb.Adornee=root; bb.AlwaysOnTop=false; bb.Parent=model
+	bb.MaxDistance=20; bb.Adornee=root; bb.AlwaysOnTop=false; bb.Parent=model
 	local n=Instance.new("TextLabel"); n.Size=UDim2.new(1,0,0.58,0); n.BackgroundTransparency=1
 	n.Text=(mut and (mut.emoji.." "..mut.name.." ") or "")..petData.name
 	n.TextColor3=(mut and mut.color) or rColor; n.TextScaled=true; n.Font=Enum.Font.GothamBold

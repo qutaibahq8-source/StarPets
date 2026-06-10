@@ -16,6 +16,13 @@ local rarityOrder = { "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common
 local rarityRank  = {}
 for i, r in ipairs(rarityOrder) do rarityRank[r] = i end
 
+-- Signature of what the panel actually shows (pets + equipped). Used so the
+-- panel only rebuilds when these change — NOT on every per-second coin tick.
+local lastSig
+local function sigOf(data)
+	return tostring(#((data or {}).Pets or {})) .. "|" .. table.concat((data or {}).EquippedPets or {}, ",")
+end
+
 local function sortPets(pets)
 	local sorted = {}
 	for _, p in ipairs(pets) do table.insert(sorted, p) end
@@ -249,9 +256,13 @@ end
 
 function PetsPanel.Refresh(data)
 	ActiveData = data
-	-- Rebuild when data changes
 	local existing = PlayerGui:FindFirstChild("PetsPanel")
-	if existing then
+	if not existing then return end
+	-- Only rebuild if the pet list / equipped set actually changed (NOT every
+	-- coin tick). This stops the panel flickering once a second.
+	local sig = sigOf(data)
+	if sig ~= lastSig then
+		lastSig = sig
 		existing:Destroy()
 		PetsPanel.Build(data)
 	end

@@ -328,6 +328,7 @@ end
 -- ============================================================
 -- DATA UPDATE
 -- ============================================================
+local lastInvSig = ""
 local function onDataUpdated(data)
 	local newCoins = data.Coins or 0
 	if CurrentData and newCoins > prevCoins then
@@ -346,8 +347,14 @@ local function onDataUpdated(data)
 	PetCountLabel.Text = #(data.EquippedPets or {}).."/"..maxSlots
 	local r = data.Rebirths or 0
 	RebirthLabel.Text = r>0 and ("♻️ "..r.."x Rebirth") or "⭐ No Rebirth"
-	local UIController = require(script.Parent.UI.UIController)
-	UIController.RefreshCurrent(data)
+	-- Only refresh an OPEN panel when the inventory actually changed — rebuilding
+	-- it every coin tick is what made the Pets tab flicker/pop.
+	local sig = #(data.Pets or {}) .. "|" .. table.concat(data.EquippedPets or {}, ",")
+		.. "|" .. tostring(data.Rebirths or 0) .. "|" .. #(data.UnlockedAreas or {})
+	if sig ~= lastInvSig then
+		lastInvSig = sig
+		require(script.Parent.UI.UIController).RefreshCurrent(data)
+	end
 end
 
 RE_DataUpdated.OnClientEvent:Connect(onDataUpdated)
