@@ -464,6 +464,8 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	-- 1) Use a custom imported Blender mesh if one exists:
 	--    ReplicatedStorage/PetMeshes/<PetName>  (MeshPart or Model)
 	local folder = ReplicatedStorage:FindFirstChild("PetMeshes")
+		or workspace:FindFirstChild("PetMeshes")
+		or workspace:FindFirstChild("PetMashes")
 	local template
 	if folder then
 		-- 1) a model named exactly this pet, else 2) one named "Default",
