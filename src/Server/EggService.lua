@@ -119,6 +119,13 @@ function EggService.HatchEgg(player, eggId)
 		rarity   = chosen.rarity,
 		uniqueId = generateUniqueId(),
 	}
+	-- Roll a mutation (rarest-first; lucky boost improves odds)
+	for _, mut in ipairs(GameConfig.Mutations) do
+		if math.random() < (mut.chance * luckyBoost) then
+			newPet.mutation = mut.id
+			break
+		end
+	end
 	table.insert(data.Pets, newPet)
 	data.EggsHatched = (data.EggsHatched or 0) + 1
 

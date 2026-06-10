@@ -215,7 +215,8 @@ function PetService.SpawnPet(player, petEntry, slotIndex, totalSlots)
 	end
 
 	local rarityInfo = GameConfig.Rarities[petData.rarity]
-	local model = PetModels.Build(petData, petEntry.uniqueId, rarityInfo)
+	local mut = GameConfig.GetMutation and GameConfig.GetMutation(petEntry.mutation)
+	local model = PetModels.Build(petData, petEntry.uniqueId, rarityInfo, mut)
 
 	-- Start at player position
 	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -315,8 +316,10 @@ function PetService.GetPlayerIncome(player)
 			if pet.uniqueId == uniqueId then
 				local petData = PetLookup[pet.name]
 				if petData then
-					totalCoinMult = totalCoinMult + petData.coinMult
-					totalGemMult  = totalGemMult  + petData.gemMult
+					local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
+					local mm = (mut and mut.mult) or 1
+					totalCoinMult = totalCoinMult + petData.coinMult * mm
+					totalGemMult  = totalGemMult  + petData.gemMult * mm
 				end
 				break
 			end

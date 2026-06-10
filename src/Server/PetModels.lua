@@ -441,13 +441,14 @@ local function normalizeTemplate(inst)
 	return model, root
 end
 
-local function addNameTag(model, root, petData, rarityInfo, s)
+local function addNameTag(model, root, petData, rarityInfo, s, mut)
 	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
 	local bb = Instance.new("BillboardGui")
-	bb.Size=UDim2.new(0,150,0,52); bb.StudsOffset=Vector3.new(0,2.6*s,0)
-	bb.MaxDistance=35; bb.Adornee=root; bb.AlwaysOnTop=false; bb.Parent=model
+	bb.Size=UDim2.new(0,160,0,52); bb.StudsOffset=Vector3.new(0,2.6*s,0)
+	bb.MaxDistance=40; bb.Adornee=root; bb.AlwaysOnTop=false; bb.Parent=model
 	local n=Instance.new("TextLabel"); n.Size=UDim2.new(1,0,0.58,0); n.BackgroundTransparency=1
-	n.Text=petData.name; n.TextColor3=rColor; n.TextScaled=true; n.Font=Enum.Font.GothamBold
+	n.Text=(mut and (mut.emoji.." "..mut.name.." ") or "")..petData.name
+	n.TextColor3=(mut and mut.color) or rColor; n.TextScaled=true; n.Font=Enum.Font.GothamBold
 	n.TextStrokeTransparency=0.3; n.TextStrokeColor3=Color3.new(0,0,0); n.Parent=bb
 	local r=Instance.new("TextLabel"); r.Size=UDim2.new(1,0,0.42,0); r.Position=UDim2.new(0,0,0.58,0)
 	r.BackgroundTransparency=1; r.Text=(rarityInfo and (rarityInfo.displayName or rarityInfo.name)) or petData.rarity
@@ -455,7 +456,7 @@ local function addNameTag(model, root, petData, rarityInfo, s)
 	r.TextStrokeTransparency=0.4; r.TextStrokeColor3=Color3.new(0,0,0); r.Parent=bb
 end
 
-function PetModels.Build(petData, uniqueId, rarityInfo)
+function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	local s = petData.size or 1.0
 	local rColor = rarityInfo and rarityInfo.color or Color3.fromRGB(200,200,200)
 
@@ -485,7 +486,17 @@ function PetModels.Build(petData, uniqueId, rarityInfo)
 	end
 
 	model.Name = petData.name .. "_" .. uniqueId
-	addNameTag(model, root, petData, rarityInfo, s)
+	addNameTag(model, root, petData, rarityInfo, s, mut)
+	-- mutation sparkle effect
+	if mut and root then
+		local att = Instance.new("Attachment"); att.Parent = root
+		local pe = Instance.new("ParticleEmitter"); pe.Parent = att
+		pe.Color = ColorSequence.new(mut.color); pe.LightEmission = 0.7
+		pe.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0.45),NumberSequenceKeypoint.new(1,0)})
+		pe.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,1)})
+		pe.Lifetime = NumberRange.new(0.6,1.1); pe.Rate = 16; pe.Speed = NumberRange.new(1,2.5)
+		pe.SpreadAngle = Vector2.new(180,180); pe.Rotation = NumberRange.new(0,360)
+	end
 	model.PrimaryPart = root
 	return model, root
 end

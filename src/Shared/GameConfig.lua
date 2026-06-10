@@ -63,8 +63,24 @@ GameConfig.Pets = {
 	{ name = "wight bear", rarity = "Legendary", coinMult = 80000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
 	-- Mythic
 	{ name = "Reindeer", rarity = "Mythic", coinMult = 500000, gemMult = 25, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "goldenpeacock", rarity = "Mythic", coinMult = 900000, gemMult = 25, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "goldenpeacock", rarity = "Mythic", coinMult = 900000, gemMult = 30, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "Void Serpent", rarity = "Mythic", coinMult = 2000000, gemMult = 50, size = 1.0, color = Color3.fromRGB(180,0,255) },  -- THE BEST
 }
+
+-- ============================================================
+-- MUTATIONS  (rolled on hatch; multiply a pet's earnings)
+-- Listed rarest-first so the best one you roll wins.
+-- ============================================================
+GameConfig.Mutations = {
+	{ id="Rainbow", name="Rainbow", emoji="🌈", mult=10, chance=0.004, color=Color3.fromRGB(255,120,220) },
+	{ id="Shiny",   name="Shiny",   emoji="✨", mult=4,  chance=0.02,  color=Color3.fromRGB(120,230,255) },
+	{ id="Golden",  name="Golden",  emoji="🌟", mult=2,  chance=0.06,  color=Color3.fromRGB(255,215,0)   },
+}
+function GameConfig.GetMutation(id)
+	if not id then return nil end
+	for _, m in ipairs(GameConfig.Mutations) do if m.id == id then return m end end
+	return nil
+end
 
 -- ============================================================
 -- RARITIES
