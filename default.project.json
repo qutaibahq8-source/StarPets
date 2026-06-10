@@ -61,6 +61,9 @@
         },
         "TradeService": {
           "$path": "src/Server/TradeService.lua"
+        },
+        "CodeService": {
+          "$path": "src/Server/CodeService.lua"
         }
       }
     },
@@ -117,6 +120,9 @@
             },
             "PetIndexPanel": {
               "$path": "src/Client/UI/PetIndexPanel.lua"
+            },
+            "CodesPanel": {
+              "$path": "src/Client/UI/CodesPanel.lua"
             }
           }
         }

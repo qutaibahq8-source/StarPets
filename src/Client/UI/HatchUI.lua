@@ -291,6 +291,15 @@ function HatchUI.ShowHatchResult(pets, eggId)
 			nameLbl.TextWrapped     = true
 			nameLbl.Parent          = card
 
+			-- Mutation badge (Shiny/Golden/Rainbow)
+			local mut = pet.mutation and G().GameConfig.GetMutation and G().GameConfig.GetMutation(pet.mutation)
+			if mut then
+				nameLbl.Text = mut.emoji.." "..mut.name.."!\n"..pet.name
+				nameLbl.TextColor3 = mut.color
+				stroke.Color = mut.color; stroke.Thickness = 5
+				petCircle.BackgroundColor3 = mut.color
+			end
+
 			-- Sparkle effect for rare+
 			if pet.rarity ~= "Common" and pet.rarity ~= "Uncommon" then
 				for _ = 1, 8 do

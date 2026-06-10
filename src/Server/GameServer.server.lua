@@ -18,6 +18,7 @@ local QuestService         = require(script.Parent.QuestService)
 local MerchantService      = require(script.Parent.MerchantService)
 local EventService         = require(script.Parent.EventService)
 local TradeService         = require(script.Parent.TradeService)
+local CodeService          = require(script.Parent.CodeService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -58,6 +59,7 @@ local RF_GetMerchant  = makeFunction("GetMerchant")
 local RE_BuyMerchant  = makeEvent("BuyMerchant")
 local RF_GetEvent     = makeFunction("GetEvent")
 local RE_BuyEvent     = makeEvent("BuyEvent")
+local RE_RedeemCode   = makeEvent("RedeemCode")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -1012,6 +1014,19 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- CODES
+-- ============================================================
+RE_RedeemCode.OnServerEvent:Connect(function(player, code)
+	local ok, res = CodeService.Redeem(player, code)
+	if ok then
+		RE_Notification:FireClient(player, "success", "🎁 "..tostring(res).." redeemed!")
+		syncData(player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot redeem")
 	end
 end)
 

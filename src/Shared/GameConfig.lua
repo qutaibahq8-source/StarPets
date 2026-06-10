@@ -83,6 +83,17 @@ function GameConfig.GetMutation(id)
 end
 
 -- ============================================================
+-- CODES  (redeemable for rewards; add more any time)
+-- ============================================================
+GameConfig.Codes = {
+	WELCOME  = { coins=50000,   gems=100,  label="Welcome gift" },
+	RELEASE  = { coins=250000,  gems=250,  label="Release reward" },
+	SHINY    = { gems=500,                 label="Shiny luck" },
+	VOIDKING = { pet="Void Serpent", petRarity="Mythic", label="The Void King!" },
+	THANKYOU = { coins=1000000,            label="Thank you!" },
+}
+
+-- ============================================================
 -- RARITIES
 -- ============================================================
 GameConfig.Rarities = {
@@ -285,6 +296,7 @@ GameConfig.DefaultData = {
 	Quests = { claimed = {} },
 	EventTokens = 0,
 	EventClaimed = {},
+	RedeemedCodes = {},
 }
 
 -- ============================================================
