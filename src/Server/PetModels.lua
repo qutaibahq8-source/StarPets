@@ -440,7 +440,7 @@ local function normalizeTemplate(inst)
 
 	-- scale to a consistent size
 	local biggest = math.max(bbSize.X, bbSize.Y, bbSize.Z)
-	if biggest > 0.01 then pcall(function() model:ScaleTo(3.2 / biggest) end) end
+	if biggest > 0.01 then pcall(function() model:ScaleTo(2.4 / biggest) end) end  -- smaller (was too big)
 	return model, root
 end
 
@@ -469,16 +469,12 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	local folder = ReplicatedStorage:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMashes")
+	-- Some pets use a differently-named model (e.g. Void Serpent is a snake).
+	local MESH_OVERRIDE = { ["Void Serpent"] = "desert snake" }
 	local template
 	if folder then
-		-- 1) a model named exactly this pet, else 2) one named "Default",
-		-- else 3) the first model present (so one import covers every pet)
-		template = folder:FindFirstChild(petData.name) or folder:FindFirstChild("Default")
-		if not template then
-			for _, c in ipairs(folder:GetChildren()) do
-				if c:IsA("Model") or c:IsA("BasePart") then template = c; break end
-			end
-		end
+		local want = MESH_OVERRIDE[petData.name] or petData.name
+		template = folder:FindFirstChild(want)
 	end
 	if template then
 		model, root = normalizeTemplate(template:Clone())
