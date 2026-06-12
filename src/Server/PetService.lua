@@ -350,4 +350,45 @@ function PetService.RestoreEquipped(player)
 	end
 end
 
+-- ============================================================
+-- QUALITY OF LIFE
+-- ============================================================
+function PetService.EquipBest(player)
+	local data = DataManager.GetData(player); if not data then return end
+	local slots = data.GP_PetSlots and GameConfig.Settings.VIPPetSlots or GameConfig.Settings.DefaultPetSlots
+	local scored = {}
+	for _, pet in ipairs(data.Pets) do
+		local pd = PetLookup[pet.name]
+		local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
+		local score = (pd and pd.coinMult or 0) * ((mut and mut.mult) or 1)
+		table.insert(scored, { uid = pet.uniqueId, score = score })
+	end
+	table.sort(scored, function(a, b) return a.score > b.score end)
+	PetService.DespawnAllPets(player)
+	data.EquippedPets = {}
+	for i = 1, math.min(slots, #scored) do table.insert(data.EquippedPets, scored[i].uid) end
+	PetService.RestoreEquipped(player)
+end
+
+function PetService.DeleteByRarity(player, rarity)
+	local data = DataManager.GetData(player); if not data then return 0 end
+	local equipped = {}
+	for _, uid in ipairs(data.EquippedPets or {}) do equipped[uid] = true end
+	local removed = 0
+	for i = #data.Pets, 1, -1 do
+		local p = data.Pets[i]
+		if p.rarity == rarity and not p.locked and not equipped[p.uniqueId] then
+			table.remove(data.Pets, i); removed = removed + 1
+		end
+	end
+	return removed
+end
+
+function PetService.ToggleLock(player, uid)
+	local data = DataManager.GetData(player); if not data then return end
+	for _, p in ipairs(data.Pets) do
+		if p.uniqueId == uid then p.locked = not p.locked; return p.locked end
+	end
+end
+
 return PetService

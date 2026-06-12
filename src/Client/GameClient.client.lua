@@ -87,6 +87,7 @@ local RE_SecretFound    = Remotes:WaitForChild("SecretFound")
 local RE_TitleUpdate    = Remotes:WaitForChild("TitleUpdate")
 local RF_GetData        = Remotes:WaitForChild("GetData")
 local RF_Admin          = Remotes:WaitForChild("AdminCmd")
+local RE_PetCmd         = Remotes:WaitForChild("PetCmd")
 
 -- Area barriers: block locked areas for THIS player only (client-side collision)
 local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
@@ -527,7 +528,7 @@ _G.MysticPets = {
 	RE_HatchEgg=RE_HatchEgg, RE_EquipPet=RE_EquipPet, RE_UnequipPet=RE_UnequipPet,
 	RE_BuyArea=RE_BuyArea, RE_Rebirth=RE_Rebirth, RE_DeletePet=RE_DeletePet,
 	RE_BuyGamepass=RE_BuyGamepass, RE_BuyUpgrade=RE_BuyUpgrade,
-	RF_Admin=RF_Admin,
+	RF_Admin=RF_Admin, RE_PetCmd=RE_PetCmd,
 	getPlayer=function() return Player end,
 	getData=function() return CurrentData end,
 }

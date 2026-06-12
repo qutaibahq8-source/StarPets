@@ -152,10 +152,27 @@ function PetsPanel.Build(data)
 		end
 	end
 
+	-- QoL action bar (equip best / mass-delete by rarity; equipped & locked are safe)
+	local actionBar = Instance.new("Frame")
+	actionBar.Size = UDim2.new(1,-20,0,30); actionBar.Position = UDim2.new(0,10,0,123)
+	actionBar.BackgroundTransparency = 1; actionBar.Parent = panel
+	local al = Instance.new("UIListLayout", actionBar)
+	al.FillDirection = Enum.FillDirection.Horizontal; al.Padding = UDim.new(0,6)
+	local function actBtn(text, w, color, fn)
+		local b = Instance.new("TextButton"); b.Size = UDim2.new(0,w,1,0); b.BackgroundColor3 = color
+		b.Text=text; b.TextColor3=Color3.new(1,1,1); b.TextScaled=true; b.Font=Enum.Font.GothamBold
+		b.BorderSizePixel=0; b.Parent=actionBar
+		Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); b.MouseButton1Click:Connect(fn)
+	end
+	actBtn("⭐ Equip Best", 110, Color3.fromRGB(50,150,90), function() G().RE_PetCmd:FireServer("equipBest") end)
+	actBtn("🗑 Common", 92, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Common") end)
+	actBtn("🗑 Uncommon", 112, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Uncommon") end)
+	actBtn("🗑 Rare", 70, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Rare") end)
+
 	-- Pet grid scroll
 	local scroll = Instance.new("ScrollingFrame")
-	scroll.Size              = UDim2.new(1, -20, 1, -130)
-	scroll.Position          = UDim2.new(0, 10, 0, 125)
+	scroll.Size              = UDim2.new(1, -20, 1, -165)
+	scroll.Position          = UDim2.new(0, 10, 0, 160)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel   = 0
 	scroll.ScrollBarThickness = 4

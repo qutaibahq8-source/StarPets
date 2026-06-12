@@ -60,6 +60,7 @@ local RE_BuyMerchant  = makeEvent("BuyMerchant")
 local RF_GetEvent     = makeFunction("GetEvent")
 local RE_BuyEvent     = makeEvent("BuyEvent")
 local RE_RedeemCode   = makeEvent("RedeemCode")
+local RE_PetCmd       = makeEvent("PetCmd")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -993,6 +994,21 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- PET QUALITY OF LIFE
+-- ============================================================
+RE_PetCmd.OnServerEvent:Connect(function(player, cmd, arg)
+	if cmd == "equipBest" then
+		PetService.EquipBest(player); syncData(player)
+	elseif cmd == "deleteRarity" and arg then
+		local n = PetService.DeleteByRarity(player, arg)
+		RE_Notification:FireClient(player, "info", "🗑️ Deleted " .. n .. " " .. arg .. " pets")
+		syncData(player)
+	elseif cmd == "lock" and arg then
+		PetService.ToggleLock(player, arg); syncData(player)
 	end
 end)
 
