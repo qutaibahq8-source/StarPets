@@ -469,8 +469,9 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	local folder = ReplicatedStorage:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMashes")
-	-- Some pets use a differently-named model (e.g. Void Serpent is a snake).
-	local MESH_OVERRIDE = { ["Void Serpent"] = "desert snake" }
+	-- Optional: map a pet name to a differently-named model. (Empty = use the
+	-- model named exactly like the pet.)
+	local MESH_OVERRIDE = {}
 	local template
 	if folder then
 		local want = MESH_OVERRIDE[petData.name] or petData.name
