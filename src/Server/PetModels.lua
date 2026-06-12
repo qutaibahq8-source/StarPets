@@ -469,13 +469,18 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	local folder = ReplicatedStorage:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMeshes")
 		or workspace:FindFirstChild("PetMashes")
-	-- Optional: map a pet name to a differently-named model. (Empty = use the
-	-- model named exactly like the pet.)
 	local MESH_OVERRIDE = {}
 	local template
 	if folder then
 		local want = MESH_OVERRIDE[petData.name] or petData.name
 		template = folder:FindFirstChild(want)
+		if not template then
+			-- forgiving match: ignore case + spaces (Void Serpent / voidserpent / VoidSerpent)
+			local key = string.lower(string.gsub(want, "%s", ""))
+			for _, c in ipairs(folder:GetChildren()) do
+				if string.lower(string.gsub(c.Name, "%s", "")) == key then template = c; break end
+			end
+		end
 	end
 	if template then
 		model, root = normalizeTemplate(template:Clone())
