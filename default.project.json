@@ -64,6 +64,9 @@
         },
         "CodeService": {
           "$path": "src/Server/CodeService.lua"
+        },
+        "DailyService": {
+          "$path": "src/Server/DailyService.lua"
         }
       }
     },
@@ -123,6 +126,9 @@
             },
             "CodesPanel": {
               "$path": "src/Client/UI/CodesPanel.lua"
+            },
+            "DailyPanel": {
+              "$path": "src/Client/UI/DailyPanel.lua"
             }
           }
         }

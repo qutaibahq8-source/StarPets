@@ -88,6 +88,19 @@ end
 -- Keep these modest — small early-game boosts, NOT game-breakers.
 -- (No best pets, no huge sums that skip islands. Forest costs 250k, so
 --  rewards stay well under that.)
+-- ============================================================
+-- DAILY REWARDS  (7-day login streak; modest, escalating)
+-- ============================================================
+GameConfig.DailyRewards = {
+	{ coins=5000  },
+	{ coins=12000 },
+	{ gems=50     },
+	{ coins=30000 },
+	{ gems=100    },
+	{ coins=80000 },
+	{ gems=250    },
+}
+
 GameConfig.Codes = {
 	WELCOME = { coins=15000, gems=30,  label="Welcome gift" },
 	RELEASE = { coins=30000, gems=60,  label="Release reward" },
@@ -299,6 +312,8 @@ GameConfig.DefaultData = {
 	EventTokens = 0,
 	EventClaimed = {},
 	RedeemedCodes = {},
+	LastDailyClaim = 0,
+	DailyStreak = 0,
 }
 
 -- ============================================================

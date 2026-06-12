@@ -19,6 +19,7 @@ local MerchantService      = require(script.Parent.MerchantService)
 local EventService         = require(script.Parent.EventService)
 local TradeService         = require(script.Parent.TradeService)
 local CodeService          = require(script.Parent.CodeService)
+local DailyService         = require(script.Parent.DailyService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -61,6 +62,8 @@ local RF_GetEvent     = makeFunction("GetEvent")
 local RE_BuyEvent     = makeEvent("BuyEvent")
 local RE_RedeemCode   = makeEvent("RedeemCode")
 local RE_PetCmd       = makeEvent("PetCmd")
+local RF_GetDaily     = makeFunction("GetDaily")
+local RE_ClaimDaily   = makeEvent("ClaimDaily")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -994,6 +997,22 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- DAILY REWARD
+-- ============================================================
+RF_GetDaily.OnServerInvoke = function(player)
+	return DailyService.GetState(player)
+end
+RE_ClaimDaily.OnServerEvent:Connect(function(player)
+	local ok, res = DailyService.Claim(player)
+	if ok then
+		RE_Notification:FireClient(player, "success", "🎁 Daily reward claimed! (Day "..tostring(res)..")")
+		syncData(player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res)=="string" and res or "Not ready")
 	end
 end)
 
