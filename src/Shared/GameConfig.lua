@@ -89,6 +89,16 @@ end
 -- (No best pets, no huge sums that skip islands. Forest costs 250k, so
 --  rewards stay well under that.)
 -- ============================================================
+-- BOOSTS / POTIONS  (buy a timed coin multiplier with gems)
+-- ============================================================
+GameConfig.Boosts = {
+	{ id="x2_5",  name="⚡ 2x Coins (5 min)",   mult=2, duration=300,  cost=40,  cur="Gems" },
+	{ id="x2_15", name="⚡ 2x Coins (15 min)",  mult=2, duration=900,  cost=90,  cur="Gems" },
+	{ id="x3_10", name="🔥 3x Coins (10 min)",  mult=3, duration=600,  cost=180, cur="Gems" },
+	{ id="x5_10", name="💥 5x Coins (10 min)",  mult=5, duration=600,  cost=400, cur="Gems" },
+}
+
+-- ============================================================
 -- DAILY REWARDS  (7-day login streak; modest, escalating)
 -- ============================================================
 GameConfig.DailyRewards = {
@@ -314,6 +324,7 @@ GameConfig.DefaultData = {
 	RedeemedCodes = {},
 	LastDailyClaim = 0,
 	DailyStreak = 0,
+	ActiveBoosts = {},
 }
 
 -- ============================================================

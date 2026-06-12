@@ -67,6 +67,9 @@
         },
         "DailyService": {
           "$path": "src/Server/DailyService.lua"
+        },
+        "BoostService": {
+          "$path": "src/Server/BoostService.lua"
         }
       }
     },
@@ -129,6 +132,9 @@
             },
             "DailyPanel": {
               "$path": "src/Client/UI/DailyPanel.lua"
+            },
+            "BoostsPanel": {
+              "$path": "src/Client/UI/BoostsPanel.lua"
             }
           }
         }

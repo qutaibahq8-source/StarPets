@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
 local PetModels   = require(script.Parent.PetModels)
+local BoostService = require(script.Parent.BoostService)
 
 local PetService   = {}
 local PetsFolder   = nil      -- Workspace.Pets
@@ -330,7 +331,7 @@ function PetService.GetPlayerIncome(player)
 	local coinBoost   = (data.GP_2xCoins and 2 or 1)
 	local gemBoost    = (data.GP_VIP and GameConfig.Settings.VIPGemMultiplier or 1)
 
-	local coins = math.floor(totalCoinMult * rebirthMult * coinBoost)
+	local coins = math.floor(totalCoinMult * rebirthMult * coinBoost * BoostService.GetCoinMult(data))
 	local gems  = math.floor(totalGemMult  * rebirthMult * gemBoost  * 0.01) -- gems are rare
 
 	return coins, gems

@@ -20,6 +20,7 @@ local EventService         = require(script.Parent.EventService)
 local TradeService         = require(script.Parent.TradeService)
 local CodeService          = require(script.Parent.CodeService)
 local DailyService         = require(script.Parent.DailyService)
+local BoostService         = require(script.Parent.BoostService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -64,6 +65,8 @@ local RE_RedeemCode   = makeEvent("RedeemCode")
 local RE_PetCmd       = makeEvent("PetCmd")
 local RF_GetDaily     = makeFunction("GetDaily")
 local RE_ClaimDaily   = makeEvent("ClaimDaily")
+local RF_GetBoosts    = makeFunction("GetBoosts")
+local RE_BuyBoost     = makeEvent("BuyBoost")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -997,6 +1000,20 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- BOOSTS
+-- ============================================================
+RF_GetBoosts.OnServerInvoke = function(player) return BoostService.GetState(player) end
+RE_BuyBoost.OnServerEvent:Connect(function(player, id)
+	local ok, res = BoostService.Buy(player, id)
+	if ok then
+		RE_Notification:FireClient(player, "success", "⚡ "..tostring(res).." active!")
+		syncData(player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res)=="string" and res or "Cannot buy")
 	end
 end)
 

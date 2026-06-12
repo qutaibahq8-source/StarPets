@@ -284,6 +284,7 @@ local function buildHUD()
 		{ name="Trade",   emoji="🤝", panel="TradePanel",      color=Color3.fromRGB(90,200,120) },
 		{ name="Codes",   emoji="🎁", panel="CodesPanel",      color=Color3.fromRGB(90,200,150) },
 		{ name="Daily",   emoji="📅", panel="DailyPanel",      color=Color3.fromRGB(255,200,80) },
+		{ name="Boosts",  emoji="⚡", panel="BoostsPanel",     color=Color3.fromRGB(255,170,60) },
 	}
 	local btnSize = 56
 	local btnGap  = 7
