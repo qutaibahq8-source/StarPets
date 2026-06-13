@@ -539,23 +539,22 @@ local function buildMap()
 	-- Location: northwest corner, tight against north wall at z=122, x=-82
 	-- Looks like a plain dark rock, tiny glow only visible up close
 	-- ============================================================
-	local secretPos = Vector3.new(-82, 0.5, 118)
+	-- INVISIBLE in the far corner — no shape, no glow, nothing to spot from a distance.
+	-- Only a faint "Search" prompt appears when a player wanders right onto the spot.
+	local secretChest=part({Name="SecretChest",Size=Vector3.new(1,1,1),
+		Position=Vector3.new(-82,0.6,118),Color=Color3.fromRGB(86,82,78),Material=Enum.Material.Slate})
+	secretChest.Transparency=1      -- cannot be seen; must be stumbled upon
+	secretChest.CanCollide=false
 
-	-- The "rock" — blends with wall color
-	local secretChest=part({Name="SecretChest",Size=Vector3.new(2.2,2.2,2.2),
-		Position=secretPos,Color=Color3.fromRGB(28,22,44),Material=Enum.Material.SmoothPlastic})
-	-- Very faint glow — only visible when you're within 8 studs
-	local secretLight=Instance.new("PointLight")
-	secretLight.Color=Color3.fromRGB(255,215,0)
-	secretLight.Brightness=0.15  -- barely visible
-	secretLight.Range=6
-	secretLight.Parent=secretChest
-
-	-- Click detector with very short range — must be RIGHT next to it
-	local secretCD=Instance.new("ClickDetector")
-	secretCD.MaxActivationDistance=7
-	secretCD.Parent=secretChest
-	secretCD.MouseClick:Connect(function(player)
+	-- Hold-to-search prompt, tiny range — you must be standing right on it
+	local secretPrompt=Instance.new("ProximityPrompt")
+	secretPrompt.ActionText="Search"
+	secretPrompt.ObjectText="???"
+	secretPrompt.HoldDuration=1.2
+	secretPrompt.MaxActivationDistance=6
+	secretPrompt.RequiresLineOfSight=false
+	secretPrompt.Parent=secretChest
+	secretPrompt.Triggered:Connect(function(player)
 		local data=DataManager.GetData(player)
 		if not data then return end
 		if data.FoundSecret then
