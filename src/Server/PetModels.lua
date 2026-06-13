@@ -440,7 +440,7 @@ local function normalizeTemplate(inst)
 
 	-- scale to a consistent size
 	local biggest = math.max(bbSize.X, bbSize.Y, bbSize.Z)
-	if biggest > 0.01 then pcall(function() model:ScaleTo(1.0 / biggest) end) end  -- small pet-sim size (smaller per request)
+	if biggest > 0.01 then pcall(function() model:ScaleTo(0.6 / biggest) end) end  -- small pet-sim size (smaller per request)
 	return model, root
 end
 

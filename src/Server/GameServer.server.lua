@@ -389,6 +389,44 @@ local function buildMap()
 	end
 	bench(12,16,0); bench(-12,16,0); bench(0,38,180)
 
+	-- ---- CENTERPIECE: crystal monument on the north lawn ----
+	local cmX, cmZ = 0, 32
+	part({Name="MonBase",Size=Vector3.new(11,1.2,11),Position=Vector3.new(cmX,0.7,cmZ),
+		Color=Color3.fromRGB(118,114,108),Material=Enum.Material.Marble})
+	part({Name="MonStep",Size=Vector3.new(8,1.0,8),Position=Vector3.new(cmX,1.7,cmZ),
+		Color=Color3.fromRGB(96,92,88),Material=Enum.Material.Slate})
+	local function crystal(x,z,h,col)
+		local c=part({Name="Crystal",Size=Vector3.new(1.5,h,1.5),Position=Vector3.new(x,2.2+h/2,z),
+			Color=col,Material=Enum.Material.Glass,Transparency=0.1,CanCollide=false}); c.Reflectance=0.25
+		local tip=part({Name="CrystalTip",Size=Vector3.new(1.5,1.5,1.5),Position=Vector3.new(x,2.2+h,z),
+			Orientation=Vector3.new(45,0,45),Color=col,Material=Enum.Material.Glass,Transparency=0.1,CanCollide=false}); tip.Reflectance=0.25
+	end
+	crystal(cmX,cmZ,6.5,Color3.fromRGB(150,90,230))
+	crystal(cmX-2,cmZ+1,4.0,Color3.fromRGB(120,80,220))
+	crystal(cmX+2,cmZ-1,4.6,Color3.fromRGB(180,130,245))
+
+	-- ---- LAWN DECOR: trees, rocks, garden beds around the plaza ----
+	for _,t in ipairs({{18,44},{-18,44},{30,34},{-30,34},{14,56},{-14,56},{26,52},{-26,52}}) do
+		tree(t[1],t[2],0,Color3.fromRGB(96,64,40),Color3.fromRGB(46,120,52),0.85)
+	end
+	local function decorRock(x,z,s)
+		part({Name="Rock",Size=Vector3.new(2.4*s,1.6*s,2.2*s),Position=Vector3.new(x,0.7*s,z),
+			Orientation=Vector3.new(0,(x*13)%360,0),Color=Color3.fromRGB(108,104,98),
+			Material=Enum.Material.Slate,CanCollide=false})
+	end
+	for _,r in ipairs({{24,8,1},{-24,8,0.8},{28,-12,1.1},{-28,-12,0.9},{20,-22,0.7}}) do decorRock(r[1],r[2],r[3]) end
+	local function flowerbed(x,z)
+		local cols={Color3.fromRGB(220,80,110),Color3.fromRGB(240,190,70),Color3.fromRGB(150,110,235),Color3.fromRGB(235,235,245)}
+		part({Name="FlowerBed",Size=Vector3.new(4,0.25,4),Position=Vector3.new(x,0.26,z),
+			Color=Color3.fromRGB(70,50,35),Material=Enum.Material.Ground,CanCollide=false})
+		for i=1,4 do
+			part({Name="Bloom",Size=Vector3.new(0.7,0.5,0.7),
+				Position=Vector3.new(x+math.random(-15,15)/10,0.5,z+math.random(-15,15)/10),
+				Color=cols[math.random(1,#cols)],Material=Enum.Material.Grass,CanCollide=false})
+		end
+	end
+	for _,f in ipairs({{16,20},{-16,20},{22,-18},{-22,-18}}) do flowerbed(f[1],f[2]) end
+
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
 	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = workspace
