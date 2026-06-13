@@ -21,6 +21,7 @@ local TradeService         = require(script.Parent.TradeService)
 local CodeService          = require(script.Parent.CodeService)
 local DailyService         = require(script.Parent.DailyService)
 local BoostService         = require(script.Parent.BoostService)
+local FusionService        = require(script.Parent.FusionService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -67,6 +68,8 @@ local RF_GetDaily     = makeFunction("GetDaily")
 local RE_ClaimDaily   = makeEvent("ClaimDaily")
 local RF_GetBoosts    = makeFunction("GetBoosts")
 local RE_BuyBoost     = makeEvent("BuyBoost")
+local RF_GetFusion    = makeFunction("GetFusion")
+local RE_Fuse         = makeEvent("Fuse")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -1000,6 +1003,21 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- PET FUSION
+-- ============================================================
+RF_GetFusion.OnServerInvoke = function(player) return FusionService.GetFusable(player) end
+RE_Fuse.OnServerEvent:Connect(function(player, name)
+	if type(name) ~= "string" then return end
+	local ok, res = FusionService.FuseByName(player, name)
+	if ok then
+		RE_Notification:FireClient(player, "success", "\u{1F9EC} Fused into a stronger "..name.."!")
+		syncData(player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res)=="string" and res or "Cannot fuse")
 	end
 end)
 

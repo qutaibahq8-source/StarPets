@@ -319,8 +319,9 @@ function PetService.GetPlayerIncome(player)
 				if petData then
 					local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
 					local mm = (mut and mut.mult) or 1
-					totalCoinMult = totalCoinMult + petData.coinMult * mm
-					totalGemMult  = totalGemMult  + petData.gemMult * mm
+					local fm = pet.fuseMult or 1
+					totalCoinMult = totalCoinMult + petData.coinMult * mm * fm
+					totalGemMult  = totalGemMult  + petData.gemMult * mm * fm
 				end
 				break
 			end
@@ -361,7 +362,7 @@ function PetService.EquipBest(player)
 	for _, pet in ipairs(data.Pets) do
 		local pd = PetLookup[pet.name]
 		local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-		local score = (pd and pd.coinMult or 0) * ((mut and mut.mult) or 1)
+		local score = (pd and pd.coinMult or 0) * ((mut and mut.mult) or 1) * (pet.fuseMult or 1)
 		table.insert(scored, { uid = pet.uniqueId, score = score })
 	end
 	table.sort(scored, function(a, b) return a.score > b.score end)
