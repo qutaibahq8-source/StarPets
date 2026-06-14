@@ -841,26 +841,19 @@ local function buildMap()
 	end)
 
 	-- ============================================================
-	-- CUSTOM IMPORTED MAP: if one is in Workspace, make it the visible world.
-	-- Hides the plain procedural ground + scenery; KEEPS all gameplay objects
-	-- (eggs, shops, gates, leaderboard, merchant, rebirth, secret).
-	-- Remove the imported map from Workspace to revert to the built-in map.
+	-- CLEANUP: remove leftover imported-map junk that overlapped the built-in
+	-- map and broke the floor (caused fall-death). The built-in map stays intact.
 	-- ============================================================
-	local customMap = workspace:FindFirstChild("CustomMap") or workspace:FindFirstChild("Folder")
-	if customMap then
-		for _,d in ipairs(customMap:GetDescendants()) do
-			if d:IsA("BasePart") then d.Anchored = true end
+	local function nukeContainerOf(childName)
+		local c = workspace:FindFirstChild(childName, true)
+		if c then
+			while c.Parent and c.Parent ~= workspace do c = c.Parent end
+			if c and c.Parent == workspace then c:Destroy() end
 		end
-		local gf = workspace:FindFirstChild("GroundFloor")
-		if gf then gf.Transparency = 1 end  -- invisible but still collidable (no void-fall)
-		local strip = {TreeTrunk=true,TreeLeaf=true,Rock=true,FlowerStem=true,FlowerTop=true,
-			Hedge=true,Path=true,SpawnPlat=true,SpawnRing=true,LampPost=true,LampArm=true,
-			LampHead=true,BenchSeat=true,BenchBack=true}
-		for _,c in ipairs(workspace:GetChildren()) do
-			if c:IsA("BasePart") and (strip[c.Name] or c.Name:match("^Crystal") or c.Name:match("^Mon")) then
-				c:Destroy()
-			end
-		end
+	end
+	for _, n in ipairs({"CustomMap","Folder","Snow Map","Stone Map","Desert Map","Forest Map",
+		"Map Border","ThumbnailCamera","SpawnLocationw","maps"}) do
+		nukeContainerOf(n)
 	end
 end
 
