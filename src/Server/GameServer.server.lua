@@ -839,6 +839,29 @@ local function buildMap()
 	cd2.MouseClick:Connect(function(player)
 		RE_Rebirth:FireClient(player)
 	end)
+
+	-- ============================================================
+	-- CUSTOM IMPORTED MAP: if one is in Workspace, make it the visible world.
+	-- Hides the plain procedural ground + scenery; KEEPS all gameplay objects
+	-- (eggs, shops, gates, leaderboard, merchant, rebirth, secret).
+	-- Remove the imported map from Workspace to revert to the built-in map.
+	-- ============================================================
+	local customMap = workspace:FindFirstChild("CustomMap") or workspace:FindFirstChild("Folder")
+	if customMap then
+		for _,d in ipairs(customMap:GetDescendants()) do
+			if d:IsA("BasePart") then d.Anchored = true end
+		end
+		local gf = workspace:FindFirstChild("GroundFloor")
+		if gf then gf.Transparency = 1 end  -- invisible but still collidable (no void-fall)
+		local strip = {TreeTrunk=true,TreeLeaf=true,Rock=true,FlowerStem=true,FlowerTop=true,
+			Hedge=true,Path=true,SpawnPlat=true,SpawnRing=true,LampPost=true,LampArm=true,
+			LampHead=true,BenchSeat=true,BenchBack=true}
+		for _,c in ipairs(workspace:GetChildren()) do
+			if c:IsA("BasePart") and (strip[c.Name] or c.Name:match("^Crystal") or c.Name:match("^Mon")) then
+				c:Destroy()
+			end
+		end
+	end
 end
 
 -- ============================================================
