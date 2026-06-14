@@ -389,6 +389,34 @@ local function buildMap()
 	end
 	bench(12,16,0); bench(-12,16,0); bench(0,38,180)
 
+	-- ---- NATURE: low-poly trees, boulders & flowers (gives the world life) ----
+	local function tree(x,z,scale)
+		scale = scale or 1
+		part({Name="TreeTrunk",Size=Vector3.new(1.4,5,1.4)*scale,Position=Vector3.new(x,2.5*scale,z),Color=Color3.fromRGB(96,64,38),Material=Enum.Material.Wood,CanCollide=false})
+		part({Name="TreeLeaf",Shape=Enum.PartType.Ball,Size=Vector3.new(7,6.5,7)*scale,Position=Vector3.new(x,6.4*scale,z),Color=Color3.fromRGB(56,130,54),Material=Enum.Material.Grass,CanCollide=false})
+		part({Name="TreeLeaf",Shape=Enum.PartType.Ball,Size=Vector3.new(5,4.5,5)*scale,Position=Vector3.new(x+1.4*scale,8.6*scale,z),Color=Color3.fromRGB(66,144,60),Material=Enum.Material.Grass,CanCollide=false})
+	end
+	local function rock(x,z,s)
+		part({Name="Rock",Shape=Enum.PartType.Ball,Size=Vector3.new(4.2,3,4.2)*s,Position=Vector3.new(x,0.5,z),Color=Color3.fromRGB(118,120,126),Material=Enum.Material.Slate,CanCollide=false})
+	end
+	local function flower(x,z,col)
+		part({Name="FlowerStem",Size=Vector3.new(0.2,1.1,0.2),Position=Vector3.new(x,0.7,z),Color=Color3.fromRGB(60,130,55),Material=Enum.Material.Grass,CanCollide=false})
+		part({Name="FlowerTop",Shape=Enum.PartType.Ball,Size=Vector3.new(0.9,0.9,0.9),Position=Vector3.new(x,1.4,z),Color=col,Material=Enum.Material.Neon,CanCollide=false})
+	end
+	-- a ring of trees around the plaza meadow
+	for a=0,17 do
+		local ang=(a/18)*math.pi*2; local r=47 + (a%3)*5
+		tree(math.cos(ang)*r, math.sin(ang)*r, 0.85 + (a%3)*0.18)
+	end
+	-- scattered boulders
+	for _,p in ipairs({{55,18,1.1},{-58,22,0.8},{60,-30,1.3},{-62,-26,0.9},{44,42,0.7},{-46,40,1.0},{20,52,0.8},{-22,54,1.1}}) do rock(p[1],p[2],p[3]) end
+	-- colourful flower patches near the benches/paths
+	local fcols={Color3.fromRGB(255,90,120),Color3.fromRGB(255,210,70),Color3.fromRGB(150,110,255),Color3.fromRGB(90,200,255)}
+	for i=0,23 do
+		local ang=(i/24)*math.pi*2; local r=20 + (i%4)*1.5
+		flower(math.cos(ang)*r, 14+math.sin(ang)*r*0.4, fcols[(i%4)+1])
+	end
+
 	-- ---- CENTERPIECE: crystal monument on the north lawn ----
 	local cmX, cmZ = 0, 32
 	part({Name="MonBase",Size=Vector3.new(11,1.2,11),Position=Vector3.new(cmX,0.7,cmZ),
