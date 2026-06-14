@@ -119,6 +119,24 @@ function AdminPanel.Build(data)
 	button("Broadcast", Color3.fromRGB(40,70,120), function() if msgBox.Text~="" then R("broadcast",{msg=msgBox.Text}) end end)
 	button("Bring All Players To Me", Color3.fromRGB(40,70,120), function() R("bringPlayers") end)
 
+	section("♻️ Rebirth")
+	button("+1 Rebirth", Color3.fromRGB(120,40,120), function() R("addRebirth",{n=1}) end)
+	button("Max Rebirth (6)", Color3.fromRGB(120,40,120), function() R("addRebirth",{n=6}) end)
+
+	section("🐾 Pets (bulk)")
+	button("Give ALL Pets", Color3.fromRGB(70,40,110), function() R("giveAllPets") end)
+	button("Clear ALL Pets", Color3.fromRGB(110,50,50), function() R("clearPets") end)
+
+	section("⚡ Boosts / Daily / Tokens")
+	button("Give 5x Coins Boost (10m)", Color3.fromRGB(150,100,30), function() R("giveBoost",{id="x5_10"}) end)
+	button("Reset Daily Cooldown", Color3.fromRGB(120,90,30), function() R("resetDaily") end)
+	button("+1000 Event Tokens", Color3.fromRGB(120,70,40), function() R("giveTokens",{n=1000}) end)
+
+	section("🏃 Movement / Moderation")
+	local speedBox = textbox("WalkSpeed (default 16, e.g. 60)")
+	button("Set WalkSpeed", Color3.fromRGB(40,80,80), function() R("speed",{v=tonumber(speedBox.Text) or 16}) end)
+	button("Kick Target Player", Color3.fromRGB(150,40,40), function() R("kickName") end)
+
 	section("🧨 Danger")
 	local resetConfirm=false
 	local rb

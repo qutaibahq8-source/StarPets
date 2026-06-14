@@ -1316,6 +1316,35 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 	elseif action == "stopEvent" then
 		EventService.Stop()
 		RE_Notification:FireAllClients("info", "The event has ended.")
+	elseif action == "addRebirth" and data then
+		local maxR = #GameConfig.Rebirths
+		data.Rebirths = math.clamp((data.Rebirths or 0) + (arg.n or 1), 0, maxR)
+		data.RebirthMultiplier = (data.Rebirths > 0 and GameConfig.Rebirths[data.Rebirths].multiplier) or 1.0
+		syncData(target); pcall(BadgeService.CheckAll, target)
+	elseif action == "giveAllPets" and data then
+		for _, pet in ipairs(GameConfig.Pets) do
+			table.insert(data.Pets, { name=pet.name, rarity=pet.rarity, uniqueId=HttpService:GenerateGUID(false) })
+		end
+		syncData(target); pcall(BadgeService.CheckAll, target)
+	elseif action == "clearPets" and data then
+		data.Pets = {}; data.EquippedPets = {}
+		pcall(PetService.DespawnAllPets, target); syncData(target)
+	elseif action == "giveBoost" and data then
+		data.ActiveBoosts = data.ActiveBoosts or {}
+		local id, dur = arg.id or "x5_10", 600
+		for _, b in ipairs(GameConfig.Boosts or {}) do if b.id == id then dur = b.duration end end
+		data.ActiveBoosts[id] = math.max(os.time(), data.ActiveBoosts[id] or 0) + dur
+		syncData(target)
+	elseif action == "resetDaily" and data then
+		data.LastDailyClaim = 0; syncData(target)
+	elseif action == "giveTokens" and data then
+		data.EventTokens = (data.EventTokens or 0) + (arg.n or 1000); syncData(target)
+	elseif action == "speed" then
+		local char = target.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then hum.WalkSpeed = math.clamp(arg.v or 16, 0, 500) end
+	elseif action == "kickName" and target ~= player then
+		target:Kick("Kicked by an admin")
 	end
 	return true
 end
