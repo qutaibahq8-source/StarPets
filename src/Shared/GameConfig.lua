@@ -114,6 +114,24 @@ GameConfig.PlaytimeRewards = {
 }
 
 -- ============================================================
+-- LUCKY SPIN WHEEL  (1 free spin / 12h, or pay gems; weighted prizes)
+-- ============================================================
+GameConfig.SpinWheel = {
+	cost = 50,             -- gems per paid spin
+	freeCooldown = 43200,  -- 12 hours
+	prizes = {
+		{ label="5K Coins",    coins=5000,   weight=28, color=Color3.fromRGB(120,200,90) },
+		{ label="20 Gems",     gems=20,      weight=20, color=Color3.fromRGB(80,180,255) },
+		{ label="25K Coins",   coins=25000,  weight=18, color=Color3.fromRGB(120,200,90) },
+		{ label="2x Boost",    boost="x2_15",weight=10, color=Color3.fromRGB(255,170,60) },
+		{ label="75 Gems",     gems=75,      weight=10, color=Color3.fromRGB(80,180,255) },
+		{ label="100K Coins",  coins=100000, weight=8,  color=Color3.fromRGB(255,210,70) },
+		{ label="500K Coins",  coins=500000, weight=5,  color=Color3.fromRGB(255,150,40) },
+		{ label="JACKPOT 250 Gems", gems=250, weight=1, color=Color3.fromRGB(255,70,120) },
+	},
+}
+
+-- ============================================================
 -- DAILY REWARDS  (7-day login streak; modest, escalating)
 -- ============================================================
 GameConfig.DailyRewards = {
@@ -341,6 +359,7 @@ GameConfig.DefaultData = {
 	DailyStreak = 0,
 	ActiveBoosts = {},
 	LastSeen = 0,
+	LastFreeSpin = 0,
 }
 
 -- ============================================================

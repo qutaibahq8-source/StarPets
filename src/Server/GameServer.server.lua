@@ -23,6 +23,7 @@ local DailyService         = require(script.Parent.DailyService)
 local BoostService         = require(script.Parent.BoostService)
 local FusionService        = require(script.Parent.FusionService)
 local PlaytimeService      = require(script.Parent.PlaytimeService)
+local SpinService          = require(script.Parent.SpinService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -74,6 +75,8 @@ local RE_Fuse         = makeEvent("Fuse")
 local RF_GetPlaytime  = makeFunction("GetPlaytime")
 local RE_ClaimPlaytime= makeEvent("ClaimPlaytime")
 local RE_OfflineEarnings = makeEvent("OfflineEarnings")
+local RF_GetSpin      = makeFunction("GetSpin")
+local RF_Spin         = makeFunction("Spin")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -1108,6 +1111,20 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
 	end
 end)
+
+-- ============================================================
+-- LUCKY SPIN WHEEL
+-- ============================================================
+RF_GetSpin.OnServerInvoke = function(player) return SpinService.GetState(player) end
+RF_Spin.OnServerInvoke = function(player, useFree)
+	local ok, res = SpinService.Spin(player, useFree == true)
+	if ok then
+		syncData(player)
+		return { ok = true, index = res.index, prize = res.prize }
+	else
+		return { ok = false, err = typeof(res) == "string" and res or "Cannot spin" }
+	end
+end
 
 -- ============================================================
 -- PLAYTIME REWARDS

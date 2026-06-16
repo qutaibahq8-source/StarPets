@@ -76,6 +76,9 @@
         },
         "PlaytimeService": {
           "$path": "src/Server/PlaytimeService.lua"
+        },
+        "SpinService": {
+          "$path": "src/Server/SpinService.lua"
         }
       }
     },
@@ -147,6 +150,9 @@
             },
             "PlaytimePanel": {
               "$path": "src/Client/UI/PlaytimePanel.lua"
+            },
+            "SpinWheelPanel": {
+              "$path": "src/Client/UI/SpinWheelPanel.lua"
             }
           }
         }
