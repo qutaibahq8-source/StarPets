@@ -290,20 +290,26 @@ local function buildHUD()
 		{ name="Playtime",emoji="⏱️", panel="PlaytimePanel",   color=Color3.fromRGB(90,200,255) },
 		{ name="Spin",    emoji="🎡", panel="SpinWheelPanel",   color=Color3.fromRGB(255,120,200) },
 	}
-	local btnSize = 56
-	local btnGap  = 7
-	local cols    = 2
-	local rows    = math.ceil(#navButtons / cols)
-	local totalH  = rows * btnSize + (rows-1) * btnGap
+	-- Clean centered button DOCK along the bottom (wraps into rows) — not stacked on one side
+	local btnSize = 50
+	local btnGap  = 6
+	local perRow  = 8
+	local n       = #navButtons
+	local numRows = math.ceil(n / perRow)
+	local bottomMargin = 16
 
 	for i, btn in ipairs(navButtons) do
-		local col = (i-1) % cols            -- 0 = left, 1 = right (edge)
-		local row = math.floor((i-1) / cols)
+		local row      = math.floor((i-1) / perRow)
+		local idxInRow = (i-1) % perRow
+		local rowCount = math.min(perRow, n - row*perRow)
+		local rowW     = rowCount*btnSize + (rowCount-1)*btnGap
+		local xoff     = -rowW/2 + idxInRow*(btnSize+btnGap)
+		local rowsFromBottom = (numRows-1) - row
+		local yoff     = -bottomMargin - btnSize - rowsFromBottom*(btnSize+btnGap)
 
 		local b = Instance.new("TextButton")
 		b.Size     = UDim2.new(0, btnSize, 0, btnSize)
-		b.Position = UDim2.new(1, -(btnSize+10) - (cols-1-col)*(btnSize+btnGap),
-			0.5, -totalH/2 + row*(btnSize+btnGap))
+		b.Position = UDim2.new(0.5, xoff, 1, yoff)
 		b.BackgroundColor3 = Color3.fromRGB(18,14,35)
 		b.BackgroundTransparency = 0.15
 		b.Text     = btn.emoji.."\n"..btn.name

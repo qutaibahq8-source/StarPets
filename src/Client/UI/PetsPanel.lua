@@ -16,6 +16,62 @@ local rarityOrder = { "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common
 local rarityRank  = {}
 for i, r in ipairs(rarityOrder) do rarityRank[r] = i end
 
+-- Build a pet icon that shows the REAL 3D model (ViewportFrame); falls back to a letter.
+local function makePetIcon(petName, rarityColor)
+	local holder = Instance.new("Frame")
+	holder.Size = UDim2.new(0,60,0,60); holder.Position = UDim2.new(0.5,-30,0,10)
+	holder.BackgroundColor3 = rarityColor; holder.BackgroundTransparency = 0.55; holder.BorderSizePixel = 0
+	Instance.new("UICorner", holder).CornerRadius = UDim.new(1,0)
+
+	local pm = game:GetService("ReplicatedStorage"):FindFirstChild("PetMeshes")
+		or workspace:FindFirstChild("PetMeshes")
+	local template
+	if pm then
+		template = pm:FindFirstChild(petName)
+		if not template then
+			local key = string.lower(string.gsub(petName,"%s",""))
+			for _,c in ipairs(pm:GetChildren()) do
+				if string.lower(string.gsub(c.Name,"%s","")) == key then template = c; break end
+			end
+		end
+	end
+
+	local shown = false
+	if template then
+		shown = pcall(function()
+			local vf = Instance.new("ViewportFrame")
+			vf.Size = UDim2.new(1,0,1,0); vf.BackgroundTransparency = 1; vf.Parent = holder
+			local m = template:Clone()
+			for _,d in ipairs(m:GetDescendants()) do
+				if d:IsA("LuaSourceContainer") then d:Destroy()
+				elseif d:IsA("BasePart") then d.Anchored=true; d.CanCollide=false end
+			end
+			m.Parent = vf
+			local cam = Instance.new("Camera"); cam.Parent = vf; vf.CurrentCamera = cam
+			local cf, size
+			if m:IsA("Model") then
+				if not m.PrimaryPart then
+					local p = m:FindFirstChildWhichIsA("BasePart", true); if p then m.PrimaryPart = p end
+				end
+				cf, size = m:GetBoundingBox()
+			elseif m:IsA("BasePart") then
+				cf, size = m.CFrame, m.Size
+			else cf, size = CFrame.new(), Vector3.new(4,4,4) end
+			local ext = math.max(size.X, size.Y, size.Z, 1)
+			local dist = ext*1.8 + 1.5
+			cam.CFrame = CFrame.lookAt(cf.Position + Vector3.new(dist*0.45, ext*0.4, dist), cf.Position)
+		end)
+	end
+	if not shown then
+		for _,c in ipairs(holder:GetChildren()) do if c:IsA("ViewportFrame") then c:Destroy() end end
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(1,0,1,0); lbl.BackgroundTransparency = 1
+		lbl.Text = string.upper(string.sub(petName,1,1)); lbl.TextColor3 = Color3.new(1,1,1)
+		lbl.TextScaled = true; lbl.Font = Enum.Font.GothamBold; lbl.Parent = holder
+	end
+	return holder
+end
+
 -- Signature of what the panel actually shows (pets + equipped). Used so the
 -- panel only rebuilds when these change — NOT on every per-second coin tick.
 local lastSig
@@ -204,24 +260,9 @@ function PetsPanel.Build(data)
 		strip.Parent           = cell
 		Instance.new("UICorner", strip).CornerRadius = UDim.new(0, 4)
 
-		-- Pet icon (colored circle)
-		local icon = Instance.new("Frame")
-		icon.Size             = UDim2.new(0, 60, 0, 60)
-		icon.Position         = UDim2.new(0.5, -30, 0, 10)
-		icon.BackgroundColor3 = rarityColor
-		icon.BackgroundTransparency = 0.5
-		icon.BorderSizePixel  = 0
-		icon.Parent           = cell
-		Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
-
-		local iconLbl = Instance.new("TextLabel")
-		iconLbl.Size             = UDim2.new(1, 0, 1, 0)
-		iconLbl.BackgroundTransparency = 1
-		iconLbl.Text             = string.upper(string.sub(pet.name, 1, 1))
-		iconLbl.TextColor3       = Color3.new(1, 1, 1)
-		iconLbl.TextScaled       = true
-		iconLbl.Font             = Enum.Font.GothamBold
-		iconLbl.Parent           = icon
+		-- Pet icon — real 3D model (falls back to a letter circle)
+		local icon = makePetIcon(pet.name, rarityColor)
+		icon.Parent = cell
 
 		-- Name
 		local nameLbl = Instance.new("TextLabel")
