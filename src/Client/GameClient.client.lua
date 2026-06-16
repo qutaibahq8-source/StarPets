@@ -88,6 +88,7 @@ local RE_TitleUpdate    = Remotes:WaitForChild("TitleUpdate")
 local RF_GetData        = Remotes:WaitForChild("GetData")
 local RF_Admin          = Remotes:WaitForChild("AdminCmd")
 local RE_PetCmd         = Remotes:WaitForChild("PetCmd")
+local RE_OfflineEarnings = Remotes:WaitForChild("OfflineEarnings")
 
 -- Area barriers: block locked areas for THIS player only (client-side collision)
 local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
@@ -524,6 +525,48 @@ RE_SecretFound.OnClientEvent:Connect(function(reward)
 	okBtn.MouseButton1Click:Connect(function() screen:Destroy() end)
 
 	task.delay(8,function() if screen and screen.Parent then screen:Destroy() end end)
+end)
+
+-- Welcome Back (offline earnings) popup
+RE_OfflineEarnings.OnClientEvent:Connect(function(coins, awaySeconds)
+	local screen=Instance.new("ScreenGui")
+	screen.Name="WelcomeBackGui"; screen.ResetOnSpawn=false
+	screen.DisplayOrder=200; screen.IgnoreGuiInset=true; screen.Parent=PlayerGui
+
+	local bg=Instance.new("Frame")
+	bg.Size=UDim2.new(1,0,1,0); bg.BackgroundColor3=Color3.new(0,0,0)
+	bg.BackgroundTransparency=0.5; bg.BorderSizePixel=0; bg.Parent=screen
+
+	local panel=Instance.new("Frame")
+	panel.Size=UDim2.new(0,420,0,240); panel.Position=UDim2.new(0.5,-210,0.5,300)
+	panel.BackgroundColor3=Color3.fromRGB(12,18,28); panel.BorderSizePixel=0; panel.Parent=screen
+	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
+	local stroke=Instance.new("UIStroke",panel); stroke.Color=Color3.fromRGB(90,200,255); stroke.Thickness=3
+	TweenService:Create(panel,TweenInfo.new(0.5,Enum.EasingStyle.Back),{Position=UDim2.new(0.5,-210,0.5,-120)}):Play()
+
+	local hrs = math.floor(awaySeconds/3600)
+	local mins = math.floor((awaySeconds%3600)/60)
+	local awayTxt = (hrs>0 and (hrs.."h "..mins.."m") or (mins.."m"))
+
+	local t1=Instance.new("TextLabel")
+	t1.Size=UDim2.new(1,0,0,60); t1.BackgroundTransparency=1
+	t1.Text="👋  WELCOME BACK!"; t1.TextColor3=Color3.fromRGB(120,220,255)
+	t1.TextScaled=true; t1.Font=Enum.Font.GothamBold; t1.Parent=panel
+
+	local t2=Instance.new("TextLabel")
+	t2.Size=UDim2.new(1,-20,0,70); t2.Position=UDim2.new(0,10,0,68); t2.BackgroundTransparency=1
+	t2.Text="Your pets earned while you were away ("..awayTxt.."):\n💰 +"..fmt(coins).." coins"
+	t2.TextColor3=Color3.new(1,1,1); t2.TextScaled=true; t2.Font=Enum.Font.GothamBold
+	t2.TextWrapped=true; t2.Parent=panel
+
+	local okBtn=Instance.new("TextButton")
+	okBtn.Size=UDim2.new(0,180,0,46); okBtn.Position=UDim2.new(0.5,-90,1,-58)
+	okBtn.BackgroundColor3=Color3.fromRGB(60,180,255); okBtn.Text="Collect! 💰"
+	okBtn.TextColor3=Color3.new(0,0,0); okBtn.TextScaled=true; okBtn.Font=Enum.Font.GothamBold
+	okBtn.BorderSizePixel=0; okBtn.Parent=panel
+	Instance.new("UICorner",okBtn).CornerRadius=UDim.new(0,10)
+	okBtn.MouseButton1Click:Connect(function() screen:Destroy() end)
+	task.delay(12,function() if screen and screen.Parent then screen:Destroy() end end)
 end)
 
 -- Globals for UI modules

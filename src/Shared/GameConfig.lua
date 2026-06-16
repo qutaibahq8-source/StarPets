@@ -340,6 +340,7 @@ GameConfig.DefaultData = {
 	LastDailyClaim = 0,
 	DailyStreak = 0,
 	ActiveBoosts = {},
+	LastSeen = 0,
 }
 
 -- ============================================================

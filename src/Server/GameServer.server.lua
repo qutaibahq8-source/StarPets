@@ -73,6 +73,7 @@ local RF_GetFusion    = makeFunction("GetFusion")
 local RE_Fuse         = makeEvent("Fuse")
 local RF_GetPlaytime  = makeFunction("GetPlaytime")
 local RE_ClaimPlaytime= makeEvent("ClaimPlaytime")
+local RE_OfflineEarnings = makeEvent("OfflineEarnings")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -880,6 +881,23 @@ end)
 -- ============================================================
 local function onPlayerAdded(player)
 	DataManager.LoadPlayer(player)
+	-- OFFLINE EARNINGS: pay out coins earned while the player was away (50% rate, 8h cap)
+	do
+		local data = DataManager.GetData(player)
+		if data and (data.LastSeen or 0) > 0 then
+			local away = math.clamp(os.time() - data.LastSeen, 0, 8*3600)
+			local rate = PetService.GetPlayerIncome(player)   -- coins/sec
+			local earned = math.floor((rate or 0) * away * 0.5)
+			if earned > 0 then
+				data.Coins = (data.Coins or 0) + earned
+				data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + earned
+				task.delay(3.5, function()
+					if player.Parent then RE_OfflineEarnings:FireClient(player, earned, away) end
+				end)
+			end
+		end
+		if data then data.LastSeen = os.time() end
+	end
 	GamepassService.CheckAllForPlayer(player)
 	-- Check badges on join (gives Welcome badge + any already earned)
 	task.delay(2, function()
@@ -956,6 +974,7 @@ end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(function(player)
+	local d = DataManager.GetData(player); if d then d.LastSeen = os.time() end
 	PetService.DespawnAllPets(player)
 	DataManager.RemovePlayer(player)
 end)
