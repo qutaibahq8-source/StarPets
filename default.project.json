@@ -73,6 +73,9 @@
         },
         "FusionService": {
           "$path": "src/Server/FusionService.lua"
+        },
+        "PlaytimeService": {
+          "$path": "src/Server/PlaytimeService.lua"
         }
       }
     },
@@ -141,6 +144,9 @@
             },
             "FusionPanel": {
               "$path": "src/Client/UI/FusionPanel.lua"
+            },
+            "PlaytimePanel": {
+              "$path": "src/Client/UI/PlaytimePanel.lua"
             }
           }
         }

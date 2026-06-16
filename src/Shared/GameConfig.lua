@@ -99,6 +99,21 @@ GameConfig.Boosts = {
 }
 
 -- ============================================================
+-- PLAYTIME REWARDS  (escalating prizes the longer you play this session)
+-- Resets every time you rejoin — drives session length + return visits.
+-- ============================================================
+GameConfig.PlaytimeRewards = {
+	{ seconds=60,   coins=5000 },
+	{ seconds=180,  coins=12000 },
+	{ seconds=360,  gems=25 },
+	{ seconds=600,  coins=40000 },
+	{ seconds=900,  gems=60 },
+	{ seconds=1500, coins=120000 },
+	{ seconds=2400, boost="x2_15" },
+	{ seconds=3600, gems=200 },
+}
+
+-- ============================================================
 -- DAILY REWARDS  (7-day login streak; modest, escalating)
 -- ============================================================
 GameConfig.DailyRewards = {

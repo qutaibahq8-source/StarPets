@@ -22,6 +22,7 @@ local CodeService          = require(script.Parent.CodeService)
 local DailyService         = require(script.Parent.DailyService)
 local BoostService         = require(script.Parent.BoostService)
 local FusionService        = require(script.Parent.FusionService)
+local PlaytimeService      = require(script.Parent.PlaytimeService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -70,6 +71,8 @@ local RF_GetBoosts    = makeFunction("GetBoosts")
 local RE_BuyBoost     = makeEvent("BuyBoost")
 local RF_GetFusion    = makeFunction("GetFusion")
 local RE_Fuse         = makeEvent("Fuse")
+local RF_GetPlaytime  = makeFunction("GetPlaytime")
+local RE_ClaimPlaytime= makeEvent("ClaimPlaytime")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
@@ -1084,6 +1087,22 @@ RE_BuyMerchant.OnServerEvent:Connect(function(player, index)
 		syncData(player); pcall(BadgeService.CheckAll, player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res) == "string" and res or "Cannot buy")
+	end
+end)
+
+-- ============================================================
+-- PLAYTIME REWARDS
+-- ============================================================
+RF_GetPlaytime.OnServerInvoke = function(player) return PlaytimeService.GetState(player) end
+RE_ClaimPlaytime.OnServerEvent:Connect(function(player, index)
+	if type(index) ~= "number" then return end
+	local ok, res = PlaytimeService.Claim(player, index)
+	if ok then
+		local msg = res.coins and ("+"..comma(res.coins).." coins") or res.gems and ("+"..res.gems.." gems") or "Boost!"
+		RE_Notification:FireClient(player, "success", "\u{23F1}\u{FE0F} Playtime reward: "..msg)
+		syncData(player)
+	else
+		RE_Notification:FireClient(player, "error", typeof(res)=="string" and res or "Cannot claim")
 	end
 end)
 
