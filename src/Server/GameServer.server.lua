@@ -1003,7 +1003,21 @@ end)
 -- PLAYER JOIN / LEAVE
 -- ============================================================
 local function onPlayerAdded(player)
-	DataManager.LoadPlayer(player)
+	local data0, loadErr = DataManager.LoadPlayer(player)
+	if not data0 then
+		-- Their save could not be read. Letting them play would mean an hour of
+		-- progress on data that DataManager will correctly refuse to write —
+		-- and, before that refusal existed, would have meant their real record
+		-- being overwritten with defaults. Better to say so and let them
+		-- rejoin: the outage is usually over in minutes, and their save is
+		-- untouched.
+		warn(("[StarPets] load failed for %s (%s) — asking them to rejoin.")
+			:format(player.Name, tostring(loadErr)))
+		player:Kick("Your save could not be loaded right now, so the game has "
+			.. "stopped rather than risk your pets and coins.\n\nYour data is "
+			.. "SAFE and untouched. Please rejoin in a minute.")
+		return
+	end
 	-- OFFLINE EARNINGS: pay out coins earned while the player was away (50% rate, 8h cap)
 	do
 		local data = DataManager.GetData(player)
