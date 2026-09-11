@@ -393,4 +393,86 @@ function PetService.ToggleLock(player, uid)
 	end
 end
 
+-- ============================================================
+-- THE ONE WAY A PET ENTERS AN INVENTORY
+-- ============================================================
+-- There were ELEVEN places that did `table.insert(data.Pets, ...)` — eggs,
+-- fusion, codes, events, the merchant, quests, gamepasses, trading and two
+-- admin commands — spread across nine files. Two things went wrong because of
+-- that, and both are the kind of thing a spread-out rule always produces.
+--
+-- ONE: the inventory cap was enforced in exactly ONE of them. EggService
+-- checked MaxPetsInInventory; every other path let a player go straight past
+-- it. A hundred pets is a balance number and also a performance one, since
+-- each equipped pet is a model the server replicates.
+--
+-- TWO: the Pet Index counted what you CURRENTLY OWN. Fuse three pets and the
+-- species vanishes from your collection; trade it away, same; delete it, same.
+-- A collection record that forgets what you collected is not a collection
+-- record — and there was nowhere to write "seen it" even if you wanted to,
+-- because nothing sat between a pet and the inventory.
+--
+-- So: one function. Everything goes through here.
+local function recordDiscovery(data, name)
+	if not name then return end
+	data.Discovered = data.Discovered or {}
+	if data.Discovered[name] == nil then
+		data.Discovered[name] = true
+		return true          -- newly discovered, for the "first time!" banner
+	end
+	return false
+end
+
+PetService.RecordDiscovery = recordDiscovery
+
+-- Grants a pet. Returns pet, isNewSpecies — or nil, reason if it was refused.
+--
+-- `force` skips the cap, and exists for exactly one case: a pet the player has
+-- already paid for or already owns arriving back (a trade the server has
+-- already validated, a gamepass re-grant). Refusing those would destroy the
+-- item rather than protect the player.
+function PetService.GrantPet(player, pet, force)
+	local data = DataManager.GetData(player)
+	if not data then return nil, "no data" end
+	if type(pet) ~= "table" or not pet.name then return nil, "bad pet" end
+
+	data.Pets = data.Pets or {}
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	if not force and #data.Pets >= cap then
+		return nil, ("Pet inventory full (max %d)"):format(cap)
+	end
+
+	if not pet.uniqueId then
+		pet.uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+	end
+	local isNew = recordDiscovery(data, pet.name)
+	table.insert(data.Pets, pet)
+	return pet, isNew
+end
+
+-- How many distinct species this player has ever owned. Reads the permanent
+-- record first and falls back to the live inventory for saves made before
+-- Discovered existed, so nobody's collection appears to reset on update.
+function PetService.DiscoveredCount(data)
+	if not data then return 0 end
+	local seen = {}
+	for name in pairs(data.Discovered or {}) do seen[name] = true end
+	for _, p in ipairs(data.Pets or {}) do
+		if p.name then seen[p.name] = true end
+	end
+	local n = 0
+	for _ in pairs(seen) do n = n + 1 end
+	return n
+end
+
+-- Backfill for existing saves: everything currently held counts as discovered.
+function PetService.BackfillDiscovery(data)
+	if not data then return 0 end
+	local added = 0
+	for _, p in ipairs(data.Pets or {}) do
+		if recordDiscovery(data, p.name) then added = added + 1 end
+	end
+	return added
+end
+
 return PetService

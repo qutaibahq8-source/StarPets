@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService       = game:GetService("HttpService")
 local GameConfig        = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager       = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local QuestService = {}
 
@@ -52,7 +53,7 @@ function QuestService.Claim(player, id)
 	local r = def.reward or {}
 	if r.coins then data.Coins = (data.Coins or 0) + r.coins; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + r.coins end
 	if r.gems  then data.Gems  = (data.Gems  or 0) + r.gems end
-	if r.pet   then table.insert(data.Pets, { name=r.pet, rarity=r.petRarity or "Common", uniqueId=HttpService:GenerateGUID(false) }) end
+	if r.pet   then PetService.GrantPet(player, { name=r.pet, rarity=r.petRarity or "Common" }) end
 	q.claimed[id] = true
 	return true, def
 end

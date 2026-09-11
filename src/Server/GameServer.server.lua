@@ -1018,6 +1018,11 @@ local function onPlayerAdded(player)
 			.. "SAFE and untouched. Please rejoin in a minute.")
 		return
 	end
+	-- Saves made before the Pet Index had a permanent record: everything they
+	-- currently hold counts as discovered, so nobody's collection appears to
+	-- reset on the update that introduced it.
+	pcall(PetService.BackfillDiscovery, data0)
+
 	-- OFFLINE EARNINGS: pay out coins earned while the player was away (50% rate, 8h cap)
 	do
 		local data = DataManager.GetData(player)
@@ -1427,7 +1432,7 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		if arg.gems then data.Gems = math.max(0, (data.Gems or 0) + arg.gems) end
 		syncData(target)
 	elseif action == "givePet" and data and arg.name then
-		table.insert(data.Pets, { name=arg.name, rarity=arg.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
+		PetService.GrantPet(target, { name=arg.name, rarity=arg.rarity or "Common" }, true)
 		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "unlockAll" and data then
 		data.UnlockedAreas = {}
@@ -1505,7 +1510,7 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "giveAllPets" and data then
 		for _, pet in ipairs(GameConfig.Pets) do
-			table.insert(data.Pets, { name=pet.name, rarity=pet.rarity, uniqueId=HttpService:GenerateGUID(false) })
+			PetService.GrantPet(player, { name=pet.name, rarity=pet.rarity }, true)
 		end
 		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "clearPets" and data then

@@ -351,6 +351,11 @@ GameConfig.DefaultData = {
 		CoinBonus  = 0,
 	},
 	FoundSecret = false,
+	-- What this account has EVER owned, by species name. Permanent: nothing
+	-- removes from it. The Pet Index used to be computed from data.Pets, which
+	-- meant fusing, trading or deleting a pet erased it from your collection —
+	-- a collection record that forgets what you collected.
+	Discovered = {},
 	Quests = { claimed = {} },
 	EventTokens = 0,
 	EventClaimed = {},

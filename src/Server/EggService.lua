@@ -126,7 +126,8 @@ function EggService.HatchEgg(player, eggId)
 			break
 		end
 	end
-	table.insert(data.Pets, newPet)
+	-- Through the choke point: it stamps the Pet Index and enforces the cap.
+	PetService.GrantPet(player, newPet)
 	data.EggsHatched = (data.EggsHatched or 0) + 1
 
 	return newPet, nil

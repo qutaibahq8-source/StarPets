@@ -20,6 +20,7 @@ run "baked map"  python3 tools/check_bake.py
 run "map build"  python3 tools/check_map.py
 run "data safety" python3 tools/check_data.py
 run "trading"    python3 tools/check_trade.py
+run "pets"       python3 tools/check_pets.py
 
 printf '\n\033[1m---------------------------------------\033[0m\n'
 printf '%d passed, %d failed\n' "$pass" "$fail"

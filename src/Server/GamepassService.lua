@@ -106,7 +106,8 @@ function GamepassService.GrantVIPPet(player)
 		uniqueId = "VIP_" .. player.UserId,
 		isVIPGrant = true,
 	}
-	table.insert(data.Pets, newPet)
+	-- force: already paid for in Robux; refusing it would take their money.
+	PetService.GrantPet(player, newPet, true)
 	print("[GamepassService] Granted VIP pet to " .. player.Name)
 end
 

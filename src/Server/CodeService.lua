@@ -4,6 +4,7 @@
 local HttpService = game:GetService("HttpService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local CodeService = {}
 
@@ -19,7 +20,7 @@ function CodeService.Redeem(player, codeStr)
 
 	if reward.coins then data.Coins = (data.Coins or 0) + reward.coins; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + reward.coins end
 	if reward.gems  then data.Gems  = (data.Gems  or 0) + reward.gems end
-	if reward.pet   then table.insert(data.Pets, { name=reward.pet, rarity=reward.petRarity or "Common", uniqueId=HttpService:GenerateGUID(false) }) end
+	if reward.pet   then PetService.GrantPet(player, { name=reward.pet, rarity=reward.petRarity or "Common" }) end
 	data.RedeemedCodes[code] = true
 	return true, reward.label or "Redeemed!"
 end

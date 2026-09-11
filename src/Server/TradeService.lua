@@ -132,7 +132,15 @@ local function doSwap(s)
 	-- re-validate BOTH still own everything they offered
 	local function collect(data, ids)
 		local pets = {}
-		for _, uid in ipairs(ids) do local p = petByUid(data, uid); if not p then return nil end; table.insert(pets, p) end
+		for _, uid in ipairs(ids) do
+			local p = petByUid(data, uid)
+			if not p then return nil end
+			-- Checked AGAIN here, not only when the pet was added. A pet can be
+			-- locked from the inventory panel during the three-second confirm
+			-- window, and the check that ran on Add is long past by then.
+			if p.locked then return nil end
+			table.insert(pets, p)
+		end
 		return pets
 	end
 	local petsA = da and collect(da, s.offer[s.a.UserId])
@@ -160,8 +168,10 @@ local function doSwap(s)
 		end
 	end
 	moveOut(da, s.offer[s.a.UserId]); moveOut(db, s.offer[s.b.UserId])
-	for _, p in ipairs(petsA) do table.insert(db.Pets, clonePet(p)) end
-	for _, p in ipairs(petsB) do table.insert(da.Pets, clonePet(p)) end
+	-- force: the cap was already checked above for BOTH sides, before anything
+	-- was removed. Re-checking here could reject half a completed swap.
+	for _, p in ipairs(petsA) do PetService.GrantPet(s.b, clonePet(p), true) end
+	for _, p in ipairs(petsB) do PetService.GrantPet(s.a, clonePet(p), true) end
 	local a, b = s.a, s.b
 	sessions[a.UserId] = nil; sessions[b.UserId] = nil
 	pcall(PetService.RestoreEquipped, a); pcall(PetService.RestoreEquipped, b)

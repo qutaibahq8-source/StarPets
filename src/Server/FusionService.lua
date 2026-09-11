@@ -85,7 +85,9 @@ function FusionService.FuseByName(player, name)
 		fuseMult = sumFuse * FUSE_BONUS,
 		fused    = true,
 	}
-	table.insert(data.Pets, fused)
+	-- force: the three source pets were just consumed, so refusing the result
+	-- on a full inventory would delete all of them for nothing.
+	PetService.GrantPet(player, fused, true)
 	return true, fused
 end
 
