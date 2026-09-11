@@ -79,6 +79,12 @@
         },
         "SpinService": {
           "$path": "src/Server/SpinService.lua"
+        },
+        "MapPersist": {
+          "$path": "src/Server/MapPersist.lua"
+        },
+        "RateLimit": {
+          "$path": "src/Server/RateLimit.lua"
         }
       }
     },

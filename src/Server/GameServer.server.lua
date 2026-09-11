@@ -24,6 +24,8 @@ local BoostService         = require(script.Parent.BoostService)
 local FusionService        = require(script.Parent.FusionService)
 local PlaytimeService      = require(script.Parent.PlaytimeService)
 local SpinService          = require(script.Parent.SpinService)
+local MapPersist           = require(script.Parent.MapPersist)
+local RateLimit            = require(script.Parent.RateLimit)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -138,11 +140,21 @@ end
 -- ============================================================
 -- MAP HELPERS
 -- ============================================================
+-- Everything the builder makes lands in the StarPetsMap folder rather than
+-- loose in Workspace. That is what lets a person select the map in the Explorer
+-- and copy it in one go — and it is what lets an old generated map be replaced
+-- without touching anything else somebody has put in their Workspace.
+--
+-- The StarPetsBuilt stamp identifies our own work positively, so cleanup never
+-- has to GUESS from a part's name whether it is ours. Guessing is how a purge
+-- ends up deleting a part somebody called "Wall".
 local function part(props)
 	local p = Instance.new("Part")
 	p.Anchored = true; p.CastShadow = false
 	for k,v in pairs(props) do p[k] = v end
-	p.Parent = workspace; return p
+	p:SetAttribute("StarPetsBuilt", true)
+	if p.Parent == nil then p.Parent = MapPersist.Container() end
+	return p
 end
 
 local function glow(p, color, brightness)
@@ -286,7 +298,10 @@ local function buildMap()
 	-- SpawnLocation — invisible
 	local sp = Instance.new("SpawnLocation")
 	sp.Size=Vector3.new(6,0.2,6); sp.Position=Vector3.new(0,0,0)
-	sp.Transparency=1; sp.Anchored=true; sp.Parent=workspace
+	-- Inside the map folder, not loose in Workspace, so copying the map takes
+	-- the spawn point with it.
+	sp.Name="StarPetsSpawn"
+	sp.Transparency=1; sp.Anchored=true; sp.Parent=MapPersist.Container()
 
 	-- Subtle decorative crystals around spawn (no glow — were glowing purple)
 	for i=1,10 do
@@ -349,7 +364,9 @@ local function buildMap()
 			end
 		end)
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=egg
-		cd.MouseClick:Connect(function(player) RE_HatchEgg:FireClient(player,eDef.id) end)
+		-- Stamped rather than closed over, so this egg still hatches when the map
+		-- has been baked into the place and this line never ran. See MapPersist.
+		MapPersist.Bind(cd, "HatchEgg", eDef.id)
 	end
 
 	-- ---- MEADOW ORB AREA (behind spawn between z=20 and z=110) ----
@@ -464,7 +481,9 @@ local function buildMap()
 
 	-- ---- BIOMES (each 130 wide x 190 deep, 130 studs apart) ----
 	local AreaBarriers = Instance.new("Folder")
-	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = workspace
+	-- Inside StarPetsMap: as a sibling in Workspace, copying "the map" would
+	-- take the scenery and silently leave every buy-gate behind.
+	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = MapPersist.Container()
 	local biomes={
 		{id="Forest",  cx=145, col=Color3.fromRGB(22,85,22)},
 		{id="Desert",  cx=275, col=Color3.fromRGB(160,132,35)},
@@ -500,7 +519,7 @@ local function buildMap()
 		part({Name="BStripe",Size=Vector3.new(3.2,3.5,250),Position=Vector3.new(gateX,33,5),
 			Color=b.col,Material=Enum.Material.SmoothPlastic,CanCollide=false}).Parent=barrier
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=barrier
-		cd.MouseClick:Connect(function(player) RE_BuyArea:FireClient(player,b.id) end)
+		MapPersist.Bind(cd, "BuyArea", b.id)
 		-- requirement sign on the wall
 		local sign=Instance.new("BillboardGui")
 		sign.Name="WallSign"; sign.Size=UDim2.new(0,640,0,240); sign.StudsOffset=Vector3.new(0,20,0)
@@ -574,10 +593,7 @@ local function buildMap()
 
 		-- Click to buy
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=16; cd.Parent=pad
-		cd.MouseClick:Connect(function(player)
-			-- Fire to client to open the upgrade panel
-			RE_HatchEgg:FireClient(player, "__upgrade__"..upg.key)
-		end)
+		MapPersist.Bind(cd, "UpgradePad", upg.key)
 	end
 
 	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
@@ -627,23 +643,7 @@ local function buildMap()
 	secretPrompt.MaxActivationDistance=6
 	secretPrompt.RequiresLineOfSight=false
 	secretPrompt.Parent=secretChest
-	secretPrompt.Triggered:Connect(function(player)
-		local data=DataManager.GetData(player)
-		if not data then return end
-		if data.FoundSecret then
-			RE_Notification:FireClient(player,"info","You already found this secret! 🗝️")
-			return
-		end
-		data.FoundSecret=true
-		local reward=GameConfig.SecretReward
-		data.Coins=data.Coins+(reward.coins or 0)
-		data.Gems=data.Gems+(reward.gems or 0)
-		DataManager.IncrementData(player,"TotalCoinsEarned",reward.coins or 0)
-		RE_SecretFound:FireClient(player,reward)
-		BadgeService.Grant(player,"secret_finder")
-		syncData(player)
-		print("[Secret] "..player.Name.." found the secret spot!")
-	end)
+	MapPersist.Bind(secretPrompt, "SecretChest")
 
 	-- ============================================================
 	-- PHYSICAL LEADERBOARD BOARD (left side of spawn, z=-35)
@@ -668,9 +668,7 @@ local function buildMap()
 
 	-- Clickable board to open leaderboard UI
 	local lbClick=Instance.new("ClickDetector"); lbClick.MaxActivationDistance=30; lbClick.Parent=boardBack
-	lbClick.MouseClick:Connect(function(player)
-		RE_TitleUpdate:FireClient(player,"__openleaderboard__")
-	end)
+	MapPersist.Bind(lbClick, "OpenLeaderboard")
 
 	-- Live leaderboard text painted FLAT on the board face (SurfaceGui)
 	local lbSurface = Instance.new("SurfaceGui")
@@ -838,14 +836,10 @@ local function buildMap()
 
 	-- Click detector on core
 	local cd = Instance.new("ClickDetector"); cd.MaxActivationDistance=20; cd.Parent=core
-	cd.MouseClick:Connect(function(player)
-		RE_Rebirth:FireClient(player)  -- send to client to show confirmation popup
-	end)
+	MapPersist.Bind(cd, "Rebirth")   -- opens the confirmation popup on the client
 	-- Also clickable on the orb
 	local cd2 = Instance.new("ClickDetector"); cd2.MaxActivationDistance=20; cd2.Parent=orb
-	cd2.MouseClick:Connect(function(player)
-		RE_Rebirth:FireClient(player)
-	end)
+	MapPersist.Bind(cd2, "Rebirth")
 
 	-- ============================================================
 	-- CLEANUP: remove leftover imported-map junk that overlapped the built-in
@@ -871,6 +865,57 @@ local function syncData(player)
 	local data = DataManager.GetData(player)
 	if data then RE_DataUpdated:FireClient(player,data) end
 end
+
+-- ============================================================
+-- WHAT CLICKING A THING IN THE MAP MEANS
+-- ============================================================
+-- One table, one definition per action. The map only records WHICH action a
+-- part performs, as an attribute; it never carries the code. That is what lets
+-- the map be saved into the place as ordinary parts and still work.
+--
+-- Every one of these used to be an anonymous closure written inline next to the
+-- part it belonged to, several hundred lines apart — and the secret chest one
+-- called a `syncData` that was not in scope where it was written. Being 200
+-- lines above this declaration, it resolved to a nil global, so finding the
+-- secret threw immediately after granting the badge and the player's coin
+-- counter did not move. Collecting them here is what made that visible.
+-- ClickDetectors never pass through any guard around the remotes, because no
+-- remote is involved on the way in. SecretChest writes to player data.
+MapPersist.SetRateLimit(RateLimit)
+MapPersist.Handlers({
+	HatchEgg = function(player, eggId)
+		RE_HatchEgg:FireClient(player, eggId)
+	end,
+	BuyArea = function(player, areaId)
+		RE_BuyArea:FireClient(player, areaId)
+	end,
+	UpgradePad = function(player, key)
+		RE_HatchEgg:FireClient(player, "__upgrade__" .. tostring(key))
+	end,
+	OpenLeaderboard = function(player)
+		RE_TitleUpdate:FireClient(player, "__openleaderboard__")
+	end,
+	Rebirth = function(player)
+		RE_Rebirth:FireClient(player)
+	end,
+	SecretChest = function(player)
+		local data = DataManager.GetData(player)
+		if not data then return end
+		if data.FoundSecret then
+			RE_Notification:FireClient(player, "info", "You already found this secret! 🗝️")
+			return
+		end
+		data.FoundSecret = true
+		local reward = GameConfig.SecretReward
+		data.Coins = data.Coins + (reward.coins or 0)
+		data.Gems = data.Gems + (reward.gems or 0)
+		DataManager.IncrementData(player, "TotalCoinsEarned", reward.coins or 0)
+		RE_SecretFound:FireClient(player, reward)
+		BadgeService.Grant(player, "secret_finder")
+		syncData(player)
+		print("[Secret] " .. player.Name .. " found the secret spot!")
+	end,
+})
 
 task.spawn(function()
 	while true do
@@ -1418,8 +1463,68 @@ end)
 setupLighting()
 PetService.Init()
 CurrencyService.Init()
-local mapOk, mapErr = pcall(buildMap)
-if not mapOk then warn("[StarPets] buildMap error: " .. tostring(mapErr)) end
+-- ============================================================
+-- BUILD THE MAP, OR KEEP THE ONE YOU MADE
+-- ============================================================
+-- If the place has a StarPetsMap folder flagged StarPetsBaked, the map is a
+-- BUILD — somebody laid it out in Studio and saved it — and rebuilding would
+-- throw their work away every single time a server started. That is the exact
+-- failure this exists to end: edits made during Play vanished on Stop, and
+-- there was nothing to edit outside Play because the map was only ever code.
+--
+-- On a baked map nothing is generated. Behaviour is re-attached from the
+-- attributes the builder stamped, so clicking an egg still hatches it even
+-- though not one line of the builder ran.
+local baked = MapPersist.Boot()
+local mapOk, mapErr = true, nil
+local rewired = 0
+
+-- Yours, and never touched by any of this, baked or not.
+pcall(MapPersist.EnsureCustomFolder)
+
+if baked then
+	local ok, n = pcall(MapPersist.Rewire)
+	if ok then rewired = n or 0 else mapOk, mapErr = false, n end
+	print(("[StarPets] using YOUR baked map — %d interactive part(s) re-armed, "
+		.. "nothing rebuilt."):format(rewired))
+else
+	-- Replace a previously generated map rather than laying a new one on top.
+	pcall(MapPersist.ResetWorld)
+	mapOk, mapErr = pcall(buildMap)
+	if not mapOk then warn("[StarPets] buildMap error: " .. tostring(mapErr)) end
+end
+
+-- Say how to keep a map you build, IN STUDIO, at the moment it is relevant —
+-- not once in a document nobody has open. Nobody should have to be told twice
+-- that Play-mode edits are discarded; the game itself is the right place to
+-- say it, and it costs a player nothing because it never runs for them.
+if game:GetService("RunService"):IsStudio() and not baked then
+	print(table.concat({
+		"",
+		"[StarPets] THIS MAP IS GENERATED. Anything you move or add while you",
+		"           are testing is DISCARDED when you press Stop — that is",
+		"           Studio, not a bug, and it is why your edits vanished.",
+		"",
+		"           TO KEEP A MAP YOU BUILD, do this once:",
+		"             1. While still running, click StarPetsMap in the Explorer",
+		"                and press Ctrl+C.",
+		"             2. Press Stop.",
+		"             3. Click Workspace, press Ctrl+V.",
+		"             4. Paste this into the Command Bar and press Enter:",
+		"                workspace.StarPetsMap:SetAttribute(\"StarPetsBaked\", true)",
+		"             5. Save the place (Ctrl+S).",
+		"",
+		"           From then on the map is YOURS: ordinary parts you can drag,",
+		"           delete and add to in edit mode, saved with the place, and",
+		"           never rebuilt over. Every egg and gate still works, because",
+		"           each one carries its own SPAction attribute that the server",
+		"           re-arms on startup.",
+		"",
+		"           (Or build in workspace.MyBuild, which is never touched",
+		"            either way.)",
+		"",
+	}, "\n"))
+end
 BadgeService.SetRemote(RE_BadgeEarned)
 CurrencyService.StartPassiveIncome(PetService)
 MerchantService.Start(function()
