@@ -262,6 +262,51 @@ def main():
     if bad == 0:
         print("  ok  every world differs from the one before it")
 
+    # --- THE CLIENT MUST LOOK WHERE THE SERVER PUTS THINGS ------------------
+    # The client resolves world folders by name at Workspace level. When the
+    # barriers moved inside StarPetsMap so the map would copy as one selection,
+    # `workspace:WaitForChild("AreaBarriers", 30)` was left behind — it would
+    # have timed out, returned nil, and every locked world would have stayed
+    # sealed forever because nothing ever updated a barrier again.
+    #
+    # That is invisible in every other check here: the map builds correctly, the
+    # server boots clean, and the game is broken.
+    import re as _re
+    client_src = "\n".join(f.read_text() for f in
+                            sorted((ROOT / "src/Client").rglob("*.lua")))
+    # ONLY the blocking form. workspace:WaitForChild yields until the thing
+    # appears and then returns nil, so a missing folder costs 30 seconds and
+    # then silently disables whatever needed it. FindFirstChild returning nil is
+    # an explicit, handled case — PetMeshes is an optional developer-supplied
+    # folder looked up that way with a fallback, and flagging it was this
+    # check's first false positive.
+    wanted = set(_re.findall(
+        r'workspace:WaitForChild\(\s*"(\w+)"', client_src))
+    root_f = ws["FindFirstChild"](ws, "StarPetsMap")
+    for name in sorted(wanted):
+        if name == "StarPetsMap":
+            continue
+        at_workspace = ws["FindFirstChild"](ws, name) is not None
+        in_map = root_f is not None and root_f["FindFirstChild"](root_f, name) is not None
+        if at_workspace:
+            print("  ok  client finds %-16s at Workspace, where the server puts it"
+                  % name)
+        elif in_map:
+            # Acceptable only if the client also knows to look inside the map.
+            if ('FindFirstChild("StarPetsMap")' in client_src
+                    and name in client_src):
+                print("  ok  client finds %-16s inside StarPetsMap (has the fallback)"
+                      % name)
+            else:
+                bad += 1
+                print("  x   the client waits for workspace.%s but the server "
+                      "builds it inside StarPetsMap — it will wait, time out, "
+                      "and that feature silently stops working" % name)
+        else:
+            bad += 1
+            print("  x   the client waits for workspace.%s and the server never "
+                  "creates it anywhere" % name)
+
     print("\nmap: %d checks failed" % bad)
     return 1 if bad else 0
 

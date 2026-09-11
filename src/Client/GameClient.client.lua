@@ -91,8 +91,28 @@ local RE_PetCmd         = Remotes:WaitForChild("PetCmd")
 local RE_OfflineEarnings = Remotes:WaitForChild("OfflineEarnings")
 
 -- Area barriers: block locked areas for THIS player only (client-side collision)
-local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
+-- Resolved on demand, and from inside StarPetsMap.
+--
+-- The barriers moved into the map folder so that selecting StarPetsMap in the
+-- Explorer and copying it takes the buy-gates with it. This line still waited
+-- for workspace.AreaBarriers, which no longer exists — it would have timed out
+-- and returned nil, and then every locked world would have stayed sealed
+-- forever because nothing ever updated a barrier again. My own change, caught
+-- reading the file back.
+--
+-- On demand rather than captured once: a reference grabbed before the map
+-- existed, or held across a rebuild, points at a folder no longer in the world.
+local barrierCache = nil
+local function areaBarriers()
+	if barrierCache and barrierCache.Parent then return barrierCache end
+	local root = workspace:FindFirstChild("StarPetsMap")
+	barrierCache = (root and root:FindFirstChild("AreaBarriers"))
+		or workspace:FindFirstChild("AreaBarriers")
+	return barrierCache
+end
+
 local function updateBarriers(data)
+	local AreaBarriers = areaBarriers()
 	if not AreaBarriers or not data then return end
 	local unlocked = {}
 	for _, id in ipairs(data.UnlockedAreas or {}) do unlocked[id] = true end
@@ -677,6 +697,61 @@ task.delay(2, function()
 				end)
 			end
 		end)
+	end)
+end)
+
+-- ============================================================
+-- BUILD BADGE  (Studio only — players never see it)
+-- ============================================================
+-- "Nothing changed" and "the new code did not install" look identical from
+-- inside the game, and the difference matters enormously: one is a complaint
+-- about the work, the other is a complaint about a folder being in the wrong
+-- place. Reading the Output window is not a reasonable thing to ask, so the
+-- answer is on screen for two seconds.
+--
+-- It shows the map part count, which is the number that actually moves when
+-- the map changes — config counts like "5 worlds" stay identical across every
+-- revision and settle nothing.
+task.spawn(function()
+	if not game:GetService("RunService"):IsStudio() then return end
+
+	local map = workspace:WaitForChild("StarPetsMap", 25)
+	local parts, props = 0, 0
+	if map then
+		for _, d in ipairs(map:GetDescendants()) do
+			if d:IsA("BasePart") then
+				parts = parts + 1
+				if d:GetAttribute("StarPetsBuilt") then props = props + 1 end
+			end
+		end
+	end
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "StarPetsBuildBadge"
+	sg.ResetOnSpawn = false
+	sg.DisplayOrder = 999
+	sg.IgnoreGuiInset = true
+	sg.Parent = PlayerGui
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0, 300, 0, 26)
+	lbl.Position = UDim2.new(0, 8, 1, -34)
+	lbl.BackgroundColor3 = Color3.fromRGB(14, 12, 22)
+	lbl.BackgroundTransparency = 0.25
+	lbl.BorderSizePixel = 0
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 13
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = map
+		and ("  StarPets build OK  -  " .. parts .. " map parts")
+		or "  StarPets: NO StarPetsMap - the server code did not run"
+	lbl.TextColor3 = map and Color3.fromRGB(150, 235, 160)
+		or Color3.fromRGB(255, 140, 140)
+	lbl.Parent = sg
+	Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 6)
+
+	task.delay(12, function()
+		if sg then sg:Destroy() end
 	end)
 end)
 
