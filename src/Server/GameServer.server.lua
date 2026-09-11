@@ -488,17 +488,56 @@ local function buildMap()
 	-- Inside StarPetsMap: as a sibling in Workspace, copying "the map" would
 	-- take the scenery and silently leave every buy-gate behind.
 	AreaBarriers.Name = "AreaBarriers"; AreaBarriers.Parent = MapPersist.Container()
+	-- Each world gets a floor colour, a cliff colour and a stone colour rather
+	-- than one flat tone. Cliffs a shade off the floor are what make a raised
+	-- terrace read as rock holding up ground, instead of the same slab twice.
 	local biomes={
-		{id="Forest",  cx=145, col=Color3.fromRGB(22,85,22)},
-		{id="Desert",  cx=275, col=Color3.fromRGB(160,132,35)},
-		{id="Volcano", cx=405, col=Color3.fromRGB(120,22,0)},
-		{id="Space",   cx=535, col=Color3.fromRGB(8,8,38)},
+		{id="Forest",  cx=145, col=Color3.fromRGB(30,96,34),
+			cliff=Color3.fromRGB(86,72,54),  stone=Color3.fromRGB(104,114,102),
+			mat=Enum.Material.Grass},
+		{id="Desert",  cx=275, col=Color3.fromRGB(198,168,104),
+			cliff=Color3.fromRGB(170,132,82), stone=Color3.fromRGB(190,164,120),
+			mat=Enum.Material.Sand},
+		{id="Volcano", cx=405, col=Color3.fromRGB(78,44,38),
+			cliff=Color3.fromRGB(62,44,40),  stone=Color3.fromRGB(92,70,64),
+			mat=Enum.Material.Basalt},
+		{id="Space",   cx=535, col=Color3.fromRGB(112,114,128),
+			cliff=Color3.fromRGB(86,88,102), stone=Color3.fromRGB(152,154,168),
+			mat=Enum.Material.Slate},
 	}
 	for _,b in ipairs(biomes) do
 		-- Biome floor (130 wide x 190 deep = fits 4-5 players comfortably)
 		part({Name="Biome_"..b.id,Size=Vector3.new(130,2,190),
-			Position=Vector3.new(b.cx,-1,0),Color=b.col,Material=Enum.Material.SmoothPlastic})
-		decorateBiome(b.id, b.cx, 0)
+			Position=Vector3.new(b.cx,-1,0),Color=b.col,Material=b.mat})
+
+		-- Elevation. Every world used to be one flat slab at a single height,
+		-- so you saw the whole thing at once from the gate and there was
+		-- nothing to walk towards. A terrace across the back, a cliff behind
+		-- it and steps up the middle cost about a dozen parts and give each
+		-- world a foreground, a stage and an edge.
+		local th = { ground = b.col, cliff = b.cliff, stone = b.stone,
+			groundMat = b.mat }
+		MapProps.Terrain({ part = part }, b.cx, 0, th)
+
+		-- One large thing per world, on the terrace, tall enough to be seen
+		-- from the world before it — so you can see where you are going before
+		-- you can afford to go there.
+		local lm = MapProps.LANDMARKS[PROP_SET[b.id] or ""]
+		if lm then
+			lm({ part = part }, b.cx, MapProps.TERRACE_Z, MapProps.TERRACE_Y, th)
+		end
+
+		-- Props on the walkable front half. The terrace is where the landmark
+		-- stands, so scattering trees over it would bury the thing the world
+		-- is supposed to be remembered for.
+		-- 20 clusters, not 14. The terrace takes the back third of the island
+		-- out of play for props, so the same cluster count over half the area
+		-- leaves the walkable part thinner than it was before the terrace
+		-- existed — which would make the world feel emptier, not fuller.
+		decorateBiome(b.id, b.cx, 0, {
+			clusters = 20,
+			blocked = function(x, z) return z < -30 end,
+		})
 
 		local areaConfig=nil
 		for _,a in ipairs(GameConfig.Areas) do if a.id==b.id then areaConfig=a break end end

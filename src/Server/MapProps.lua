@@ -455,6 +455,157 @@ function MapProps.SETS.space(ctx, x, z, y, i)
 end
 
 -- ============================================================
+-- TERRAIN
+-- ============================================================
+-- Every world was a 130x190 slab at a single height. Flat ground has no
+-- foreground and no distance: you see the whole world at once from the gate,
+-- and there is nothing to walk TOWARDS.
+--
+-- A raised terrace across the back, a cliff behind it and steps up the middle
+-- fixes that for the cost of about a dozen parts. It gives each world a
+-- foreground you cross, a stage you climb to, and an edge — so it reads as an
+-- island rather than a rectangle that stops.
+
+local TERRACE = {
+	z0 = -95,     -- back edge of the island
+	z1 = -38,     -- front edge of the raised terrace
+	height = 7,
+	width = 112,  -- inset from the 130 slab, so the terrace has a visible lip
+}
+
+MapProps.TERRACE_Y = TERRACE.height
+MapProps.TERRACE_Z = (TERRACE.z0 + TERRACE.z1) * 0.5
+
+function MapProps.Terrain(ctx, cx, baseY, th)
+	local t = TERRACE
+	local depth = t.z1 - t.z0
+	local cz = (t.z0 + t.z1) * 0.5
+
+	-- The raised stage.
+	box(ctx, "Terrace", Vector3.new(cx, baseY + t.height * 0.5, cz),
+		Vector3.new(t.width, t.height, depth), shade(th.ground, 1.08),
+		th.groundMat)
+	-- A lip along its front edge, a shade darker, so the step reads as a step
+	-- and not as a colour change in the floor.
+	box(ctx, "TerraceLip", Vector3.new(cx, baseY + t.height - 0.3, t.z1 - 0.6),
+		Vector3.new(t.width + 2.5, 1.4, 2.5), shade(th.ground, 0.8), th.groundMat)
+
+	-- Steps up the middle. Six of them, so it is walkable without jumping.
+	for k = 0, 5 do
+		local h = t.height * (k + 1) / 6
+		box(ctx, "TerraceStep",
+			Vector3.new(cx, baseY + h * 0.5, t.z1 + 2 + (5 - k) * 3),
+			Vector3.new(26, h, 3.2), shade(th.stone, 1 - k * 0.02),
+			Enum.Material.Slate)
+	end
+
+	-- The cliff behind. This is what stops the world looking like it simply
+	-- runs out: something is BEHIND the terrace, holding it up.
+	for k = 0, 4 do
+		local w = t.width - k * 14
+		local h = 9 + k * 5
+		box(ctx, "Cliff", Vector3.new(cx + (k % 2 == 0 and -8 or 10),
+				baseY + h * 0.5, t.z0 - 3 - k * 2),
+			Vector3.new(w, h, 14 + k * 3), shade(th.cliff, 0.92 + k * 0.05),
+			Enum.Material.Rock)
+	end
+	-- Boulders where the cliff meets the terrace, so the join is not a seam.
+	for k = 0, 5 do
+		local x = cx - 46 + k * 19
+		ball(ctx, "CliffRock", Vector3.new(x, baseY + t.height + 1.6, t.z0 + 7),
+			Vector3.new(11 - (k % 3) * 2, 7, 9), shade(th.cliff, 1.06),
+			Enum.Material.Rock, { CanCollide = false })
+	end
+end
+
+-- ============================================================
+-- LANDMARKS
+-- ============================================================
+-- One large thing per world, on the terrace, tall enough to be visible from the
+-- world BEFORE it. That is what makes somewhere memorable rather than merely a
+-- different colour: you can see where you are going before you can afford it.
+MapProps.LANDMARKS = {}
+
+function MapProps.LANDMARKS.forest(ctx, cx, cz, y, th)
+	-- A great hollow tree, several times the size of the ones around it.
+	column(ctx, "GreatTrunk", Vector3.new(cx, y + 20, cz), 7, 40,
+		C(78, 54, 36), Enum.Material.Wood)
+	column(ctx, "GreatFlare", Vector3.new(cx, y + 3, cz), 11, 6,
+		C(70, 48, 32), Enum.Material.Wood)
+	for k, L in ipairs({ { 0, 42, 0, 46, 26 }, { -14, 36, 9, 30, 20 },
+		{ 15, 38, -7, 28, 19 }, { 3, 50, 4, 30, 18 } }) do
+		ball(ctx, "GreatLeaves", Vector3.new(cx + L[1], y + L[2], cz + L[3]),
+			Vector3.new(L[4], L[5], L[4]), shade(C(38, 104, 46), 0.86 + k * 0.06),
+			Enum.Material.Grass, { CanCollide = false })
+	end
+	box(ctx, "Hollow", Vector3.new(cx, y + 6, cz + 7),
+		Vector3.new(7, 11, 3), C(26, 18, 14), nil, { CanCollide = false })
+end
+
+function MapProps.LANDMARKS.desert(ctx, cx, cz, y, th)
+	-- A stepped pyramid with a capstone. Reads from a very long way off,
+	-- which is the entire job of a landmark.
+	for k = 0, 7 do
+		local w = 58 - k * 7
+		box(ctx, "Pyramid", Vector3.new(cx, y + 2.5 + k * 5, cz),
+			Vector3.new(w, 5, w), shade(C(206, 170, 110), 0.9 + k * 0.025),
+			Enum.Material.Sandstone)
+	end
+	box(ctx, "PyramidCap", Vector3.new(cx, y + 43, cz), Vector3.new(6, 6, 6),
+		C(240, 206, 110), Enum.Material.Sandstone, { CanCollide = false })
+	for _, sx in ipairs({ -1, 1 }) do
+		column(ctx, "Obelisk", Vector3.new(cx + sx * 40, y + 12, cz + 22),
+			2.4, 24, shade(C(206, 170, 110), 0.86), Enum.Material.Sandstone)
+	end
+end
+
+function MapProps.LANDMARKS.volcano(ctx, cx, cz, y, th)
+	-- The volcano itself, with the crater glowing. The world is named after it
+	-- and did not contain one.
+	for k = 0, 6 do
+		local r = 34 - k * 4.4
+		disc(ctx, "VolcanoCone", Vector3.new(cx, y + 2 + k * 5.5, cz), r, 5.5,
+			shade(C(74, 46, 40), 0.88 + k * 0.03), Enum.Material.Basalt)
+	end
+	disc(ctx, "Crater", Vector3.new(cx, y + 39, cz), 7.5, 2.5,
+		C(255, 108, 24), Enum.Material.Neon, { CanCollide = false })
+	-- Lava running down one flank, in three shortening segments.
+	for k = 0, 2 do
+		box(ctx, "LavaFlow",
+			Vector3.new(cx + 6 + k * 5, y + 30 - k * 11, cz + 10 + k * 9),
+			Vector3.new(4 - k * 0.6, 2, 16 - k * 3), C(236, 90, 20),
+			Enum.Material.Neon, { CanCollide = false,
+				Orientation = Vector3.new(-34 + k * 8, 0, 0) })
+	end
+end
+
+function MapProps.LANDMARKS.space(ctx, cx, cz, y, th)
+	-- A landed station: legs, a hull, a ring and a lit window band. The world
+	-- had nothing at all standing in it before.
+	for _, sx in ipairs({ -1, 1 }) do
+		for _, sz in ipairs({ -1, 1 }) do
+			column(ctx, "StationLeg",
+				Vector3.new(cx + sx * 13, y + 6, cz + sz * 13), 1.4, 12,
+				C(118, 120, 134), Enum.Material.Metal,
+				{ Orientation = Vector3.new(0, 0, 90 + sx * 8) })
+		end
+	end
+	disc(ctx, "StationBase", Vector3.new(cx, y + 13, cz), 22, 4,
+		C(176, 178, 192), Enum.Material.Metal)
+	disc(ctx, "StationHull", Vector3.new(cx, y + 20, cz), 16, 11,
+		C(202, 204, 216), Enum.Material.Metal)
+	disc(ctx, "StationBand", Vector3.new(cx, y + 20, cz), 16.6, 3,
+		C(96, 150, 226), Enum.Material.Neon, { CanCollide = false })
+	disc(ctx, "StationRing", Vector3.new(cx, y + 27, cz), 26, 1.6,
+		C(150, 152, 166), Enum.Material.Metal, { CanCollide = false })
+	ball(ctx, "StationDome", Vector3.new(cx, y + 28, cz), Vector3.new(17, 12, 17),
+		C(158, 196, 232), Enum.Material.Glass,
+		{ CanCollide = false, Transparency = 0.3 })
+	column(ctx, "StationMast", Vector3.new(cx, y + 38, cz), 0.7, 12,
+		C(118, 120, 134), Enum.Material.Metal)
+end
+
+-- ============================================================
 -- PLACEMENT
 -- ============================================================
 -- Roughly how wide one placement of each set is, in studs. Measured from the
