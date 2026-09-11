@@ -462,13 +462,11 @@ local function buildMap()
 	path(0, 26, 9, 56)    -- north, toward the fountain & meadow
 	-- (fountain removed)
 
-	-- ---- HUB DECOR: lamp posts, hedges, benches ----
-	local function lamp(x, z)
-		part({Name="LampPost",Size=Vector3.new(0.5,7,0.5),Position=Vector3.new(x,3.5,z),Color=Color3.fromRGB(38,38,46),Material=Enum.Material.Metal,CanCollide=false})
-		part({Name="LampArm",Size=Vector3.new(1.6,0.4,0.4),Position=Vector3.new(x,6.9,z),Color=Color3.fromRGB(38,38,46),Material=Enum.Material.Metal,CanCollide=false})
-		part({Name="LampHead",Shape=Enum.PartType.Ball,Size=Vector3.new(1.2,1.2,1.2),Position=Vector3.new(x,6.6,z),Color=Color3.fromRGB(255,238,180),Material=Enum.Material.Neon,CanCollide=false})
-	end
-	for _, p in ipairs({{26,26},{-26,26},{26,-26},{-26,-26},{30,0},{-30,0}}) do lamp(p[1],p[2]) end
+	-- ---- HUB DECOR: hedges and benches ----
+	-- The six lamp posts are gone. Their heads were NEON balls sitting right
+	-- beside the walking routes at (+/-30, 0) and the four diagonals, which is
+	-- the "light on the path" — six small suns at head height on the way to
+	-- every destination in the game.
 	-- hedge ring around the plaza (gaps where the 4 paths exit)
 	for a=0,11 do
 		local ang=(a/12)*math.pi*2; local r=32
@@ -496,12 +494,26 @@ local function buildMap()
 	end
 	local function flower(x,z,col)
 		part({Name="FlowerStem",Size=Vector3.new(0.2,1.1,0.2),Position=Vector3.new(x,0.7,z),Color=Color3.fromRGB(60,130,55),Material=Enum.Material.Grass,CanCollide=false})
-		part({Name="FlowerTop",Shape=Enum.PartType.Ball,Size=Vector3.new(0.9,0.9,0.9),Position=Vector3.new(x,1.4,z),Color=col,Material=Enum.Material.Neon,CanCollide=false})
+		-- Plastic, not Neon. A glowing flower is a light source, and there are
+		-- dozens of them; together they were lighting the plaza.
+		part({Name="FlowerTop",Shape=Enum.PartType.Ball,Size=Vector3.new(0.9,0.9,0.9),Position=Vector3.new(x,1.4,z),Color=col,Material=Enum.Material.SmoothPlastic,CanCollide=false})
 	end
-	-- a ring of trees around the plaza meadow
+	-- A ring of trees around the plaza — but NOT on the paths.
+	--
+	-- The four paths run out along the axes: east and west to x = +/-80, south
+	-- to the eggs, north to the meadow, each 9 studs wide. The ring sat at
+	-- radius 47-57, so the trees on the axes stood in the middle of the
+	-- walkway you take to every destination in the game. You walked into them.
+	--
+	-- Skipping any position whose x or z is inside a path corridor leaves the
+	-- ring intact everywhere it was not in the way.
+	local PATH_HALF = 9          -- half-width of a path, plus clearance
 	for a=0,17 do
 		local ang=(a/18)*math.pi*2; local r=47 + (a%3)*5
-		tree(math.cos(ang)*r, math.sin(ang)*r, 0.85 + (a%3)*0.18)
+		local x, z = math.cos(ang)*r, math.sin(ang)*r
+		if math.abs(x) > PATH_HALF and math.abs(z) > PATH_HALF then
+			tree(x, z, 0.85 + (a%3)*0.18)
+		end
 	end
 	-- scattered boulders
 	for _,p in ipairs({{55,18,1.1},{-58,22,0.8},{60,-30,1.3},{-62,-26,0.9},{44,42,0.7},{-46,40,1.0},{20,52,0.8},{-22,54,1.1}}) do rock(p[1],p[2],p[3]) end
@@ -646,98 +658,12 @@ local function buildMap()
 	end
 
 	-- ============================================================
-	-- PHYSICAL SHOP BUILDING (east side of spawn, x=65)
+	-- PHYSICAL SHOP BUILDING — REMOVED
 	-- ============================================================
-	-- ---- THE SPAWN WAS THE ONLY WORLD NOBODY DECORATED ----
-	--
-	-- decorateBiome ran for Forest, Desert, Volcano and Space. Meadow is world
-	-- 1 and it is the spawn, so it was never in that list — past the stone the
-	-- ground was flat green nothing in every direction. That is the first thing
-	-- every player sees and where they spend the longest, and it looked like a
-	-- test level.
-	--
-	-- The keep-outs matter more here than on an island, because the shop, the
-	-- egg terrace, the rebirth machine and the leaderboard are all pinned at
-	-- fixed coordinates by the code below. A tree through the middle of the
-	-- shop is worse than an empty field.
-	local PLAZA_KEEPOUT = {
-		{ x = 0,   z = 0,   rx = 46, rz = 46 },    -- spawn platform and ring
-		{ x = 0,   z = -75, rx = 74, rz = 60 },    -- egg terrace and connector
-		{ x = -55, z = 34,  rx = 30, rz = 26 },    -- upgrade shop
-		{ x = -55, z = 0,   rx = 26, rz = 24 },    -- rebirth machine
-		{ x = -55, z = -35, rx = 30, rz = 20 },    -- leaderboard board
-		{ x = 55,  z = 34,  rx = 30, rz = 26 },    -- east structure
-	}
-	decorateBiome("Meadow", 0, 0, {
-		clusters = 18,
-		blocked = function(x, z)
-			for _, k in ipairs(PLAZA_KEEPOUT) do
-				if math.abs(x - k.x) < k.rx and math.abs(z - k.z) < k.rz then
-					return true
-				end
-			end
-			return false
-		end,
-	})
-
-	local shopPos = Vector3.new(-55, 0, 34)  -- next to the rebirth machine (west of spawn)
-
-	-- Shop floor
-	part({Name="ShopFloor",Size=Vector3.new(22,2,22),Position=shopPos+Vector3.new(0,-1,0),
-		Color=Color3.fromRGB(45,38,68),Material=Enum.Material.SmoothPlastic})
-	-- Walls
-	part({Name="ShopWallF",Size=Vector3.new(22,10,1),Position=shopPos+Vector3.new(0,4,-11),
-		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
-	part({Name="ShopWallB",Size=Vector3.new(22,10,1),Position=shopPos+Vector3.new(0,4,11),
-		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
-	part({Name="ShopWallL",Size=Vector3.new(1,10,22),Position=shopPos+Vector3.new(-11,4,0),
-		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
-	part({Name="ShopWallR",Size=Vector3.new(1,10,22),Position=shopPos+Vector3.new(11,4,0),
-		Color=Color3.fromRGB(38,32,58),Material=Enum.Material.SmoothPlastic})
-	-- Roof
-	local roof=part({Name="ShopRoof",Size=Vector3.new(24,1,24),Position=shopPos+Vector3.new(0,9.5,0),
-		Color=Color3.fromRGB(80,50,130),Material=Enum.Material.SmoothPlastic})
-	-- Roof neon trim
-	local roofNeon=part({Name="ShopRoofNeon",Size=Vector3.new(24.5,0.5,24.5),Position=shopPos+Vector3.new(0,10.1,0),
-		Color=Color3.fromRGB(160,80,255),Material=Enum.Material.Neon,CanCollide=false})
-	glow(roofNeon,Color3.fromRGB(160,80,255),2)
-	-- Door opening (gap in front wall left side)
-	-- Sign above door
-	local shopSign=part({Name="ShopSign",Size=Vector3.new(1,1,1),Position=shopPos+Vector3.new(0,12,-11),
-		Transparency=1,CanCollide=false})
-	billboard(shopSign,"🛒  UPGRADE SHOP",Color3.fromRGB(255,180,50),"Click inside to upgrade!",
-		Color3.fromRGB(200,200,255),UDim2.new(0,240,0,70))
-
-	-- Interior upgrade pads (4 colored circles on the floor)
-	local upgradeColors = {
-		SpeedBoost = Color3.fromRGB(255,200,0),
-		JumpBoost  = Color3.fromRGB(100,200,255),
-		LuckyCharm = Color3.fromRGB(50,220,80),
-		CoinBonus  = Color3.fromRGB(255,140,0),
-	}
-	local upgradePositions = {
-		Vector3.new(-4,0,-4), Vector3.new(4,0,-4),
-		Vector3.new(-4,0,4),  Vector3.new(4,0,4),
-	}
-	for i, upg in ipairs(GameConfig.Upgrades) do
-		local pos = shopPos + upgradePositions[i] + Vector3.new(0,-0.9,0)
-		local col = upgradeColors[upg.key] or Color3.fromRGB(200,200,200)
-		local pad = part({Name="UpgPad_"..upg.key,Size=Vector3.new(5,0.3,5),Position=pos,
-			Color=col,Material=Enum.Material.Neon,CanCollide=false})
-		glow(pad,col,1.5)
-
-		-- Floating icon above pad
-		local iconAnchor=part({Name="UpgIcon_"..upg.key,Size=Vector3.new(1,1,1),
-			Position=pos+Vector3.new(0,3,0),Transparency=1,CanCollide=false})
-		local currentLevelCost = upg.levels[1].cost
-		billboard(iconAnchor,upg.icon.." "..upg.name,col,
-			"Lvl 1: 💰 "..currentLevelCost,Color3.fromRGB(220,220,220),UDim2.new(0,180,0,65))
-
-		-- Click to buy
-		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=16; cd.Parent=pad
-		MapPersist.Bind(cd, "UpgradePad", upg.key)
-	end
-
+	-- The building, its neon roof strip and the six glowing upgrade pads are
+	-- gone at the owner's request. Nothing is lost: the HUD dock already has
+	-- both a Shop and an Upgrade button, so every panel the building opened is
+	-- one tap away, and the spawn is no longer a shed with a purple glow on it.
 	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
 	local wallColor = Color3.fromRGB(46,104,46)    -- hedge green (was gray concrete slab)
 	local wallH = 25
@@ -788,98 +714,11 @@ local function buildMap()
 	MapPersist.Bind(secretPrompt, "SecretChest")
 
 	-- ============================================================
-	-- PHYSICAL LEADERBOARD BOARD (left side of spawn, z=-35)
+	-- PHYSICAL LEADERBOARD BOARD — REMOVED
 	-- ============================================================
-	local boardPos = Vector3.new(-55, 0, -35)
-
-	-- Board backing
-	part({Name="LBBase",Size=Vector3.new(28,1,14),Position=boardPos+Vector3.new(0,-0.5,0),
-		Color=Color3.fromRGB(25,18,45),Material=Enum.Material.SmoothPlastic})
-	local boardBack=part({Name="LBBack",Size=Vector3.new(28,20,1),Position=boardPos+Vector3.new(0,10,-7),
-		Color=Color3.fromRGB(20,14,38),Material=Enum.Material.SmoothPlastic})
-	-- Neon frame
-	local lbFrame=part({Name="LBFrame",Size=Vector3.new(30,22,0.5),Position=boardPos+Vector3.new(0,11,-7.3),
-		Color=Color3.fromRGB(255,215,0),Material=Enum.Material.Neon,CanCollide=false})
-	glow(lbFrame,Color3.fromRGB(255,215,0),2)
-
-	-- Title sign on board
-	local lbTitleAnchor=part({Name="LBTitle",Size=Vector3.new(1,1,1),
-		Position=boardPos+Vector3.new(0,21,-6),Transparency=1,CanCollide=false})
-	billboard(lbTitleAnchor,"🏆  TOP PLAYERS",Color3.fromRGB(255,215,0),
-		"Updates every 90s",Color3.fromRGB(180,180,200),UDim2.new(0,260,0,60))
-
-	-- Clickable board to open leaderboard UI
-	local lbClick=Instance.new("ClickDetector"); lbClick.MaxActivationDistance=30; lbClick.Parent=boardBack
-	MapPersist.Bind(lbClick, "OpenLeaderboard")
-
-	-- Live leaderboard text painted FLAT on the board face (SurfaceGui)
-	local lbSurface = Instance.new("SurfaceGui")
-	lbSurface.Name        = "LBSurface"
-	lbSurface.Face        = Enum.NormalId.Front
-	lbSurface.SizingMode   = Enum.SurfaceGuiSizingMode.FixedSize
-	lbSurface.CanvasSize   = Vector2.new(560, 400)
-	lbSurface.LightInfluence = 0
-	lbSurface.Adornee     = boardBack
-	lbSurface.Parent      = boardBack
-
-	local lbPad = Instance.new("UIPadding", lbSurface)
-	lbPad.PaddingTop=UDim.new(0,18); lbPad.PaddingBottom=UDim.new(0,18)
-	lbPad.PaddingLeft=UDim.new(0,24); lbPad.PaddingRight=UDim.new(0,24)
-	local lbList = Instance.new("UIListLayout", lbSurface)
-	lbList.SortOrder=Enum.SortOrder.LayoutOrder
-	lbList.Padding=UDim.new(0,12)
-	lbList.VerticalAlignment=Enum.VerticalAlignment.Center
-
-	local lbRows = {}
-	for i=1,5 do
-		local lbl=Instance.new("TextLabel")
-		lbl.Size=UDim2.new(1,0,0,60); lbl.BackgroundTransparency=1
-		lbl.Text="Loading..."; lbl.TextColor3=Color3.fromRGB(200,200,200)
-		lbl.TextScaled=true; lbl.Font=Enum.Font.GothamBold
-		lbl.TextXAlignment=Enum.TextXAlignment.Left
-		lbl.TextStrokeTransparency=0.4; lbl.TextStrokeColor3=Color3.new(0,0,0)
-		lbl.LayoutOrder=i; lbl.Parent=lbSurface
-		table.insert(lbRows, lbl)
-	end
-
-	-- Update board every 90s
-	task.spawn(function()
-		local medals = {"🥇","🥈","🥉","4.","5."}
-		while true do
-			task.wait(5) -- initial delay for DataStore
-			local ok, entries = pcall(function()
-				return LeaderboardService.GetTop("Coins", 5)
-			end)
-			if ok then
-				for i,row in ipairs(lbRows) do
-					local e = entries[i]
-					if e then
-						local name = e.name:sub(1,14)
-						row.Text = medals[i].." "..name.." — 💰 "..tostring(e.score)
-						local rColors={Color3.fromRGB(255,215,0),Color3.fromRGB(192,192,192),Color3.fromRGB(205,127,50)}
-						row.TextColor3 = rColors[i] or Color3.fromRGB(200,200,200)
-					else
-						row.Text = medals[i].." —"
-					end
-				end
-			end
-			task.wait(85)
-		end
-	end)
-
-	-- ---- ORB SEEDING (100 per area for 20 players) ----
-	local origins={
-		Meadow  = Vector3.new(0,1,65),
-		Forest  = Vector3.new(145,1,0),
-		Desert  = Vector3.new(275,1,0),
-		Volcano = Vector3.new(405,1,0),
-		Space   = Vector3.new(535,1,0),
-	}
-	for areaId,origin in pairs(origins) do
-		CurrencyService.SeedArea(areaId,origin,45)  -- fewer orbs = less lag
-	end
-	CurrencyService.SetupOrbTouches()
-
+	-- The board, its gold neon frame and the live SurfaceGui are gone at the
+	-- owner's request. The HUD dock has a Ranks button, so the leaderboard is
+	-- still one tap away; it simply no longer occupies the spawn.
 	-- ============================================================
 	-- REBIRTH MACHINE
 	-- ============================================================
@@ -890,10 +729,11 @@ local function buildMap()
 		Color=Color3.fromRGB(30,20,50),Material=Enum.Material.SmoothPlastic})
 
 	-- Base glow ring
-	local rmRing = part({Name="RMRing",Size=Vector3.new(15,0.3,15),Position=machinePos+Vector3.new(0,0.15,0),
-		Color=Color3.fromRGB(180,0,255),Material=Enum.Material.Neon,CanCollide=false})
-	glow(rmRing,Color3.fromRGB(180,0,255),2)
-	particles(rmRing,Color3.fromRGB(180,0,255),8)
+	-- Was a neon ring with a PointLight and a particle emitter. Now a plain
+	-- metal trim: the shape still reads as a machine base, without the purple
+	-- glow washing over the plaza.
+	part({Name="RMRing",Size=Vector3.new(15,0.3,15),Position=machinePos+Vector3.new(0,0.15,0),
+		Color=Color3.fromRGB(196,166,104),Material=Enum.Material.Metal,CanCollide=false})
 
 	-- Four corner pillars
 	local pillarColor = Color3.fromRGB(40,30,65)
@@ -902,10 +742,9 @@ local function buildMap()
 		local pil = part({Name="RMPillar"..i,Size=Vector3.new(2,8,2),
 			Position=machinePos+c+Vector3.new(0,4,0),Color=pillarColor,Material=Enum.Material.SmoothPlastic})
 		-- Pillar top glow cap
-		local cap = part({Name="RMCap"..i,Size=Vector3.new(2.4,0.5,2.4),
-			Position=machinePos+c+Vector3.new(0,8.3,0),Color=Color3.fromRGB(180,0,255),
-			Material=Enum.Material.Neon,CanCollide=false})
-		glow(cap,Color3.fromRGB(180,0,255),1.5)
+		part({Name="RMCap"..i,Size=Vector3.new(2.4,0.5,2.4),
+			Position=machinePos+c+Vector3.new(0,8.3,0),Color=Color3.fromRGB(196,166,104),
+			Material=Enum.Material.Metal,CanCollide=false})
 	end
 
 	-- Top arch connecting pillars
@@ -919,24 +758,26 @@ local function buildMap()
 		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(50,30,80),
 		Material=Enum.Material.SmoothPlastic})
 	-- Core neon inner
-	local coreGlow = part({Name="RMCoreGlow",Size=Vector3.new(3,5,3),
-		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(150,0,255),
-		Material=Enum.Material.Neon,CanCollide=false})
-	glow(coreGlow,Color3.fromRGB(150,0,255),4)
-	particles(coreGlow,Color3.fromRGB(200,50,255),30)
+	-- Glass rather than neon: it still reads as "something is inside this"
+	-- without being a light source. Neon on a 3x5 block is the single
+	-- brightest thing in the plaza.
+	part({Name="RMCoreGlow",Size=Vector3.new(3,5,3),
+		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(118,96,160),
+		Material=Enum.Material.Glass,CanCollide=false,Transparency=0.35})
 	-- Spinning energy ball on top
+	-- Kept a little colour on purpose: this ball is one of the two things you
+	-- CLICK to rebirth, and a machine with no highlight anywhere reads as
+	-- scenery. Glass, one soft light, no particles.
 	local orb = part({Name="RMOrb",Shape=Enum.PartType.Ball,Size=Vector3.new(2.5,2.5,2.5),
-		Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(220,100,255),
-		Material=Enum.Material.Neon,CanCollide=false})
-	glow(orb,Color3.fromRGB(220,100,255),5)
-	particles(orb,Color3.fromRGB(255,200,255),40)
+		Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(198,176,236),
+		Material=Enum.Material.Glass,CanCollide=false,Transparency=0.2})
+	glow(orb,Color3.fromRGB(190,170,225),0.8)
 
 	-- Orbit rings around the orb
 	for i=1,3 do
 		local ring = part({Name="RMOrbRing"..i,Size=Vector3.new(4+i*0.5,0.15,4+i*0.5),
-			Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(180,0,255),
-			Material=Enum.Material.Neon,CanCollide=false})
-		glow(ring,Color3.fromRGB(180,0,255),1)
+			Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(176,150,96),
+			Material=Enum.Material.Metal,CanCollide=false})
 		task.spawn(function()
 			local t = (i/3)*math.pi*2
 			while ring and ring.Parent do
