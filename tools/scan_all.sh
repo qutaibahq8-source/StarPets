@@ -17,6 +17,7 @@ run() {
 run "syntax"     python3 tools/check_syntax.py
 run "server boot" python3 tools/check_boot.py
 run "baked map"  python3 tools/check_bake.py
+run "map build"  python3 tools/check_map.py
 
 printf '\n\033[1m---------------------------------------\033[0m\n'
 printf '%d passed, %d failed\n' "$pass" "$fail"

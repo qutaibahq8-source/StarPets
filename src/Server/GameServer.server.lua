@@ -26,6 +26,7 @@ local PlaytimeService      = require(script.Parent.PlaytimeService)
 local SpinService          = require(script.Parent.SpinService)
 local MapPersist           = require(script.Parent.MapPersist)
 local RateLimit            = require(script.Parent.RateLimit)
+local MapProps             = require(script.Parent.MapProps)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -245,38 +246,41 @@ local function flower(x, z, baseY)
 		Position=Vector3.new(x,baseY+1.05,z),Color=Color3.fromRGB(255,235,140),Material=Enum.Material.SmoothPlastic,CanCollide=false})
 end
 
-local function decorateBiome(id, cx, baseY)
-	local function rx() return cx + math.random(-56,56) end
-	local function rz() return math.random(-88,88) end
-	for _=1,16 do flower(rx(),rz(),baseY) end
-	if id=="Forest" then
-		for i=1,18 do tree(rx(),rz(),baseY,Color3.fromRGB(70,45,25),Color3.fromRGB(25,90,30),0.8+math.random()*0.7) end
-		for i=1,12 do rock(rx(),rz(),baseY,Color3.fromRGB(95,100,105),0.9) end
-	elseif id=="Desert" then
-		for i=1,12 do
-			local h=5+math.random()*4
-			part({Name="Cactus",Size=Vector3.new(1.6,h,1.6),Position=Vector3.new(rx(),baseY+h/2,rz()),
-				Color=Color3.fromRGB(55,120,60),Material=Enum.Material.Grass,CanCollide=false})
-		end
-		for i=1,16 do rock(rx(),rz(),baseY,Color3.fromRGB(205,170,95),1.1) end
-	elseif id=="Volcano" then
-		for i=1,18 do rock(rx(),rz(),baseY,Color3.fromRGB(38,26,22),1.2) end
-		for i=1,6 do
-			local d=8+math.random()*7
-			part({Name="LavaPool",Shape=Enum.PartType.Cylinder,Size=Vector3.new(0.4,d,d),
-				Position=Vector3.new(rx(),baseY+0.25,rz()),Color=Color3.fromRGB(255,90,0),
-				Material=Enum.Material.Neon,Orientation=Vector3.new(0,0,90),CanCollide=false})
-		end
-	elseif id=="Space" then
-		for i=1,22 do
-			local s=2+math.random()*3
-			local c=part({Name="Star",Shape=Enum.PartType.Ball,Size=Vector3.new(s,s,s),
-				Position=Vector3.new(rx(),baseY+math.random(5,26),rz()),
-				Color=Color3.fromRGB(150,180,255),Material=Enum.Material.Neon,CanCollide=false})
-			glow(c,Color3.fromRGB(120,160,255),1)
-		end
-	end
+-- WHAT EACH WORLD IS MADE OF NOW LIVES IN MapProps.
+--
+-- This used to be a chain of if/elseif with the prop shapes written inline: one
+-- kind of tree for Forest, a green BOX called Cactus for Desert, rocks and flat
+-- discs for Volcano, and for Space a handful of neon balls placed between five
+-- and twenty-six studs IN THE AIR — so the ground a player actually walks on
+-- had nothing on it at all.
+--
+-- Every prop was also placed by uniform math.random across the whole slab,
+-- which reads as noise however many you use. MapProps places clumps instead,
+-- with a minimum spacing per world so features several parts wide do not land
+-- inside one another.
+local PROP_SET = {
+	Meadow  = "meadow",
+	Forest  = "forest",
+	Desert  = "desert",
+	Volcano = "volcano",
+	Space   = "space",
+}
+
+local function decorateBiome(id, cx, baseY, opts)
+	local set = PROP_SET[id]
+	if not set then return 0 end
+	return MapProps.Populate(
+		{ part = part },
+		set, cx, 0, 60, 90, baseY,
+		{
+			-- Seeded from the world id so a world looks the same on every
+			-- server, and two worlds never get the same layout.
+			seed = 7000 + #id * 131 + string.byte(id, 1) * 17,
+			clusters = (opts and opts.clusters) or 14,
+			blocked = opts and opts.blocked or nil,
+		})
 end
+
 
 local function comma(n)
 	local s = tostring(math.floor(n))
@@ -538,6 +542,38 @@ local function buildMap()
 	-- ============================================================
 	-- PHYSICAL SHOP BUILDING (east side of spawn, x=65)
 	-- ============================================================
+	-- ---- THE SPAWN WAS THE ONLY WORLD NOBODY DECORATED ----
+	--
+	-- decorateBiome ran for Forest, Desert, Volcano and Space. Meadow is world
+	-- 1 and it is the spawn, so it was never in that list — past the stone the
+	-- ground was flat green nothing in every direction. That is the first thing
+	-- every player sees and where they spend the longest, and it looked like a
+	-- test level.
+	--
+	-- The keep-outs matter more here than on an island, because the shop, the
+	-- egg terrace, the rebirth machine and the leaderboard are all pinned at
+	-- fixed coordinates by the code below. A tree through the middle of the
+	-- shop is worse than an empty field.
+	local PLAZA_KEEPOUT = {
+		{ x = 0,   z = 0,   rx = 46, rz = 46 },    -- spawn platform and ring
+		{ x = 0,   z = -75, rx = 74, rz = 60 },    -- egg terrace and connector
+		{ x = -55, z = 34,  rx = 30, rz = 26 },    -- upgrade shop
+		{ x = -55, z = 0,   rx = 26, rz = 24 },    -- rebirth machine
+		{ x = -55, z = -35, rx = 30, rz = 20 },    -- leaderboard board
+		{ x = 55,  z = 34,  rx = 30, rz = 26 },    -- east structure
+	}
+	decorateBiome("Meadow", 0, 0, {
+		clusters = 18,
+		blocked = function(x, z)
+			for _, k in ipairs(PLAZA_KEEPOUT) do
+				if math.abs(x - k.x) < k.rx and math.abs(z - k.z) < k.rz then
+					return true
+				end
+			end
+			return false
+		end,
+	})
+
 	local shopPos = Vector3.new(-55, 0, 34)  -- next to the rebirth machine (west of spawn)
 
 	-- Shop floor

@@ -2,7 +2,6 @@
   "name": "MysticPets",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
@@ -12,7 +11,6 @@
         }
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
@@ -85,10 +83,12 @@
         },
         "RateLimit": {
           "$path": "src/Server/RateLimit.lua"
+        },
+        "MapProps": {
+          "$path": "src/Server/MapProps.lua"
         }
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
