@@ -338,7 +338,7 @@ local function decorateBiome(id, cx, baseY, opts)
 	if not set then return 0 end
 	return MapProps.Populate(
 		{ part = part },
-		set, cx, 0, 60, 90, baseY,
+		set, cx, 0, (opts and opts.halfW) or 60, (opts and opts.halfD) or 90, baseY,
 		{
 			-- Seeded from the world id so a world looks the same on every
 			-- server, and two worlds never get the same layout.
@@ -523,6 +523,43 @@ local function buildMap()
 		local ang=(i/24)*math.pi*2; local r=20 + (i%4)*1.5
 		flower(math.cos(ang)*r, 14+math.sin(ang)*r*0.4, fcols[(i%4)+1])
 	end
+
+	-- ---- THE MEADOW ITSELF ----
+	--
+	-- This call was lost when the shop building was removed: it happened to sit
+	-- inside the block that was excised, and went with it. Meadow props fell
+	-- from 111 to 29 and the spawn field went back to being bare lawn — the
+	-- exact thing fixed several commits ago. Caught by the per-world count in
+	-- check_map, which is why that check exists.
+	--
+	-- Placed here, after the hand-built plaza furniture, so it can never be
+	-- caught inside a removal of one of those again.
+	--
+	-- The box is 100 x 130 rather than 60 x 90: the plaza keep-outs take the
+	-- middle out, so a box barely wider than the plaza forced every cluster
+	-- into a narrow band around the stone, and in 3D it read as a thicket on
+	-- one side with bare lawn everywhere else.
+	local PLAZA_KEEPOUT = {
+		{ x = 0,   z = 0,   rx = 46, rz = 46 },    -- spawn platform and ring
+		{ x = 0,   z = -75, rx = 74, rz = 60 },    -- egg terrace and connector
+		{ x = -55, z = 0,   rx = 26, rz = 24 },    -- rebirth machine
+		{ x = 0,   z = 32,  rx = 24, rz = 24 },    -- crystal monument
+		{ x = -82, z = 118, rx = 16, rz = 16 },    -- the secret, left findable
+	}
+	decorateBiome("Meadow", 0, 0, {
+		clusters = 26,
+		halfW = 100, halfD = 130,
+		blocked = function(x, z)
+			-- Never on a path: the four walkways run along the axes.
+			if math.abs(x) <= 11 or math.abs(z) <= 11 then return true end
+			for _, k in ipairs(PLAZA_KEEPOUT) do
+				if math.abs(x - k.x) < k.rx and math.abs(z - k.z) < k.rz then
+					return true
+				end
+			end
+			return false
+		end,
+	})
 
 	-- ---- CENTERPIECE: crystal monument on the north lawn ----
 	local cmX, cmZ = 0, 32
@@ -726,7 +763,7 @@ local function buildMap()
 
 	-- Base slab
 	part({Name="RMBase",Size=Vector3.new(14,1,14),Position=machinePos+Vector3.new(0,-0.5,0),
-		Color=Color3.fromRGB(30,20,50),Material=Enum.Material.SmoothPlastic})
+		Color=Color3.fromRGB(74,72,82),Material=Enum.Material.Slate})
 
 	-- Base glow ring
 	-- Was a neon ring with a PointLight and a particle emitter. Now a plain
@@ -736,7 +773,10 @@ local function buildMap()
 		Color=Color3.fromRGB(196,166,104),Material=Enum.Material.Metal,CanCollide=false})
 
 	-- Four corner pillars
-	local pillarColor = Color3.fromRGB(40,30,65)
+	-- Stone, not purple. Taking the neon off left the machine still reading
+	-- as a purple object, because the pillars, the arch and the core body
+	-- were all violet underneath it.
+	local pillarColor = Color3.fromRGB(92,88,102)
 	local corners = {Vector3.new(5,0,5),Vector3.new(-5,0,5),Vector3.new(5,0,-5),Vector3.new(-5,0,-5)}
 	for i,c in ipairs(corners) do
 		local pil = part({Name="RMPillar"..i,Size=Vector3.new(2,8,2),
@@ -755,8 +795,8 @@ local function buildMap()
 
 	-- Central glowing core (the machine itself)
 	local core = part({Name="RMCore",Size=Vector3.new(4,6,4),
-		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(50,30,80),
-		Material=Enum.Material.SmoothPlastic})
+		Position=machinePos+Vector3.new(0,3.5,0),Color=Color3.fromRGB(80,78,90),
+		Material=Enum.Material.Slate})
 	-- Core neon inner
 	-- Glass rather than neon: it still reads as "something is inside this"
 	-- without being a light source. Neon on a 3x5 block is the single
