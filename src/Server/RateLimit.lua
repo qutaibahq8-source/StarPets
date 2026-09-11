@@ -34,15 +34,14 @@ local function ruleFor(action)
 end
 
 function RateLimit.Allow(player, action)
-	if type(player) ~= "table" and typeof and typeof(player) ~= "Instance" then
-		-- Called with something that is not a player; fail closed rather than
-		-- indexing nil and taking the handler down with it.
-		if player == nil then return false end
-	end
-	local uid = (type(player) == "table" or player == nil) and player
-		or player.UserId
-	if typeof and typeof(player) == "Instance" then uid = player.UserId end
-	if uid == nil then return false end
+	-- Deliberately plain. The first version of this branched on `typeof` and
+	-- table-vs-Instance to work out the user id, which was three ways of asking
+	-- one question and would have behaved differently in Studio, in a live
+	-- server and under test. A limiter that is hard to reason about is worse
+	-- than none: you stop trusting what it is doing.
+	if player == nil then return false end
+	local ok, uid = pcall(function() return player.UserId end)
+	if not ok or uid == nil then return false end
 
 	local b = buckets[uid]
 	if not b then b = {}; buckets[uid] = b end

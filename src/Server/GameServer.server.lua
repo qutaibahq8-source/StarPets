@@ -36,11 +36,78 @@ local Remotes = Instance.new("Folder")
 Remotes.Name  = "Remotes"
 Remotes.Parent = game.ReplicatedStorage
 
+-- EVERY REMOTE IS RATE LIMITED, WITHOUT TOUCHING THIRTY HANDLERS.
+--
+-- There are thirty OnServerEvent / OnServerInvoke handlers in this file and
+-- not one of them had a limit. Each one validates what it is asked to do, so
+-- an exploiter cannot hatch an egg they cannot afford — but validation does
+-- not cost nothing. Firing a remote thousands of times a second still burns
+-- the server's frame budget, still hammers DataStores, and still gives a race
+-- every chance it needs to land.
+--
+-- Adding a check to thirty call sites means remembering it thirty times, and
+-- again for the thirty-first. So the guard goes where the remotes are MADE:
+-- these hand back a proxy that wraps whatever callback you attach. Anything
+-- else on the object passes straight through to the real instance, and the
+-- real instance is what gets parented, so the client sees nothing different.
+local function guardEvent(e, name)
+	return setmetatable({}, {
+		__index = function(_, k)
+			if k == "OnServerEvent" then
+				return {
+					Connect = function(_, fn)
+						return e.OnServerEvent:Connect(function(player, ...)
+							if not RateLimit.Allow(player, name) then return end
+							fn(player, ...)
+						end)
+					end,
+				}
+			end
+			local v = e[k]
+			if type(v) == "function" then
+				-- Called as remote:FireClient(...), so swallow the proxy that
+				-- arrives as self and pass the real instance instead.
+				return function(_, ...) return v(e, ...) end
+			end
+			return v
+		end,
+		__newindex = function(_, k, v) e[k] = v end,
+	})
+end
+
+local function guardFunction(f, name)
+	return setmetatable({}, {
+		__index = function(_, k)
+			local v = f[k]
+			if type(v) == "function" then
+				return function(_, ...) return v(f, ...) end
+			end
+			return v
+		end,
+		__newindex = function(_, k, fn)
+			-- OnServerInvoke is ASSIGNED rather than connected, so the guard
+			-- has to live in __newindex. Missing that would leave every
+			-- RemoteFunction — including the one that hands out player data —
+			-- completely unlimited while the events looked covered.
+			if k == "OnServerInvoke" and type(fn) == "function" then
+				f.OnServerInvoke = function(player, ...)
+					if not RateLimit.Allow(player, name) then return nil end
+					return fn(player, ...)
+				end
+				return
+			end
+			f[k] = fn
+		end,
+	})
+end
+
 local function makeEvent(name)
-	local e = Instance.new("RemoteEvent"); e.Name = name; e.Parent = Remotes; return e
+	local e = Instance.new("RemoteEvent"); e.Name = name; e.Parent = Remotes
+	return guardEvent(e, name)
 end
 local function makeFunction(name)
-	local f = Instance.new("RemoteFunction"); f.Name = name; f.Parent = Remotes; return f
+	local f = Instance.new("RemoteFunction"); f.Name = name; f.Parent = Remotes
+	return guardFunction(f, name)
 end
 
 local RE_DataUpdated     = makeEvent("DataUpdated")

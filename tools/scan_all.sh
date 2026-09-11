@@ -22,6 +22,7 @@ run "data safety" python3 tools/check_data.py
 run "trading"    python3 tools/check_trade.py
 run "pets"       python3 tools/check_pets.py
 run "installer"  python3 tools/check_install.py
+run "remotes"    python3 tools/check_remotes.py
 
 printf '\n\033[1m---------------------------------------\033[0m\n'
 printf '%d passed, %d failed\n' "$pass" "$fail"
