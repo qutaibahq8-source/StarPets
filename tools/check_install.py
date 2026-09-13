@@ -57,7 +57,65 @@ print("  StarterPlayerScripts has %d 'Client' folder(s)" % count(sps,"Client"))
 print("  Workspace leftover StarPetsInstall:", ws["FindFirstChild"](ws,"StarPetsInstall") is not None)
 
 
+# --- THE SHIPPED FILE ITSELF -------------------------------------------
+# The logic above runs against the source tree. The thing that actually
+# reaches a person is the .rbxmx, and "it wrote a file" is not the same as
+# "Roblox will open it and the code inside is what I wrote".
+import xml.etree.ElementTree as ET, json
 fails = []
+model = ROOT / "build/StarPets_Install.rbxmx"
+if not model.exists():
+    print("  (no build/StarPets_Install.rbxmx yet — run tools/build_installer.py)")
+else:
+    try:
+        xroot = ET.parse(model).getroot()
+    except ET.ParseError as e:
+        fails.append("the shipped model is not well-formed XML (%s) — Studio "
+                     "would refuse to open it" % e)
+        xroot = None
+    if xroot is not None:
+        VALID = {"Folder", "Script", "LocalScript", "ModuleScript", "Model"}
+        classes = {i.get("class") for i in xroot.iter("Item")}
+        unknown = classes - VALID
+        if unknown:
+            fails.append("the model uses class name(s) Roblox does not know: %s"
+                         % ", ".join(sorted(unknown)))
+        else:
+            print("  ok  every class in the model is a real Roblox class")
+
+        # Source must round-trip EXACTLY. The writer escapes the CDATA
+        # terminator "]]>" as "]] >", which would silently CHANGE the Lua of
+        # any file containing it — code that is subtly not what was tested.
+        srcs = {}
+        for i in xroot.iter("Item"):
+            nm = i.find("Properties/string[@name='Name']")
+            ps = i.find("Properties/ProtectedString[@name='Source']")
+            if nm is not None and ps is not None:
+                srcs[nm.text] = ps.text or ""
+        name_for = {"Install": "src/Install/Install.lua"}
+        def _walk(n):
+            for k, v in n.items():
+                if k.startswith("$"):
+                    continue
+                if isinstance(v, dict) and "$path" in v:
+                    name_for[k] = v["$path"]
+                elif isinstance(v, dict):
+                    _walk(v)
+        _walk(json.loads((ROOT / "default.project.json").read_text())["tree"])
+        differ, checked = [], 0
+        for nm, rel in name_for.items():
+            if nm not in srcs:
+                continue
+            checked += 1
+            if srcs[nm] != (ROOT / rel).read_text():
+                differ.append(nm)
+        if differ:
+            fails.append("%d file(s) in the shipped model do not match the "
+                         "source on disk: %s" % (len(differ), ", ".join(differ[:5])))
+        else:
+            print("  ok  all %d scripts in the model match the source exactly"
+                  % checked)
+
 if not ok:
     fails.append("the installer reported failure")
 for svc, fname, label in ((sss, "Server", "ServerScriptService"),

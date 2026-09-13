@@ -143,7 +143,61 @@ def main():
     else:
         print("  ok  OnServerInvoke is intercepted where it is ASSIGNED")
 
-    # ---- 5. NO REMOTE IS CREATED AROUND THE FACTORY -----------------------
+    # ---- 5. NORMAL TRAFFIC STILL WORKS ------------------------------------
+    # The guard is a metatable proxy wrapped around forty remotes. Proving it
+    # blocks a flood proves nothing about whether the game still works: if
+    # FireClient mangles its arguments, every notification, hatch result and
+    # data sync silently breaks, and the limiter looks fine while the game
+    # does not.
+    import io, contextlib
+    lua2, mock2, _ = runtime()
+    G2 = lua2.globals()
+    gsrc = (ROOT / "src/Server/GameServer.server.lua").read_text()
+    guards = gsrc[gsrc.index("local function guardEvent"):gsrc.index("local RE_DataUpdated")]
+    G2["Instance"] = mock2["Instance"]
+    G2["RateLimit"] = lua2.eval("{ Allow = function() return true end }")
+    lua2.execute(luau_to_lua(guards) + """
+      Remotes = Instance.new("Folder")
+      R = {}
+      local ev, fn = makeEvent("T"), makeFunction("F")
+      local real = Remotes:FindFirstChild("T")
+      real.FireClient = function(_, plr, a, b) R.fc = { plr, a, b } end
+      real.FireAllClients = function(_, a) R.fa = a end
+      ev:FireClient("p1", "hello", 42)
+      ev:FireAllClients("bcast")
+      R.name = ev.Name
+      R.parented = (real.Parent == Remotes)
+      ev.OnServerEvent:Connect(function(plr, x, y) R.heard = { plr, x, y } end)
+      real.OnServerEvent:Fire("p2", "arg", 7)
+      fn.OnServerInvoke = function(plr, q) return "echo:" .. tostring(q) end
+      R.inv = Remotes:FindFirstChild("F").OnServerInvoke("p3", "ping")
+    """)
+    R = G2.R
+    def at(t, i):
+        return t[i] if t is not None else None
+    checks = [
+        (at(R.fc, 1) == "p1" and at(R.fc, 2) == "hello" and at(R.fc, 3) == 42,
+         "FireClient through the guard mangles its arguments — every "
+         "notification, hatch result and data sync would break"),
+        (str(R.fa) == "bcast", "FireAllClients mangles its arguments"),
+        (str(R.name) == "T", "remote.Name reads back wrong through the guard"),
+        (bool(R.parented),
+         "the real RemoteEvent is not parented — the client would hang on "
+         "WaitForChild forever"),
+        (at(R.heard, 1) == "p2" and at(R.heard, 2) == "arg" and at(R.heard, 3) == 7,
+         "OnServerEvent handlers receive the wrong arguments"),
+        (str(R.inv) == "echo:ping",
+         "OnServerInvoke does not return the handler's value to the client"),
+    ]
+    ok_all = True
+    for good, msg in checks:
+        if not good:
+            fails.append(msg); ok_all = False
+    if ok_all:
+        print("  ok  normal traffic is unaffected: FireClient, FireAllClients, "
+              "handlers and invoke all pass through intact")
+
+    # ---- 6. NO REMOTE IS CREATED AROUND THE FACTORY -----------------------
     direct = []
     for f in sorted(ROOT.glob("src/Server/*.lua")):
         for n, line in enumerate(f.read_text().splitlines(), 1):

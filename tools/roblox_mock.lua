@@ -98,6 +98,12 @@ local UDim2 = { new = function(sx, ox, sy, oy)
 end, fromScale = function(x, y) return UDim2.new(x, 0, y, 0) end,
      fromOffset = function(x, y) return UDim2.new(0, x, 0, y) end }
 local Vector2 = { new = function(x, y) return { X = x or 0, Y = y or 0 } end }
+local TweenInfo = { new = function(t, style, dir, reps, reverse, delay)
+	return { Time = t or 1, EasingStyle = style, EasingDirection = dir,
+	         RepeatCount = reps or 0, Reverses = reverse or false,
+	         DelayTime = delay or 0 }
+end }
+local Ray = { new = function(o, d) return { Origin = o, Direction = d } end }
 local NumberRange = { new = function(a, b) return { Min = a, Max = b or a } end }
 local NumberSequenceKeypoint = { new = function(t, v) return { Time = t, Value = v } end }
 local ColorSequenceKeypoint = { new = function(t, v) return { Time = t, Value = v } end }
@@ -282,6 +288,17 @@ local SIGNALS = {
 	PlayerAdded = true, PlayerRemoving = true, Heartbeat = true,
 	Stepped = true, RenderStepped = true, Completed = true,
 	PromptGamePassPurchaseFinished = true, InputBegan = true, InputEnded = true,
+	-- GUI signals. Missing MouseEnter alone was enough to throw the client on
+	-- the line that builds its button dock, which in game is a player with no
+	-- HUD at all.
+	MouseEnter = true, MouseLeave = true, MouseMoved = true,
+	MouseButton1Down = true, MouseButton1Up = true, MouseButton2Click = true,
+	InputChanged = true, SelectionGained = true, SelectionLost = true,
+	FocusLost = true, TouchTap = true, TouchSwipe = true,
+	MouseWheelForward = true, MouseWheelBackward = true,
+	AttributeChanged = true, GetPropertyChangedSignal = true,
+	PromptButtonHoldBegan = true, PromptButtonHoldEnded = true,
+	PromptShown = true, PromptHidden = true, ChildrenChanged = true,
 }
 local function liveSignal()
 	local handlers = {}
@@ -529,6 +546,7 @@ return {
 	Instance = Instance, game = game, workspace = Workspace, Workspace = Workspace,
 	Random = Random, UDim = UDim, UDim2 = UDim2, Vector2 = Vector2,
 	NumberRange = NumberRange, NumberSequence = NumberSequence,
+	TweenInfo = TweenInfo, Ray = Ray,
 	ColorSequence = ColorSequence,
 	NumberSequenceKeypoint = NumberSequenceKeypoint,
 	ColorSequenceKeypoint = ColorSequenceKeypoint,

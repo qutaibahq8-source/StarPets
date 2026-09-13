@@ -40,7 +40,8 @@ def build():
     mock = lua.execute((ROOT / "tools" / "roblox_mock.lua").read_text())
     for k in ("Vector3", "CFrame", "Color3", "Enum", "Instance", "game", "workspace",
               "Random", "UDim", "UDim2", "Vector2", "NumberRange", "NumberSequence",
-              "ColorSequence", "NumberSequenceKeypoint", "ColorSequenceKeypoint"):
+              "ColorSequence", "NumberSequenceKeypoint", "ColorSequenceKeypoint",
+              "TweenInfo", "Ray"):
         G[k] = mock[k]
     lua.execute("""
         __WARNINGS = {}

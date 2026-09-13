@@ -5,6 +5,7 @@ local TweenService = game:GetService("TweenService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local EggService = {}
 

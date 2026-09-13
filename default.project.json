@@ -116,7 +116,7 @@
               "$path": "src/Client/UI/RebirthPanel.lua"
             },
             "BadgePopup": {
-              "$path": "src/Client/UI/BadgePopup.lua"
+              "$path": "src/Client/UI/BadgePopup.client.lua"
             },
             "UpgradePanel": {
               "$path": "src/Client/UI/UpgradePanel.lua"
