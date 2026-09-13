@@ -160,6 +160,52 @@ def main():
     else:
         print("6. 120 more hatches, every pet from the egg's own pool")
 
+    # --- 7. CLICKING THINGS IN THE WORLD MUST REACH THE REAL REMOTES -------
+    # check_bake proves MapPersist re-arms a stamped part, using stand-in
+    # handlers. It does not prove that THIS server's handlers fire the right
+    # remote with the right argument — and the whole bake design rests on that
+    # being true, because the map carries only an action NAME.
+    remotes_folder = mock["ReplicatedStorage"]["FindFirstChild"](
+        mock["ReplicatedStorage"], "Remotes")
+    seen = {}
+    lua.execute("FIRED = {}")
+    for c in remotes_folder["GetChildren"](remotes_folder).values():
+        nm = str(c._p.Name)
+        lua.eval("""function(remote, name)
+            remote.FireClient = function(_, plr, ...)
+                FIRED[#FIRED+1] = { name = name, arg = (select(1, ...)) }
+            end
+        end""")(c, nm)
+
+    ws = mock["workspace"]
+    clicked = 0
+    for d in ws["GetDescendants"](ws).values():
+        if str(d._p.ClassName) != "ClickDetector":
+            continue
+        act = d["GetAttribute"](d, "SPAction")
+        if act is None:
+            continue
+        d.MouseClick["Fire"](d.MouseClick, p)
+        clicked += 1
+        if clicked >= 6:
+            break
+    fired = []
+    i = 1
+    while G.FIRED[i] is not None:
+        fired.append((str(G.FIRED[i].name), G.FIRED[i].arg)); i += 1
+    print("7. clicked %d stamped parts in the world -> %d remote call(s)"
+          % (clicked, len(fired)))
+    for nm, arg in fired[:4]:
+        print("      %s(%s)" % (nm, arg))
+    if clicked == 0:
+        fails.append("no stamped ClickDetector exists in the built map at all — "
+                     "nothing in the world can be clicked")
+    elif not fired:
+        fails.append("clicking %d stamped parts fired NO remote — every egg and "
+                     "buy-gate in the world is scenery" % clicked)
+    else:
+        print("   ok  clicking the world reaches the real remotes")
+
     if fails:
         print("\nloop: %d problems" % len(fails))
         for f in fails:
