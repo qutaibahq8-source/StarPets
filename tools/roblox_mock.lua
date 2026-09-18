@@ -299,6 +299,9 @@ local SIGNALS = {
 	AttributeChanged = true, GetPropertyChangedSignal = true,
 	PromptButtonHoldBegan = true, PromptButtonHoldEnded = true,
 	PromptShown = true, PromptHidden = true, ChildrenChanged = true,
+	-- Plugin toolbar buttons. Without Click here, every plugin button is a
+	-- dead table and the test can never press one.
+	Click = true,
 }
 local function liveSignal()
 	local handlers = {}
@@ -487,6 +490,24 @@ local MessagingService = {
 	PublishAsync = function() end,
 	SubscribeAsync = function() return { Disconnect = function() end } end,
 }
+-- Studio-only. A plugin that changes the place wraps each change in a recording
+-- so one change is one Ctrl+Z; if this is missing the wrapper silently degrades
+-- to no undo at all, which is exactly the thing worth testing.
+local ChangeHistoryService = {
+	Recordings = {},
+	TryBeginRecording = function(self, name)
+		local id = "rec" .. tostring(#self.Recordings + 1)
+		table.insert(self.Recordings, { id = id, name = name, state = "open" })
+		return id
+	end,
+	FinishRecording = function(self, id, op)
+		for _, r in ipairs(self.Recordings) do
+			if r.id == id then r.state = tostring(op) end
+		end
+	end,
+	SetWaypoint = function() end,
+}
+
 local Debris = { AddItem = function() end }
 local SoundService = { PlayLocalSound = function() end }
 local PhysicsService = {
@@ -513,6 +534,7 @@ local SERVICES = {
 	Debris = Debris,
 	SoundService = SoundService,
 	PhysicsService = PhysicsService,
+	ChangeHistoryService = ChangeHistoryService,
 }
 
 local BOUND_TO_CLOSE = {}
@@ -556,8 +578,30 @@ local function robloxRequire(target)
 		tostring(target and target.Name or target))
 end
 
+-- ============================================================
+-- Studio-only globals a plugin reaches for
+-- ============================================================
+local DockWidgetPluginGuiInfo = {
+	new = function(dockState, enabled, override, w, h, minW, minH)
+		return { InitialDockState = dockState, InitialEnabled = enabled,
+		         InitialEnabledShouldOverrideRestore = override,
+		         FloatingXSize = w, FloatingYSize = h,
+		         MinWidth = minW, MinHeight = minH }
+	end,
+}
+
+local StudioTheme = {
+	Name = "Dark",
+	GetColor = function(_, _guide, _modifier) return c3(0.2, 0.2, 0.2) end,
+}
+local function settingsFn()
+	return { Studio = { Theme = StudioTheme } }
+end
+
 return {
 	Vector3 = Vector3, CFrame = CFrame, Color3 = Color3, Enum = Enum,
+	DockWidgetPluginGuiInfo = DockWidgetPluginGuiInfo, settings = settingsFn,
+	ChangeHistoryService = ChangeHistoryService,
 	Instance = Instance, game = game, workspace = Workspace, Workspace = Workspace,
 	Random = Random, UDim = UDim, UDim2 = UDim2, Vector2 = Vector2,
 	NumberRange = NumberRange, NumberSequence = NumberSequence,

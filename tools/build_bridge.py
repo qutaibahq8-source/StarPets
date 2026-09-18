@@ -79,8 +79,8 @@ def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def build_plugin():
-    src = (ROOT / "src/Plugin/StarPetsSync.server.lua").read_text()
+def build_plugin(name):
+    src = (ROOT / ("src/Plugin/%s.server.lua" % name)).read_text()
     body = (
         '<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" '
         'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
@@ -88,13 +88,13 @@ def build_plugin():
         'version="4">\n'
         '  <Item class="Script" referent="RBX00000001">\n'
         '    <Properties>\n'
-        '      <string name="Name">StarPetsSync</string>\n'
+        '      <string name="Name">%s</string>\n'
         '      <ProtectedString name="Source"><![CDATA[%s]]></ProtectedString>\n'
         '    </Properties>\n'
         '  </Item>\n'
-        '</roblox>\n' % src.replace("]]>", "]] >")
+        '</roblox>\n' % (name, src.replace("]]>", "]] >"))
     )
-    dest = OUT / "StarPetsSync.rbxmx"
+    dest = OUT / ("%s.rbxmx" % name)
     OUT.mkdir(exist_ok=True)
     dest.write_text(body)
     try:
@@ -133,10 +133,14 @@ def main():
         print("   x manifest references missing file(s): %s" % ", ".join(missing))
         return 1
 
+    # Plugins and the installer live OUTSIDE the place: a plugin is installed
+    # into Studio itself, and the installer runs once from the Command Bar.
+    # Neither belongs in the manifest, and neither is a file that went missing.
     on_disk = {str(p.relative_to(ROOT)) for p in ROOT.glob("src/**/*.lua")}
     listed = {e["path"] for e in entries}
-    unlisted = sorted(on_disk - listed - {"src/Plugin/StarPetsSync.server.lua",
-                                          "src/Install/Install.lua"})
+    outside = {str(p.relative_to(ROOT)) for p in ROOT.glob("src/Plugin/*.lua")}
+    outside.add("src/Install/Install.lua")
+    unlisted = sorted(on_disk - listed - outside)
     print("bridge/manifest.json: %d files, version %s" % (len(entries), version[:8]))
     for g in sorted({e["group"] for e in entries}):
         n = sum(1 for e in entries if e["group"] == g)
@@ -146,11 +150,13 @@ def main():
               "sync: %s" % (len(unlisted), ", ".join(unlisted)))
         return 1
 
-    dest = build_plugin()
-    if dest is None:
-        return 1
-    print("build/StarPetsSync.rbxmx: the plugin (%d KB)"
-          % (dest.stat().st_size // 1024))
+    for name, what in (("StarPetsSync", "pulls code from GitHub"),
+                       ("StarPetsAI", "Claude, docked in Studio")):
+        dest = build_plugin(name)
+        if dest is None:
+            return 1
+        print("build/%s: %s (%d KB)"
+              % (dest.name, what, dest.stat().st_size // 1024))
     return 0
 
 

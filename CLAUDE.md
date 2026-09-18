@@ -98,3 +98,36 @@ GameServer scripts running, which looks exactly like the update did nothing.
 With Studio's MCP server connected, none of that is needed: edit the place
 directly. The checks above still apply and still catch what Studio cannot show
 you — a save wiped by a DataStore outage, a trade that quietly destroys a pet.
+
+## The two plugins
+
+`python3 tools/build_bridge.py` writes both, into `build/`. They go in the
+Plugins folder (Plugins tab → Plugins Folder), not into the place.
+
+**StarPetsSync** — one way, no key, free. It polls the repo and swaps
+`ServerScriptService.Server`, `ReplicatedStorage.Shared` and
+`StarterPlayerScripts.Client`. Nothing else in the place is read or written.
+Commands in `bridge/commands.json` run once each, printed first, and only while
+"Allow commands" is on.
+
+**StarPetsAI** — a chat panel docked in Studio that calls the Anthropic API
+from the developer's machine, with four tools pointed at the open place: `look`,
+`read_script`, `find`, `run_luau`. This is the only way an assistant can *see*
+the place rather than ship files at it.
+
+It needs the developer's own API key (console.anthropic.com), which is stored
+per-machine with `plugin:SetSetting` and billed separately from a Claude
+subscription. Never ask for or accept someone else's key, and never print one:
+everything user-facing goes through `scrub()`, and `check_ai` fails if a key
+reaches Output or the transcript.
+
+Three things in it are load-bearing, all covered by `check_ai`:
+
+- **`run_luau` is refused unless the owner switched edits on, and always during
+  Play.** A change made during Play is discarded on Stop, so it would look like
+  it worked and then vanish — the exact failure this project has already paid
+  for twice.
+- **Every run is one `ChangeHistoryService` recording**, so Ctrl+Z undoes it.
+- **Roblox cannot encode an empty table as a JSON object** — `{}` goes out as
+  `[]`. A tool call with no arguments therefore corrupts the *next* request, so
+  every tool schema has a required field and the loop guards the empty case.
