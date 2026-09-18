@@ -25,6 +25,7 @@ run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py
 run "game loop"  python3 tools/check_loop.py
+run "sync bridge" python3 tools/check_bridge.py
 
 printf '\n\033[1m---------------------------------------\033[0m\n'
 printf '%d passed, %d failed\n' "$pass" "$fail"
