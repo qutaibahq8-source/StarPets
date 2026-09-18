@@ -1,0 +1,10 @@
+{
+  "note": "Commands Claude pushes for the Studio plugin to run. Each runs once, identified by id. The plugin prints every command before running it, and only runs them at all while 'Allow commands' is switched on.",
+  "commands": [
+    {
+      "id": "hello-1",
+      "label": "Say hello and report what is in this place",
+      "luau": "-- First command across the bridge. Reads only; changes nothing.\nreturn function()\n\tlocal sss = game:GetService(\"ServerScriptService\")\n\tlocal rs  = game:GetService(\"ReplicatedStorage\")\n\tlocal sp  = game:GetService(\"StarterPlayer\")\n\tlocal function count(root)\n\t\tif not root then return 0 end\n\t\tlocal n = 0\n\t\tfor _, d in ipairs(root:GetDescendants()) do\n\t\t\tif d:IsA(\"LuaSourceContainer\") then n = n + 1 end\n\t\tend\n\t\treturn n\n\tend\n\tlocal server = sss:FindFirstChild(\"Server\")\n\tlocal shared = rs:FindFirstChild(\"Shared\")\n\tlocal sps    = sp:FindFirstChild(\"StarterPlayerScripts\")\n\tlocal client = sps and sps:FindFirstChild(\"Client\")\n\tlocal parts = 0\n\tfor _, d in ipairs(workspace:GetDescendants()) do\n\t\tif d:IsA(\"BasePart\") then parts = parts + 1 end\n\tend\n\tprint(\"=======================================\")\n\tprint(\"  Claude is connected to this place.\")\n\tprint(\"  Server scripts : \" .. count(server))\n\tprint(\"  Shared scripts : \" .. count(shared))\n\tprint(\"  Client scripts : \" .. count(client))\n\tprint(\"  Parts in Workspace: \" .. parts)\n\tprint(\"  Nothing was changed by this command.\")\n\tprint(\"=======================================\")\n\treturn true\nend\n"
+    }
+  ]
+}

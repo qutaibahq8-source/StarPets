@@ -45,6 +45,11 @@ def studio(fail_on=None, playing=False):
             WARN[#WARN+1]=table.concat(p,' ') end
         task = { spawn=function() end, wait=function() return 0 end,
                  delay=function() end, defer=function() end }
+        -- A Roblox plugin runs with script-injection permission, so loadstring
+        -- IS available to it. Lua 5.5 dropped the name, so it is restored here
+        -- — without it the plugin's primary path is unreachable and the test
+        -- would only ever exercise the fallback.
+        loadstring = function(src, name) return load(src, name) end
     """)
 
     gm = mock["game"]
@@ -60,6 +65,7 @@ def studio(fail_on=None, playing=False):
     for e in json.loads(manifest)["files"]:
         files[e["path"]] = (ROOT / e["path"]).read_text()
     G["FAKE_MANIFEST"] = manifest
+    G["FAKE_COMMANDS"] = (ROOT / "bridge/commands.json").read_text()
     G["FAKE_FILES"] = lua.table_from(files)
     G["FAIL_ON"] = fail_on or ""
     lua.execute("""
@@ -74,6 +80,7 @@ def studio(fail_on=None, playing=False):
             local path = clean:match("refs/heads/[^/]+/[^/]+/(.+)$")
                        or clean:match("refs/heads/.-/(.+)$")
             if clean:find("manifest.json") then return FAKE_MANIFEST end
+            if clean:find("commands.json") then return FAKE_COMMANDS end
             for p, src in pairs(FAKE_FILES) do
                 if clean:sub(-#p) == p then
                     if FAIL_ON ~= "" and p:find(FAIL_ON, 1, true) then
@@ -85,11 +92,14 @@ def studio(fail_on=None, playing=False):
             error("unknown url " .. clean, 0)
         end
         hs.JSONDecode = function(_, s)
+            if s == FAKE_COMMANDS then return DECODED_CMDS end
             return DECODED
         end
     """)
     # Decode the manifest in Python and hand it over; the mock has no JSON.
     G["DECODED"] = lua.table_from(json.loads(manifest), recursive=True)
+    G["DECODED_CMDS"] = lua.table_from(
+        json.loads((ROOT / "bridge/commands.json").read_text()), recursive=True)
 
     # A minimal `plugin` object.
     lua.execute("""
@@ -104,6 +114,9 @@ def studio(fail_on=None, playing=False):
             SetSetting = function(_, k, v) SETTINGS[k] = v end,
         }
     """)
+    # The fallback path requires a freshly-built ModuleScript, which needs the
+    # Roblox-shaped require.
+    G["require"] = mock["robloxRequire"]
     return lua, mock, G
 
 
@@ -224,6 +237,40 @@ def main():
                      "ever touch the three code folders")
     else:
         print("  ok  Workspace and anything hand-built are left alone")
+
+    # ---- 6. COMMANDS ARE OPT-IN AND RUN EXACTLY ONCE ----------------------
+    # This channel lets a remote author run Luau in someone's Studio. It must
+    # be off until switched on, and a command must never run twice — a rebuild
+    # applied twice is two maps on top of each other.
+    src_cmd = src.replace("local function runCommands()", "function RUNCMDS()")
+    src_cmd = src_cmd.replace("pcall(runCommands)", "pcall(RUNCMDS)")
+    lua5, mock5, G5 = studio()
+    lua5.eval("function(s,n) return assert(load(s,n)) end")(src_cmd, "@StarPetsSync")()
+
+    before = [str(G5.OUT[i]) for i in range(1, 40) if G5.OUT[i] is not None]
+    if any("Claude is connected" in x for x in before):
+        fails.append("a command ran WITHOUT the permission button being on")
+    else:
+        print("  ok  no command runs until permission is switched on")
+
+    lua5.globals().RUNCMDS()
+    after = [str(G5.OUT[i]) for i in range(1, 80) if G5.OUT[i] is not None]
+    ran = [x for x in after if "Claude is connected" in x]
+    if not ran:
+        fails.append("the command did not execute at all — the Luau channel "
+                     "does not work, so nothing can be driven from outside")
+    else:
+        print("  ok  a pushed command actually executes in the place")
+
+    lua5.globals().RUNCMDS()
+    again = [x for x in
+             [str(G5.OUT[i]) for i in range(1, 160) if G5.OUT[i] is not None]
+             if "Claude is connected" in x]
+    if len(again) != len(ran):
+        fails.append("the same command ran a second time — a rebuild applied "
+                     "twice is two maps on top of each other")
+    else:
+        print("  ok  a command runs once and is never repeated")
 
     if fails:
         print("\nbridge: %d problems" % len(fails))

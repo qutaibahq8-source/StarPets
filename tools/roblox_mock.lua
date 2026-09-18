@@ -537,6 +537,21 @@ local game = {
 local function robloxRequire(target)
 	local m = MODULES[target]
 	if m ~= nil then return m end
+	-- A ModuleScript created at runtime carries its code in .Source and has
+	-- never been registered here. Roblox can require it; so can this. Without
+	-- it, any code path that builds a module on the fly — which is how a plugin
+	-- runs a command — looks broken when it is not.
+	if type(target) == "table" then
+		local p = rawget(target, "_p")
+		if p and p.ClassName == "ModuleScript" and type(p.Source) == "string" then
+			local chunk = load(p.Source, "@" .. tostring(p.Name))
+			if chunk then
+				local v = chunk()
+				MODULES[target] = v
+				return v
+			end
+		end
+	end
 	error("mock require: unknown module " ..
 		tostring(target and target.Name or target))
 end

@@ -50,6 +50,17 @@ local autoButton = toolbar:CreateButton(
 	"Check GitHub every 20 seconds and sync automatically",
 	"rbxasset://textures/ui/common/robux.png",
 	"Auto-sync")
+-- OFF unless you turn it on, and it stays off until you do.
+--
+-- Syncing code is one thing; letting a remote author RUN code in your Studio
+-- is another, and it should never be something that just starts happening.
+-- Every command is printed before it runs, and this button revokes it
+-- instantly.
+local cmdButton = toolbar:CreateButton(
+	"StarPetsCommands",
+	"Let Claude run build commands in this place (prints each one first)",
+	"rbxasset://textures/ui/common/settings.png",
+	"Allow commands")
 
 local function say(fmt, ...)
 	print("[StarPetsSync] " .. string.format(fmt, ...))
@@ -190,6 +201,102 @@ local function sync(quiet)
 end
 
 -- ============================================================
+-- COMMANDS
+-- ============================================================
+-- The sync above moves CODE. This moves ACTIONS: a chunk of Luau that runs in
+-- edit mode, so the map can be rebuilt, a part moved, a property changed —
+-- while you watch, without anyone installing anything.
+--
+-- loadstring is not reliably available to a plugin, so the source is put into
+-- a real ModuleScript and required. A fresh instance each time, because require
+-- caches per instance and a reused one would silently run the first version
+-- forever.
+local function runLuau(source, label)
+	-- loadstring first. A plugin runs with script-injection permission, so it
+	-- is available here even though a normal server Script needs
+	-- LoadStringEnabled. It is also the only path that works without creating
+	-- an instance in the place.
+	if type(loadstring) == "function" then
+		local chunk, err = loadstring(source, label)
+		if not chunk then
+			warn(("[StarPetsSync] command %q did not compile: %s")
+				:format(label, tostring(err)))
+			return false, err
+		end
+		local ok, res = pcall(chunk)
+		if not ok then
+			warn(("[StarPetsSync] command %q failed: %s"):format(label, tostring(res)))
+			return false, res
+		end
+		if type(res) == "function" then
+			local ok2, res2 = pcall(res)
+			if not ok2 then
+				warn(("[StarPetsSync] command %q failed: %s")
+					:format(label, tostring(res2)))
+				return false, res2
+			end
+			return true, res2
+		end
+		return true, res
+	end
+
+	-- Fallback: a real ModuleScript, required. A FRESH instance every time,
+	-- because require caches per instance and a reused one would silently run
+	-- the first version of a command forever.
+	local holder = Instance.new("Folder")
+	holder.Name = "StarPetsCommand"
+	holder.Parent = ServerScriptService
+
+	local mod = Instance.new("ModuleScript")
+	mod.Name = "Cmd"
+	mod.Source = source
+	mod.Parent = holder
+
+	local ok, res = pcall(function() return require(mod) end)
+	holder:Destroy()
+
+	if not ok then
+		warn(("[StarPetsSync] command %q failed: %s"):format(label, tostring(res)))
+		return false, res
+	end
+	-- A command may return a function to call, or simply do its work on load.
+	if type(res) == "function" then
+		local ok2, res2 = pcall(res)
+		if not ok2 then
+			warn(("[StarPetsSync] command %q failed: %s"):format(label, tostring(res2)))
+			return false, res2
+		end
+		return true, res2
+	end
+	return true, res
+end
+
+local function runCommands()
+	if RunService:IsRunning() then return end
+
+	local raw = fetch(RAW .. "bridge/commands.json")
+	if not raw then return end
+	local ok, doc = pcall(function() return HttpService:JSONDecode(raw) end)
+	if not ok or type(doc) ~= "table" or type(doc.commands) ~= "table" then
+		return
+	end
+
+	local done = plugin:GetSetting("StarPetsRanCommands") or ""
+	for _, c in ipairs(doc.commands) do
+		local id = tostring(c.id or "")
+		if id ~= "" and not string.find(done, "[" .. id .. "]", 1, true) then
+			say("running command: %s", tostring(c.label or id))
+			-- Printed BEFORE it runs, every time, so nothing happens in your
+			-- place that you did not see described first.
+			local good = runLuau(tostring(c.luau or ""), tostring(c.label or id))
+			done = done .. "[" .. id .. "]"
+			plugin:SetSetting("StarPetsRanCommands", done)
+			if good then say("  done: %s", tostring(c.label or id)) end
+		end
+	end
+end
+
+-- ============================================================
 -- BUTTONS
 -- ============================================================
 syncButton.Click:Connect(function()
@@ -210,11 +317,28 @@ autoButton.Click:Connect(function()
 	if auto then sync(true) end
 end)
 
+local commandsOn = plugin:GetSetting("StarPetsCommandsOn") == true
+cmdButton:SetActive(commandsOn)
+
+cmdButton.Click:Connect(function()
+	commandsOn = not commandsOn
+	plugin:SetSetting("StarPetsCommandsOn", commandsOn)
+	cmdButton:SetActive(commandsOn)
+	if commandsOn then
+		say("commands ALLOWED. Each one is printed here before it runs. "
+			.. "Click the button again to revoke.")
+		pcall(runCommands)
+	else
+		say("commands blocked.")
+	end
+end)
+
 task.spawn(function()
 	while true do
 		task.wait(POLL_SECONDS)
-		if auto and not RunService:IsRunning() then
-			pcall(sync, true)
+		if not RunService:IsRunning() then
+			if auto then pcall(sync, true) end
+			if commandsOn then pcall(runCommands) end
 		end
 	end
 end)
