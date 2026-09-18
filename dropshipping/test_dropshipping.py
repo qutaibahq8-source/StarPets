@@ -52,6 +52,22 @@ class TestEconomics(unittest.TestCase):
         self.assertAlmostEqual(e.margin_pct, 0.3290)
         self.assertAlmostEqual(e.markup_multiple, 4.0)
 
+    def test_gross_margin_ignores_ads_and_true_margin_does_not(self):
+        """A product can look excellent before ads and lose money after them."""
+        p = Product(name="t", price=20.0, shipping_charged=3.0, cogs=3.0,
+                    shipping_cost=2.0, cac_override=25.0)
+        e = compute(p)
+        # 23 revenue, 5 landed cost, so 78% "margin" by the usual definition.
+        self.assertAlmostEqual(e.gross_margin_pct, 18.0 / 23.0)
+        self.assertGreater(e.gross_margin_pct, 0.70)
+        self.assertLess(e.contribution, 0)
+
+    def test_gross_margin_is_always_at_least_true_margin(self):
+        p = Product(name="t", price=100.0, cogs=20.0, shipping_cost=5.0,
+                    cac_override=10.0, refund_rate=0.05)
+        e = compute(p)
+        self.assertGreater(e.gross_margin_pct, e.margin_pct)
+
     def test_refund_recovery_reduces_loss(self):
         base = dict(name="t", price=100.0, cogs=20.0, shipping_cost=5.0, refund_rate=0.10)
         no_recovery = compute(Product(**base, refund_recovery=0.0))

@@ -137,7 +137,8 @@ def report(d: Decision) -> str:
     lines.append(f"    {'-' * 32}")
     lines.append(f"    Contribution       {money(e.contribution)}")
     lines.append("")
-    lines.append(f"    Margin             {e.margin_pct * 100:>9.1f}%")
+    lines.append(f"    Margin before ads  {e.gross_margin_pct * 100:>9.1f}%   <- what most guides quote")
+    lines.append(f"    Margin after ads   {e.margin_pct * 100:>9.1f}%   <- what you actually keep")
     lines.append(f"    Markup on cost     {e.markup_multiple:>9.2f}x")
     lines.append(f"    Breakeven CAC      {money(e.breakeven_cac)}")
     if e.breakeven_conversion_rate is not None:

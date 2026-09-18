@@ -93,6 +93,7 @@ class Economics:
     cac: float
     refund_loss: float
     chargeback_loss: float
+    gross_margin_pct: float
     contribution: float
     margin_pct: float
     markup_multiple: float
@@ -147,6 +148,9 @@ def compute(p: Product) -> Economics:
         - chargeback_loss
     )
 
+    # What most guides call "margin": price minus product cost, ignoring ads.
+    # Useful only as a ceiling. The real margin is below it, often far below.
+    gross_margin_pct = (revenue - landed_cost) / revenue if revenue else 0.0
     margin_pct = contribution / revenue if revenue else 0.0
     markup_multiple = revenue / landed_cost if landed_cost > 0 else float("inf")
     cac_share = cac / revenue if revenue else 0.0
@@ -168,6 +172,7 @@ def compute(p: Product) -> Economics:
         cac=cac,
         refund_loss=refund_loss,
         chargeback_loss=chargeback_loss,
+        gross_margin_pct=gross_margin_pct,
         contribution=contribution,
         margin_pct=margin_pct,
         markup_multiple=markup_multiple,
