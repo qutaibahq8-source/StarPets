@@ -598,7 +598,14 @@ end)
 
 -- Globals for UI modules
 _G.MysticPets = {
-	fmt=fmt, GameConfig=GameConfig, showToast=showToast,
+	-- Both names, on purpose. HatchUI and RebirthPanel call G().formatNum(n)
+	-- with no fallback, and this table only ever exported `fmt` — so the first
+	-- number either of them tried to format threw, Build never returned, and
+	-- the Hatch and Rebirth buttons did nothing at all when pressed. Nothing in
+	-- Output but a red line nobody was reading, and the egg-opening screen —
+	-- the core of the game — simply would not open.
+	fmt=fmt, formatNum=fmt,
+	GameConfig=GameConfig, showToast=showToast,
 	RE_HatchEgg=RE_HatchEgg, RE_EquipPet=RE_EquipPet, RE_UnequipPet=RE_UnequipPet,
 	RE_BuyArea=RE_BuyArea, RE_Rebirth=RE_Rebirth, RE_DeletePet=RE_DeletePet,
 	RE_BuyGamepass=RE_BuyGamepass, RE_BuyUpgrade=RE_BuyUpgrade,

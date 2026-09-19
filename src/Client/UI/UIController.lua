@@ -55,6 +55,14 @@ function UIController.TogglePanel(panelName, data)
 	local panel = module.Build(data)
 	if not panel then return end
 
+	-- Every panel in the game passes through this line, which is why the
+	-- responsive pass lives here rather than in eighteen Build functions.
+	-- Applied BEFORE parenting, so nothing is ever shown at the wrong size
+	-- for a frame.
+	pcall(function()
+		require(script.Parent.Responsive).Apply(panel)
+	end)
+
 	panel.Parent = PlayerGui
 	CurrentPanel = panel
 	CurrentPanelName = panelName

@@ -28,7 +28,14 @@ from check_syntax import luau_to_lua  # noqa: E402
 import check_map  # noqa: E402
 
 
-def main():
+def boot():
+    """Boot server + client and hand back the running world.
+
+    Split out from main() so other checks can drive the real, booted client
+    instead of standing up a second, subtly different one. Returns
+    (lua, mock, PlayerGui, problems); on a failure that makes the client
+    unusable the first three are None.
+    """
     # A fully built world, exactly as a joining player would find it.
     lua, mock, cfg = check_map.build()
     G = lua.globals()
@@ -117,7 +124,7 @@ def main():
         if not seen:
             print("   (no exception raised — the module returned nil, which "
                   "means require() would hand back nothing)")
-        return 1
+        return None, None, None, 1
     print("all %d UI modules loaded" % len(markers))
 
     # The UI LocalScripts, run the way Roblox runs them: on their own, with no
@@ -130,7 +137,7 @@ def main():
         except Exception as e:
             print("   x UI LocalScript %s THREW: %s"
                   % (f.name, str(e).splitlines()[0][:150]))
-            return 1
+            return None, None, None, 1
         print("   ok  %-18s ran on its own (LocalScript)" % f.name[:-11])
 
     # The client script itself.
@@ -142,7 +149,7 @@ def main():
         fn = lua.eval("function(s,n) return assert(load(s,n)) end")(src, "@GameClient")
     except Exception as e:
         print("   x GameClient did not COMPILE: %s" % str(e).splitlines()[0][:200])
-        return 1
+        return None, None, None, 1
     try:
         fn()
     except Exception as e:
@@ -151,7 +158,7 @@ def main():
             print("       " + line[:150])
         print("\n   A player would sit on the loading screen with no HUD and no")
         print("   buttons, while every server check passes.")
-        return 1
+        return None, None, None, 1
 
     guis = [g for g in gui["GetChildren"](gui).values()]
     names = sorted(str(g._p.Name) for g in guis)
@@ -181,7 +188,7 @@ def main():
     remotes = rs["FindFirstChild"](rs, "Remotes")
     if remotes is None:
         print("   x no Remotes folder — the client would hang on WaitForChild")
-        return 1
+        return None, None, None, 1
     have = {str(c._p.Name) for c in remotes["GetChildren"](remotes).values()}
     import re as _re
     want = set(_re.findall(r'Remotes:WaitForChild\(\s*"(\w+)"',
@@ -196,9 +203,16 @@ def main():
 
     if bad:
         print("\nclient: %d problems" % bad)
-        return 1
-    print("\nclient: starts up clean against a real server")
-    return 0
+    else:
+        print("\nclient: starts up clean against a real server")
+    # The world is handed back even when `bad` is set: a client that started
+    # with complaints is still a client another check can drive, and pretending
+    # otherwise would make those checks unrunnable exactly when they matter.
+    return lua, mock, gui, bad
+
+
+def main():
+    return 1 if boot()[3] else 0
 
 
 if __name__ == "__main__":

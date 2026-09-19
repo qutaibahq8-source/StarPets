@@ -1,5 +1,5 @@
 {
-  "version": "9f0898c1267bd169905ab9c6f0cf85626afbf409987253e01a41bdcf6fc1f1b9",
+  "version": "a341b898cc1904e7cce0850814167c653b2b78e1d8b77f5675e3b3ec1c16f584",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -161,6 +161,14 @@
     {
       "path": "src/Client/UI/UIController.lua",
       "name": "UIController",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/Responsive.lua",
+      "name": "Responsive",
       "group": "Client",
       "folders": [
         "UI"

@@ -103,6 +103,9 @@
             "UIController": {
               "$path": "src/Client/UI/UIController.lua"
             },
+            "Responsive": {
+              "$path": "src/Client/UI/Responsive.lua"
+            },
             "PetsPanel": {
               "$path": "src/Client/UI/PetsPanel.lua"
             },

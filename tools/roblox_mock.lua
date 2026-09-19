@@ -289,6 +289,7 @@ local SIGNALS = {
 	MouseClick = true, MouseHoverEnter = true, MouseHoverLeave = true,
 	Touched = true, TouchEnded = true, Changed = true, Triggered = true,
 	MouseButton1Click = true, Activated = true, ChildAdded = true,
+	DescendantAdded = true, DescendantRemoving = true,
 	ChildRemoved = true, AncestryChanged = true, Destroying = true,
 	OnServerEvent = true, OnClientEvent = true,
 	CharacterAdded = true, CharacterRemoving = true, Died = true,
@@ -359,7 +360,23 @@ InstMT.__newindex = function(t, k, val)
 			end
 		end
 		p.Parent = val
-		if val then table.insert(rawget(val, "_c"), t) end
+		if val then
+			table.insert(rawget(val, "_c"), t)
+			-- ChildAdded on the parent, DescendantAdded all the way up.
+			--
+			-- Without these, any code that reacts to something appearing —
+			-- styling every button as it is created, wiring a part as it is
+			-- added — looks like it works and does nothing, and the check that
+			-- covers it passes for the wrong reason.
+			local sigs = rawget(val, "_sig")
+			if sigs and sigs.ChildAdded then sigs.ChildAdded:Fire(t) end
+			local up = val
+			while up do
+				local s = rawget(up, "_sig")
+				if s and s.DescendantAdded then s.DescendantAdded:Fire(t) end
+				up = rawget(up, "_p").Parent
+			end
+		end
 		return
 	end
 	if k == "Position" then
