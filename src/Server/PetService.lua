@@ -166,7 +166,13 @@ function PetService.Init()
 
 	-- Follow loop
 	RunService.Heartbeat:Connect(function(dt)
+		-- Hoisted: tick() was being called once per pet per frame to compute a
+		-- bob offset that only depends on time.
+		local now = tick()
 		for userId, models in pairs(ActiveModels) do
+			-- next() first, before the player lookup. A player with no pets
+			-- equipped is the common case, and GetPlayerByUserId is a scan.
+			if next(models) == nil then continue end
 			local player = Players:GetPlayerByUserId(userId)
 			if not player or not player.Character then continue end
 			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -181,7 +187,7 @@ function PetService.Init()
 				if not body then continue end
 
 				local targetPos = rootPart.Position + getFollowOffset(i, total)
-				local bobOffset = math.sin(tick() * 2 + i * 1.2) * 0.3
+				local bobOffset = math.sin(now * 2 + i * 1.2) * 0.3
 				targetPos = targetPos + Vector3.new(0, bobOffset, 0)
 
 				local current = body.CFrame
@@ -252,9 +258,31 @@ function PetService.DespawnAllPets(player)
 	for uniqueId, model in pairs(ActiveModels[userId]) do
 		model:Destroy()
 	end
-	ActiveModels[userId] = {}
+	-- nil, not an empty table.
+	--
+	-- This runs on PlayerRemoving, and leaving an empty table behind meant the
+	-- entry stayed in ActiveModels for the life of the server. The Heartbeat
+	-- loop walks that table sixty times a second and calls GetPlayerByUserId
+	-- on every key, so after a few hundred sessions it was doing tens of
+	-- thousands of lookups a second for players who left hours ago — a server
+	-- that gets slower the longer it stays up, which reads as "the game lags
+	-- after a while" and has no error attached to it.
+	ActiveModels[userId] = nil
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
 	if folder then folder:Destroy() end
+end
+
+-- How many players and models the follow loop is actually working on. Useful
+-- from the admin panel, and it is what makes the leak above testable at all:
+-- ActiveModels is a local, so without this the only way to see it grow is to
+-- watch the server slow down.
+function PetService.ActiveCounts()
+	local players, models = 0, 0
+	for _, set in pairs(ActiveModels) do
+		players = players + 1
+		for _ in pairs(set) do models = models + 1 end
+	end
+	return players, models
 end
 
 -- ============================================================
@@ -391,6 +419,88 @@ function PetService.ToggleLock(player, uid)
 	for _, p in ipairs(data.Pets) do
 		if p.uniqueId == uid then p.locked = not p.locked; return p.locked end
 	end
+end
+
+-- ============================================================
+-- THE ONE WAY A PET ENTERS AN INVENTORY
+-- ============================================================
+-- There were ELEVEN places that did `table.insert(data.Pets, ...)` — eggs,
+-- fusion, codes, events, the merchant, quests, gamepasses, trading and two
+-- admin commands — spread across nine files. Two things went wrong because of
+-- that, and both are the kind of thing a spread-out rule always produces.
+--
+-- ONE: the inventory cap was enforced in exactly ONE of them. EggService
+-- checked MaxPetsInInventory; every other path let a player go straight past
+-- it. A hundred pets is a balance number and also a performance one, since
+-- each equipped pet is a model the server replicates.
+--
+-- TWO: the Pet Index counted what you CURRENTLY OWN. Fuse three pets and the
+-- species vanishes from your collection; trade it away, same; delete it, same.
+-- A collection record that forgets what you collected is not a collection
+-- record — and there was nowhere to write "seen it" even if you wanted to,
+-- because nothing sat between a pet and the inventory.
+--
+-- So: one function. Everything goes through here.
+local function recordDiscovery(data, name)
+	if not name then return end
+	data.Discovered = data.Discovered or {}
+	if data.Discovered[name] == nil then
+		data.Discovered[name] = true
+		return true          -- newly discovered, for the "first time!" banner
+	end
+	return false
+end
+
+PetService.RecordDiscovery = recordDiscovery
+
+-- Grants a pet. Returns pet, isNewSpecies — or nil, reason if it was refused.
+--
+-- `force` skips the cap, and exists for exactly one case: a pet the player has
+-- already paid for or already owns arriving back (a trade the server has
+-- already validated, a gamepass re-grant). Refusing those would destroy the
+-- item rather than protect the player.
+function PetService.GrantPet(player, pet, force)
+	local data = DataManager.GetData(player)
+	if not data then return nil, "no data" end
+	if type(pet) ~= "table" or not pet.name then return nil, "bad pet" end
+
+	data.Pets = data.Pets or {}
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	if not force and #data.Pets >= cap then
+		return nil, ("Pet inventory full (max %d)"):format(cap)
+	end
+
+	if not pet.uniqueId then
+		pet.uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+	end
+	local isNew = recordDiscovery(data, pet.name)
+	table.insert(data.Pets, pet)
+	return pet, isNew
+end
+
+-- How many distinct species this player has ever owned. Reads the permanent
+-- record first and falls back to the live inventory for saves made before
+-- Discovered existed, so nobody's collection appears to reset on update.
+function PetService.DiscoveredCount(data)
+	if not data then return 0 end
+	local seen = {}
+	for name in pairs(data.Discovered or {}) do seen[name] = true end
+	for _, p in ipairs(data.Pets or {}) do
+		if p.name then seen[p.name] = true end
+	end
+	local n = 0
+	for _ in pairs(seen) do n = n + 1 end
+	return n
+end
+
+-- Backfill for existing saves: everything currently held counts as discovered.
+function PetService.BackfillDiscovery(data)
+	if not data then return 0 end
+	local added = 0
+	for _, p in ipairs(data.Pets or {}) do
+		if recordDiscovery(data, p.name) then added = added + 1 end
+	end
+	return added
 end
 
 return PetService

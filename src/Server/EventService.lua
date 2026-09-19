@@ -7,6 +7,7 @@ local Players     = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local EventService = {}
 local state = { active = false, id = nil }
@@ -63,7 +64,7 @@ function EventService.Buy(player, index)
 	if (data.EventTokens or 0) < item.cost then return false, "Not enough " .. d.tokenName end
 	data.EventTokens = data.EventTokens - item.cost
 	if item.kind == "pet" then
-		table.insert(data.Pets, { name=item.name, rarity=item.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
+		PetService.GrantPet(player, { name=item.name, rarity=item.rarity or "Common" })
 	elseif item.kind == "coins" then
 		data.Coins = (data.Coins or 0) + item.amount; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + item.amount
 	elseif item.kind == "gems" then

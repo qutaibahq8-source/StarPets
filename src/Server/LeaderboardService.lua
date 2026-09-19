@@ -30,8 +30,22 @@ function LeaderboardService.UpdatePlayer(player)
 
 	local userId = tostring(player.UserId)
 
+	-- The lifetime total, not the since-last-rebirth one.
+	--
+	-- Rebirth sets TotalCoinsEarned back to 0, and this board was written
+	-- straight from it — so rebirthing wiped your rank. "Most Coins Earned"
+	-- was therefore ranking players by how little they had progressed: anyone
+	-- who had never rebirthed sat above a player with twelve of them. The
+	-- board punished the game's main long-term goal.
+	--
+	-- data.Stats.coins accumulates and no reset takes it back (QuestService
+	-- owns it and banks it immediately before each rebirth). max() covers the
+	-- window between two syncs, so a rank can never go DOWN because of this.
+	local lifetime = math.max(
+		tonumber(data.Stats and data.Stats.coins) or 0,
+		tonumber(data.TotalCoinsEarned) or 0)
 	pcall(function()
-		Stores.Coins:SetAsync(userId, math.floor(data.TotalCoinsEarned or 0))
+		Stores.Coins:SetAsync(userId, math.floor(lifetime))
 	end)
 	pcall(function()
 		Stores.Pets:SetAsync(userId, #(data.Pets or {}))

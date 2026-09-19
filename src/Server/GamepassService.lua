@@ -7,6 +7,7 @@ local Players            = game:GetService("Players")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local GamepassService = {}
 
@@ -106,7 +107,8 @@ function GamepassService.GrantVIPPet(player)
 		uniqueId = "VIP_" .. player.UserId,
 		isVIPGrant = true,
 	}
-	table.insert(data.Pets, newPet)
+	-- force: already paid for in Robux; refusing it would take their money.
+	PetService.GrantPet(player, newPet, true)
 	print("[GamepassService] Granted VIP pet to " .. player.Name)
 end
 
