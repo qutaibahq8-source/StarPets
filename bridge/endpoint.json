@@ -1,0 +1,5 @@
+{
+  "url": "https://api.anthropic.com/integrations/v1/code/webhook-triggers/a59140ae-0830-428a-a289-cd12a672af89/fire",
+  "note": "Where the Snapshot button posts a description of the open place. Rotated per session; the plugin reads whatever is here when you press the button. If it is empty or unreachable the plugin falls back to the copy-and-paste panel.",
+  "opened": "2026-09-19"
+}

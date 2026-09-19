@@ -515,6 +515,107 @@ def main():
     else:
         print("  ok  catches a duplicate install")
 
+    # ---- 8. THE PLACE CAN SEND ITSELF BACK --------------------------------
+    # The point of this one: seeing the game must not depend on the owner
+    # taking a screenshot. The plugin describes the open place and posts it,
+    # and what arrives has to be enough to DRAW — not a summary, geometry.
+    import json as _json
+    src_send = src.replace("local function sendToClaude()", "function SENDTOCLAUDE()")
+    src_send = src_send.replace("local function buildReport()", "function BUILDREPORT()")
+    src_send = src_send.replace("pcall(buildReport)", "pcall(BUILDREPORT)")
+    src_send = src_send.replace("local report = select(1, buildReport())",
+                                "local report = select(1, BUILDREPORT())")
+    lua8, mock8, G8 = studio()
+
+    posted = {}
+
+    def _from_lua(o):
+        if lupa.lua_type(o) == "table":
+            ks = list(o.keys())
+            if ks and all(isinstance(k, int) for k in ks) and \
+                    sorted(ks) == list(range(1, len(ks) + 1)):
+                return [_from_lua(o[i]) for i in range(1, len(ks) + 1)]
+            return {str(k): _from_lua(o[k]) for k in ks}
+        return o
+
+    G8["PY_POST"] = lambda url, body: posted.update(url=url, body=body)
+    G8["PY_ENCODE"] = lambda t: _json.dumps(_from_lua(t))
+    endpoint_raw = (ROOT / "bridge/endpoint.json").read_text()
+    G8["ENDPOINT_JSON"] = endpoint_raw
+    G8["DECODED_ENDPOINT"] = lua8.table_from(_json.loads(endpoint_raw))
+    lua8.execute("""
+        local hs = game:GetService("HttpService")
+        hs.PostAsync = function(_, url, body) PY_POST(url, body) end
+        hs.JSONEncode = function(_, t) return PY_ENCODE(t) end
+        local realGet, realDecode = hs.GetAsync, hs.JSONDecode
+        hs.GetAsync = function(self, url)
+            if url:find("endpoint.json") then return ENDPOINT_JSON end
+            return realGet(self, url)
+        end
+        hs.JSONDecode = function(self, s)
+            if s == ENDPOINT_JSON then return DECODED_ENDPOINT end
+            return realDecode(self, s)
+        end
+    """)
+    lua8.eval("function(s,n) return assert(load(s,n)) end")(src_send, "@StarPetsSync")()
+    lua8.execute("""
+        local map = Instance.new("Folder"); map.Name = "StarPetsMap"; map.Parent = workspace
+        local g = Instance.new("Part"); g.Name = "Ground"
+        g.Position = Vector3.new(0, -1, 0); g.Size = Vector3.new(200, 2, 160)
+        g.Color = Color3.fromRGB(94, 168, 74); g.Parent = map
+        local b = Instance.new("Part"); b.Name = "Biome_Meadow"
+        b.Position = Vector3.new(0, 0, 0); b.Size = Vector3.new(4, 1, 4)
+        b.Color = Color3.fromRGB(94, 168, 74); b.Parent = map
+        local ball = Instance.new("Part"); ball.Name = "TreeLeaf1"
+        ball.Shape = Enum.PartType.Ball
+        ball.Position = Vector3.new(20, 8, 10); ball.Size = Vector3.new(8, 7, 8)
+        ball.Color = Color3.fromRGB(58, 130, 58); ball.Parent = map
+    """)
+    sent = lua8.globals().SENDTOCLAUDE()
+
+    if not sent or "body" not in posted:
+        fails.append("the place could not send itself — seeing the game still "
+                     "depends on someone taking a screenshot")
+    else:
+        doc = _json.loads(posted["body"])
+        if "webhook-triggers" not in posted["url"]:
+            fails.append("posted somewhere unexpected: %s" % posted["url"][:60])
+        elif not doc.get("parts"):
+            fails.append("the payload carried no geometry, so nothing can be drawn")
+        elif len(doc["parts"][0]) != 12:
+            fails.append("a part row has %d fields, not the 12 the renderer "
+                         "reads" % len(doc["parts"][0]))
+        elif not doc.get("text"):
+            fails.append("the payload carried no snapshot text")
+        else:
+            # And it has to actually DRAW. A payload that parses but renders
+            # nothing is the same as no payload.
+            sys.path.insert(0, str(ROOT / "tools"))
+            import render_place  # noqa: E402
+            boxes = render_place.boxes_from(doc)
+            shapes = {s for *_, s in [(b[-1],) for b in boxes]} if boxes else set()
+            if len(boxes) < 3:
+                fails.append("only %d of %d parts survived into the renderer"
+                             % (len(boxes), len(doc["parts"])))
+            elif "ball" not in {b[7] for b in boxes}:
+                fails.append("round parts came through as boxes — every tree "
+                             "crown in the place would render square")
+            else:
+                _ = shapes
+                print("  ok  the place sends itself: %d parts, %d KB, and it draws"
+                      % (len(doc["parts"]), len(posted["body"]) // 1024))
+
+    # No endpoint published must fall back, not fail silently.
+    lua8.execute('ENDPOINT_JSON = "{}"')
+    lua8.execute("DECODED_ENDPOINT = {}")
+    posted.clear()
+    fell_back = lua8.globals().SENDTOCLAUDE()
+    if fell_back or posted:
+        fails.append("with no endpoint published it still claimed to send")
+    else:
+        print("  ok  and falls back to copy-and-paste when there is nowhere "
+              "to send")
+
     if fails:
         print("\nbridge: %d problems" % len(fails))
         for f in fails:

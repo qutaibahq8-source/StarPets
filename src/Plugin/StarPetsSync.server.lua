@@ -67,9 +67,9 @@ local cmdButton = toolbar:CreateButton(
 -- the one button here that sends information OUT rather than bringing code in.
 local snapButton = toolbar:CreateButton(
 	"StarPetsSnapshot",
-	"Describe this place as text you can paste back to Claude",
+	"Send Claude a description of this place — no screenshot needed",
 	"rbxasset://textures/ui/common/search.png",
-	"Snapshot")
+	"Send to Claude")
 
 local function say(fmt, ...)
 	print("[StarPetsSync] " .. string.format(fmt, ...))
@@ -684,6 +684,103 @@ local function ensureReportUI()
 	reportBox.Parent = scroll
 end
 
+-- ============================================================
+-- SEND IT BACK
+-- ============================================================
+-- The snapshot above is text you copy and paste. This is the same thing
+-- without the copying: the place is described and POSTed straight to Claude.
+--
+-- The endpoint lives in the repo next to the manifest, so it can be rotated
+-- without reinstalling anything — the plugin reads whatever is there at the
+-- time you press the button. If there is no endpoint published, the button
+-- falls back to opening the panel for copying, because a button that silently
+-- does nothing is worse than one that does the old thing.
+--
+-- It sends geometry and counts. It does not send your account, your place's
+-- id, your settings, or anything you have not already got open on screen.
+local ENDPOINT = RAW .. "bridge/endpoint.json"
+
+-- Each part as a flat array, not an object: a map is well over a thousand
+-- parts and the key names would be most of the payload.
+local function describeParts(limit)
+	local rows, n = {}, 0
+	for _, d in ipairs(workspace:GetDescendants()) do
+		if d:IsA("BasePart") then
+			n = n + 1
+			if n <= limit then
+				local c = d.Color
+				local shape = 0
+				if d:IsA("Part") and d.Shape == Enum.PartType.Ball then shape = 1 end
+				table.insert(rows, {
+					d.Name,
+					math.floor(d.Position.X * 10) / 10,
+					math.floor(d.Position.Y * 10) / 10,
+					math.floor(d.Position.Z * 10) / 10,
+					math.floor(d.Size.X * 10) / 10,
+					math.floor(d.Size.Y * 10) / 10,
+					math.floor(d.Size.Z * 10) / 10,
+					math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255),
+					shape,
+					math.floor((d.Transparency or 0) * 100) / 100,
+				})
+			end
+		end
+	end
+	return rows, n
+end
+
+local MAX_PARTS = 4000
+
+local function sendToClaude()
+	local raw = fetch(ENDPOINT)
+	local url
+	if raw then
+		local ok, doc = pcall(function() return HttpService:JSONDecode(raw) end)
+		if ok and type(doc) == "table" then url = doc.url end
+	end
+	if not url or url == "" then
+		warn("[StarPetsSync] No endpoint is published right now, so there is "
+			.. "nowhere to send this. Opening the snapshot panel instead — "
+			.. "click inside it, Ctrl+A, Ctrl+C.")
+		return false
+	end
+
+	local report = select(1, buildReport())
+	local rows, total = describeParts(MAX_PARTS)
+
+	local body
+	local okEncode = pcall(function()
+		body = HttpService:JSONEncode({
+			place = tostring(game.Name),
+			sent = os.date("!%Y-%m-%d %H:%M:%S"),
+			partsTotal = total,
+			partsSent = #rows,
+			text = report,
+			parts = rows,
+		})
+	end)
+	if not okEncode then
+		warn("[StarPetsSync] could not package the place to send.")
+		return false
+	end
+
+	say("sending %d of %d parts (%d KB)...", #rows, total, math.floor(#body / 1024))
+	local okPost, err = pcall(function()
+		HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
+	end)
+	if not okPost then
+		warn("[StarPetsSync] could not send: " .. tostring(err))
+		warn("  If that says 'Http requests are not enabled', open Game "
+			.. "Settings > Security and switch on 'Allow HTTP Requests'.")
+		return false
+	end
+	say("sent. Claude can see this place now — no screenshot needed.")
+	if total > MAX_PARTS then
+		say("  (this place has %d parts; the first %d were sent)", total, MAX_PARTS)
+	end
+	return true
+end
+
 local function snapshot()
 	ensureReportUI()
 	local ok, report, warnings = pcall(buildReport)
@@ -702,7 +799,12 @@ end
 -- ============================================================
 snapButton.Click:Connect(function()
 	snapButton:SetActive(true)
-	snapshot()
+	-- Try to send it first. Only fall back to the copy-and-paste panel if
+	-- there is nowhere to send it to.
+	local sent = false
+	local ok, res = pcall(sendToClaude)
+	if ok then sent = res end
+	if not sent then snapshot() end
 	snapButton:SetActive(false)
 end)
 

@@ -84,6 +84,80 @@ def collect(mock):
     return out
 
 
+def draw(boxes, dest, label):
+    """Render a list of boxes to a PNG.
+
+    Split out of main() so the same projection, shading and depth sort can draw
+    a place that was described to us from somewhere else — the point being that
+    seeing the game should not depend on someone taking a screenshot for us.
+    """
+    pts = []
+    for x, y, z, sx, sy, sz, _, _ in boxes:
+        for dx in (-sx / 2, sx / 2):
+            for dy in (-sy / 2, sy / 2):
+                for dz in (-sz / 2, sz / 2):
+                    pts.append(project(x + dx, y + dy, z + dz))
+    minx = min(p[0] for p in pts); maxx = max(p[0] for p in pts)
+    miny = min(p[1] for p in pts); maxy = max(p[1] for p in pts)
+    pad = 30
+    scale = min((WIDTH - pad * 2) / (maxx - minx),
+                (HEIGHT - pad * 2 - 34) / (maxy - miny))
+
+    def to_px(x, y, z):
+        u, v = project(x, y, z)
+        return ((u - minx) * scale + pad, (v - miny) * scale + pad)
+
+    img = Image.new("RGB", (WIDTH, HEIGHT), (150, 186, 214))
+    d = ImageDraw.Draw(img)
+
+    # Painter's algorithm, sorted on each box's FARTHEST corner rather than its
+    # centre.
+    #
+    # Centre-based depth is fine for props of similar size and completely wrong
+    # for a ground slab: 300 studs deep, its centre sits further toward the
+    # camera than the spawn plaza standing on top of it, so the ground drew
+    # last and painted over the plaza, the egg terrace and the paths. The first
+    # render of this showed a field with no spawn in it.
+    #
+    # The far corner is (x - sx/2) + (z - sz/2) + (y - sy/2): the point of the
+    # box furthest from the viewer. Big flat things sort early, which is what
+    # ground is.
+    boxes.sort(key=lambda b: (b[0] - b[3] / 2) + (b[2] - b[5] / 2)
+               + (b[1] - b[4] / 2))
+
+    for x, y, z, sx, sy, sz, col, shape in boxes:
+        hx, hy, hz = sx / 2, sy / 2, sz / 2
+        if shape == "ball":
+            # An ellipse through the projected extremes. Cheaper than a sphere
+            # and reads correctly at this size, which is what tree crowns and
+            # boulders need.
+            cxp, cyp = to_px(x, y, z)
+            wpx = (sx + sz) * 0.5 * COS30 * scale
+            hpx = (sy * 0.5 + (sx + sz) * 0.25 * SIN30) * scale
+            d.ellipse([cxp - wpx, cyp - hpx, cxp + wpx, cyp + hpx],
+                      fill=shade(col, 0.88))
+            continue
+        top = [to_px(x - hx, y + hy, z - hz), to_px(x + hx, y + hy, z - hz),
+               to_px(x + hx, y + hy, z + hz), to_px(x - hx, y + hy, z + hz)]
+        left = [to_px(x - hx, y + hy, z + hz), to_px(x + hx, y + hy, z + hz),
+                to_px(x + hx, y - hy, z + hz), to_px(x - hx, y - hy, z + hz)]
+        right = [to_px(x + hx, y + hy, z - hz), to_px(x + hx, y + hy, z + hz),
+                 to_px(x + hx, y - hy, z + hz), to_px(x + hx, y - hy, z - hz)]
+        d.polygon(left, fill=shade(col, LEFT))
+        d.polygon(right, fill=shade(col, RIGHT))
+        d.polygon(top, fill=shade(col, TOP))
+
+    cap = "StarPets - %s - %d parts in view" % (label, len(boxes))
+    d.rectangle([0, HEIGHT - 30, WIDTH, HEIGHT], fill=(12, 12, 16))
+    d.text((14, HEIGHT - 20), cap, fill=(228, 228, 236))
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dest)
+    return len(boxes)
+
+
 def main():
     dest = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build/iso.png"
     world = sys.argv[2] if len(sys.argv) > 2 else None
