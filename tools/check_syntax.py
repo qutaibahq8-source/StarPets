@@ -56,7 +56,16 @@ def luau_to_lua(src: str) -> str:
         r'\)[ \t]*:[ \t]*[\w.<>{}|?\[\]]+(?:[ \t]*[|,][ \t]*[\w.<>{}|?\[\]]+)*'
         r'(?=[ \t]*(?:\n|--))',
         ')', src)
-    src = re.sub(r'(\([^()\n]*?)\s*:\s*[\w.<>{}|?\[\]]+(\s*[,)])', r'\1\2', src)
+    # Parameter types: (a: number, b: string) -> (a, b).
+    #
+    # The character class excludes quotes, and that is not cosmetic. A call
+    # whose first argument is a string containing ": word," —
+    # `w("  StarPetsMap: present, baked=%s", x)` — looks exactly like a typed
+    # parameter list to a looser pattern, which rewrote it to
+    # `w("  StarPetsMap, baked=%s", x)`. The file still parsed, the test still
+    # ran, and it silently measured a string the source never contained. A
+    # parameter list cannot hold a quote, so this cannot.
+    src = re.sub(r'(\([^()\n"\']*?)\s*:\s*[\w.<>{}|?\[\]]+(\s*[,)])', r'\1\2', src)
     # export type / type alias declarations.
     src = re.sub(r'^\s*(export\s+)?type\s+\w+\s*=.*$', "", src, flags=re.M)
     # Luau string interpolation is not used here; if it appears, flag rather

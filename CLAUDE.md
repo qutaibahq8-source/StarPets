@@ -104,11 +104,23 @@ you — a save wiped by a DataStore outage, a trade that quietly destroys a pet.
 `python3 tools/build_bridge.py` writes both, into `build/`. They go in the
 Plugins folder (Plugins tab → Plugins Folder), not into the place.
 
-**StarPetsSync** — one way, no key, free. It polls the repo and swaps
-`ServerScriptService.Server`, `ReplicatedStorage.Shared` and
-`StarterPlayerScripts.Client`. Nothing else in the place is read or written.
-Commands in `bridge/commands.json` run once each, printed first, and only while
-"Allow commands" is on.
+**StarPetsSync** — no key, free, and the loop closes both ways.
+
+- *Sync now* pulls the latest push and swaps `ServerScriptService.Server`,
+  `ReplicatedStorage.Shared` and `StarterPlayerScripts.Client`. Nothing else in
+  the place is read or written.
+- Commands in `bridge/commands.json` run once each, printed first, and only
+  while "Allow commands" is on.
+- *Snapshot* is the return leg: it describes the place as selectable text to
+  paste back into the conversation. Without it the answer to "I pushed a fix
+  and nothing changed" has to be guessed; with it, it is read. It reports the
+  place's version against the live manifest, missing or duplicate folders,
+  per-world part counts, neon count, whether the map is baked, and — scanned
+  out of the client's own source rather than a list kept here — every
+  `workspace:WaitForChild` the client blocks on and whether it exists.
+
+The snapshot must never print a setting value other than the sync version
+stamp; `check_bridge` fails if a key-shaped string reaches it.
 
 **StarPetsAI** — a chat panel docked in Studio that calls the Anthropic API
 from the developer's machine, with four tools pointed at the open place: `look`,

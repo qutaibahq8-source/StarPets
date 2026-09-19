@@ -252,6 +252,13 @@ function Methods.IsA(self, cls)
 	if cls == "GuiObject" then
 		return c:find("Frame") ~= nil or c:find("Label") ~= nil or c:find("Button") ~= nil
 	end
+	-- Scripts answer to LuaSourceContainer, and plenty of real code counts
+	-- them that way rather than by ClassName. Without this every such sweep
+	-- quietly returns zero, which reads as "the folder is empty" — the exact
+	-- wrong answer, delivered confidently.
+	if cls == "LuaSourceContainer" then
+		return c == "Script" or c == "LocalScript" or c == "ModuleScript"
+	end
 	if cls == "Instance" then return true end
 	return false
 end
@@ -552,7 +559,7 @@ local game = {
 		return svc
 	end,
 	BindToClose = function(_, fn) BOUND_TO_CLOSE[#BOUND_TO_CLOSE + 1] = fn end,
-	JobId = "", CreatorId = 0, PlaceId = 0,
+	Name = "MockPlace", JobId = "", CreatorId = 0, PlaceId = 0,
 	GetFullName = function() return "game" end,
 }
 

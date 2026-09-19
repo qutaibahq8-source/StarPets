@@ -35,7 +35,7 @@ def studio(fail_on=None, playing=False):
     G = lua.globals()
     mock = lua.execute((ROOT / "tools" / "roblox_mock.lua").read_text())
     for k in ("Instance", "game", "workspace", "Color3", "Vector3", "Enum",
-              "UDim2", "TweenInfo"):
+              "UDim", "UDim2", "TweenInfo", "DockWidgetPluginGuiInfo"):
         G[k] = mock[k]
     lua.execute("""
         OUT, WARN = {}, {}
@@ -112,6 +112,11 @@ def studio(fail_on=None, playing=False):
             CreateToolbar = function() return { CreateButton = function() return button() end } end,
             GetSetting = function(_, k) return SETTINGS[k] end,
             SetSetting = function(_, k, v) SETTINGS[k] = v end,
+            CreateDockWidgetPluginGui = function()
+                local w = Instance.new("DockWidgetPluginGui")
+                w.Enabled = false
+                return w
+            end,
         }
     """)
     # The fallback path requires a freshly-built ModuleScript, which needs the
@@ -271,6 +276,104 @@ def main():
                      "twice is two maps on top of each other")
     else:
         print("  ok  a command runs once and is never repeated")
+
+    # ---- 7. THE SNAPSHOT DESCRIBES THIS PLACE, NOT A GENERIC ONE ----------
+    # The return leg. Its whole value is that someone outside Studio can read
+    # it and know what is wrong, so a report that omits the failure, or invents
+    # one, is worse than no report: it sends the next hour of work in the wrong
+    # direction.
+    src_rep = src.replace("local function buildReport()", "function BUILDREPORT()")
+    src_rep = src_rep.replace("pcall(buildReport)", "pcall(BUILDREPORT)")
+    lua6, mock6, G6 = studio()
+    lua6.eval("function(s,n) return assert(load(s,n)) end")(src_rep, "@StarPetsSync")()
+    lua6.globals().SYNC(False)
+
+    # A place with a map in it, and a neon part, and one world.
+    lua6.execute("""
+        local map = Instance.new("Folder"); map.Name = "StarPetsMap"
+        map:SetAttribute("StarPetsBaked", true)
+        map.Parent = workspace
+        local meadow = Instance.new("Folder"); meadow.Name = "Meadow"; meadow.Parent = map
+        for i = 1, 7 do
+            local p = Instance.new("Part"); p.Name = "Prop" .. i
+            p.Material = Enum.Material.Plastic
+            p.Parent = meadow
+        end
+        local lava = Instance.new("Part"); lava.Name = "Lava"
+        lava.Material = Enum.Material.Neon; lava.Parent = meadow
+    """)
+    # A key-shaped string in this plugin's settings. Studio keeps settings per
+    # plugin so the AI panel's key is out of reach anyway, but a report that
+    # dumped settings would still be a leak waiting to happen.
+    lua6.execute('SETTINGS["StarPetsAIKey"] = "sk-ant-api03-NOT-A-REAL-KEY"')
+
+    def report():
+        r = lua6.globals().BUILDREPORT()
+        return str(r[0] if isinstance(r, tuple) else r)
+
+    rep = report()
+    want = ["StarPetsMap", "Meadow", "neon: 1", "Server", "Client", "WARNINGS"]
+    absent = [w for w in want if w not in rep]
+    if absent:
+        fails.append("the snapshot never mentions %s, so it does not actually "
+                     "describe this place" % ", ".join(absent))
+    else:
+        print("  ok  the snapshot describes the real place (%d lines)"
+              % len(rep.splitlines()))
+
+    if "sk-ant" in rep:
+        fails.append("the snapshot printed a key-shaped setting value")
+    else:
+        print("  ok  the snapshot carries no credential")
+
+    # The folders the client blocks on are read out of the client's own source,
+    # so this check is only meaningful if it found some.
+    if "FOLDERS THE CLIENT WAITS FOR" not in rep:
+        fails.append("the snapshot found no workspace:WaitForChild in the "
+                     "client — that scan is the thing that catches a joining "
+                     "player frozen forever, and it is reading nothing")
+    else:
+        waited = [ln.split()[0] for ln in rep.splitlines()
+                  if ln.startswith("  ") and ln.strip().endswith("MISSING")]
+        if not waited:
+            fails.append("every folder the client waits for was reported ok in "
+                         "a place where none of them exist")
+        else:
+            name = waited[0]
+            if ("workspace.%s" % name) not in rep:
+                fails.append("a missing folder was listed but no warning "
+                             "explains what it breaks")
+            else:
+                print("  ok  names the %d folder(s) a joining player would hang on"
+                      % len(waited))
+            lua6.execute('local f = Instance.new("Folder") f.Name = "%s" '
+                         'f.Parent = workspace' % name)
+            if ("%s" % name) in [ln.split()[0] for ln in report().splitlines()
+                                 if ln.strip().endswith("MISSING")]:
+                fails.append("a folder that now exists is still reported missing")
+            else:
+                print("  ok  and stops reporting it once it exists")
+
+    # Behind-the-remote is the single most common state, and the one the owner
+    # cannot see from inside Studio at all.
+    lua6.execute('SETTINGS["StarPetsVersion"] = "0000000000deadbeef"')
+    rep_behind = report()
+    if "Sync now" not in rep_behind:
+        fails.append("a place running older code than the remote is not told to "
+                     "sync — this is exactly the 'I pushed and nothing changed' "
+                     "case the snapshot exists for")
+    else:
+        print("  ok  says plainly when the place is behind the remote")
+
+    lua6.execute("""
+        local dupe = Instance.new("Folder"); dupe.Name = "Server"
+        dupe.Parent = game:GetService("ServerScriptService")
+    """)
+    if "2 copies of Server" not in report():
+        fails.append("two Server folders were not reported — two copies of the "
+                     "game running at once looks exactly like nothing changed")
+    else:
+        print("  ok  catches a duplicate install")
 
     if fails:
         print("\nbridge: %d problems" % len(fails))
