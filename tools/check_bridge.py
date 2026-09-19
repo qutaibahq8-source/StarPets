@@ -329,6 +329,45 @@ def main():
     else:
         print("  ok  and every light source is gone")
 
+    # ---- 6a2. THE GLOW STRIPPER ------------------------------------------
+    # A baked place keeps its own older map, so a glowing rebirth pad from a
+    # previous build survives every code sync. The stripper turns that off —
+    # and must leave the lava and the crater, which are the only neon the
+    # current map is supposed to have.
+    lua6b, mock6b, G6b = studio()
+    lua6b.eval("function(s,n) return assert(load(s,n)) end")(src_cmd, "@StarPetsSync")()
+    lua6b.execute("""
+        local map = Instance.new("Folder"); map.Name = "StarPetsMap"; map.Parent = workspace
+        -- The magenta pad at the rebirth machine, 0.3 studs high. That height
+        -- is why this is seeded rather than assumed: string.format("%d", 0.3)
+        -- raises "number has no integer representation", and the command died
+        -- half way through, after printing its header and before changing
+        -- anything.
+        PAD = Instance.new("Part"); PAD.Name = "RMRing"
+        PAD.Material = Enum.Material.Neon
+        PAD.Position = Vector3.new(-55, 0, 0)
+        PAD.Size = Vector3.new(15, 0.3, 15)
+        PAD.Parent = map
+        -- Lava, out where neon belongs.
+        LAVA = Instance.new("Part"); LAVA.Name = "LavaPool"
+        LAVA.Material = Enum.Material.Neon
+        LAVA.Position = Vector3.new(380, 1, -27)
+        LAVA.Size = Vector3.new(10, 1, 10)
+        LAVA.Parent = map
+    """)
+    lua6b.globals().RUNCMDS()
+
+    warned = [str(G6b.WARN[i]) for i in range(1, 20) if G6b.WARN[i] is not None]
+    if any("failed" in w for w in warned):
+        fails.append("a pushed command threw in the place: %s" % warned[0][:120])
+    elif "SmoothPlastic" not in str(lua6b.globals().PAD._p.Material):
+        fails.append("the glowing pad is still Neon after the strip")
+    elif "Neon" not in str(lua6b.globals().LAVA._p.Material):
+        fails.append("the strip turned the volcano's lava off too — that neon "
+                     "is the map's only intended glow")
+    else:
+        print("  ok  glow stripper kills stray neon and spares the lava")
+
     # ---- 6b. A SYNC NEVER DESTROYS WHAT WAS THERE -------------------------
     # A sync replaces the three code folders wholesale, so anything edited by
     # hand in Studio goes with them. That is "everything I customised went back

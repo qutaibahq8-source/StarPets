@@ -352,6 +352,60 @@ def main():
     else:
         print("  ok  no light sources anywhere in the map")
 
+    # ---- SIGNS MUST NOT PILE UP -------------------------------------------
+    # A BillboardGui with no MaxDistance draws from anywhere on the map. With
+    # four locked worlds that meant four unlock signs at 640x240, plus four
+    # world names at 440x130, plus the rebirth sign, all rendered at once and
+    # written across each other — the whole middle of the screen was overlapping
+    # text and none of it was readable.
+    #
+    # Two rules, both measurable: every sign must stop drawing at some point,
+    # and standing at spawn must not put many of them on screen together.
+    signs = []
+    stack = [mock["workspace"]]
+    while stack:
+        node = stack.pop()
+        for c in node["GetChildren"](node).values():
+            if str(c._p.ClassName) == "BillboardGui":
+                sz = c._p.Size
+                w = (sz["X"]["Offset"] or 0) if sz is not None else 0
+                h = (sz["Y"]["Offset"] or 0) if sz is not None else 0
+                pos = node["Position"]
+                signs.append({
+                    "name": str(node._p.Name),
+                    "dist": float(c._p.MaxDistance or 0),
+                    "area": w * h,
+                    "x": float(pos.X) if pos is not None else 0.0,
+                    "z": float(pos.Z) if pos is not None else 0.0,
+                })
+            stack.append(c)
+
+    forever = [s for s in signs if s["dist"] <= 0]
+    if forever:
+        bad += 1
+        print("  x   %d sign(s) draw from anywhere on the map: %s"
+              % (len(forever), ", ".join(sorted({s["name"] for s in forever}))))
+    else:
+        print("  ok  all %d world signs stop drawing at a distance" % len(signs))
+
+    # Standing at spawn (0,0), how many signs are in range at once?
+    import math as _math
+    at_spawn = [s for s in signs
+                if _math.hypot(s["x"], s["z"]) <= s["dist"]]
+    # Area is a decent proxy for "how much of the screen this eats".
+    screen = sum(s["area"] for s in at_spawn)
+    if len(at_spawn) > 4 or screen > 400000:
+        bad += 1
+        print("  x   standing at spawn puts %d sign(s) on screen at once "
+              "(%d px of text) — they overlap into one unreadable pile"
+              % (len(at_spawn), screen))
+        for s in sorted(at_spawn, key=lambda v: -v["area"])[:6]:
+            print("        %-16s %d px, visible from %d studs"
+                  % (s["name"], s["area"], s["dist"]))
+    else:
+        print("  ok  spawn sees %d sign(s) at once, %d px of text"
+              % (len(at_spawn), screen))
+
     print("\nmap: %d checks failed" % bad)
     return 1 if bad else 0
 

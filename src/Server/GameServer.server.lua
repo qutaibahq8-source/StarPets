@@ -662,8 +662,13 @@ local function buildMap()
 		-- Big world-name sign floating over the middle of the biome
 		local nameAnchor=part({Name="BiomeName_"..b.id,Size=Vector3.new(1,1,1),
 			Position=Vector3.new(b.cx,30,0),Transparency=1,CanCollide=false})
+		-- Smaller, and it stops rendering before the next world's sign starts.
+		-- The worlds sit 130 studs apart; at 140 studs of draw distance every
+		-- sign on the map was on screen at once, all of them 440 wide, written
+		-- across each other into one unreadable pile. 95 keeps a sign to its
+		-- own world.
 		billboard(nameAnchor,areaConfig.name,Color3.fromRGB(255,255,255),
-			areaConfig.description,Color3.fromRGB(210,210,235),UDim2.new(0,440,0,130),140)
+			areaConfig.description,Color3.fromRGB(210,210,235),UDim2.new(0,260,0,84),95)
 
 		local gateX=b.cx-65  -- gate sits at left edge of biome
 
@@ -681,8 +686,14 @@ local function buildMap()
 		MapPersist.Bind(cd, "BuyArea", b.id)
 		-- requirement sign on the wall
 		local sign=Instance.new("BillboardGui")
-		sign.Name="WallSign"; sign.Size=UDim2.new(0,640,0,240); sign.StudsOffset=Vector3.new(0,20,0)
-		sign.MaxDistance=400; sign.Adornee=barrier; sign.Parent=barrier
+		-- 640x240 at 400 studs was the single worst thing on screen. Four
+		-- locked worlds meant four of these drawn at once from anywhere on the
+		-- map, each one bigger than a world, overlapping every other sign and
+		-- the world names on top of that. A price tag should be readable when
+		-- you walk up to the wall it is on, and invisible from three worlds
+		-- away.
+		sign.Name="WallSign"; sign.Size=UDim2.new(0,380,0,150); sign.StudsOffset=Vector3.new(0,12,0)
+		sign.MaxDistance=95; sign.Adornee=barrier; sign.Parent=barrier
 		local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.42,0); t1.BackgroundTransparency=1
 		t1.Text="🔒 "..areaConfig.name; t1.TextColor3=Color3.new(1,1,1); t1.TextScaled=true
 		t1.Font=Enum.Font.GothamBold; t1.TextStrokeTransparency=0.25; t1.TextStrokeColor3=Color3.new(0,0,0); t1.Parent=sign
@@ -847,6 +858,9 @@ local function buildMap()
 		Position=machinePos+Vector3.new(0,12,0),Transparency=1,CanCollide=false})
 	local bb = Instance.new("BillboardGui")
 	bb.Size=UDim2.new(0,220,0,80); bb.StudsOffset=Vector3.new(0,0,0)
+	-- MaxDistance was never set, and the default is infinite: the magenta
+	-- REBIRTH sign was drawn over the map from every world on it.
+	bb.MaxDistance=70
 	bb.Adornee=signAnchor; bb.AlwaysOnTop=false; bb.Parent=signAnchor
 
 	local t1=Instance.new("TextLabel"); t1.Size=UDim2.new(1,0,0.5,0)
@@ -1010,6 +1024,10 @@ local function onPlayerAdded(player)
 		bg.Name          = "TitleGui"
 		bg.Size          = UDim2.new(0, 160, 0, 28)
 		bg.StudsOffset   = Vector3.new(0, 3.2, 0)
+		-- A rank title is for the person standing next to you, not for someone
+		-- three worlds away. Unset, this drew every player's title across the
+		-- whole map.
+		bg.MaxDistance   = 60
 		bg.Adornee       = hrp
 		bg.AlwaysOnTop   = false
 		bg.Parent        = char
