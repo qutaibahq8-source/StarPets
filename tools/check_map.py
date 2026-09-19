@@ -38,7 +38,7 @@ def build():
     lua.execute("math.clamp=function(x,l,h) return math.max(l,math.min(h,x)) end;"
                 "math.round=function(x) return math.floor(x+0.5) end")
     mock = lua.execute((ROOT / "tools" / "roblox_mock.lua").read_text())
-    for k in ("Vector3", "CFrame", "Color3", "Enum", "Instance", "game", "workspace",
+    for k in ("Vector3", "CFrame", "Color3", "Enum", "Instance", "game", "workspace", "typeof",
               "Random", "UDim", "UDim2", "Vector2", "NumberRange", "NumberSequence",
               "ColorSequence", "NumberSequenceKeypoint", "ColorSequenceKeypoint",
               "TweenInfo", "Ray"):

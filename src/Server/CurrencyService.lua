@@ -98,7 +98,13 @@ local function collectOrb(player, orb)
 		DataManager.IncrementData(player, "Gems", earned)
 		DataManager.IncrementData(player, "TotalGemsEarned", earned)
 	else
-		local earned = math.max(1, math.floor(orbInfo.value * rebirthMult * coinBoost))
+		-- The Coin Bonus upgrade, which nothing read until now. Its four levels
+		-- cost 126,000 coins to max and its own description says "Multiply
+		-- coins earned from orbs" — this is the line that was missing, so every
+		-- level of it bought exactly nothing.
+		local upgradeMult = GameConfig.UpgradeValue(data, "CoinBonus") or 1
+		local earned = math.max(1, math.floor(
+			orbInfo.value * rebirthMult * coinBoost * upgradeMult))
 		DataManager.IncrementData(player, "Coins", earned)
 		DataManager.IncrementData(player, "TotalCoinsEarned", earned)
 	end

@@ -34,7 +34,7 @@ def studio(fail_on=None, playing=False):
     lua = lupa.LuaRuntime(unpack_returned_tuples=False)
     G = lua.globals()
     mock = lua.execute((ROOT / "tools" / "roblox_mock.lua").read_text())
-    for k in ("Instance", "game", "workspace", "Color3", "Vector3", "Enum",
+    for k in ("Instance", "game", "workspace", "typeof", "Color3", "Vector3", "Enum",
               "UDim", "UDim2", "TweenInfo", "DockWidgetPluginGuiInfo"):
         G[k] = mock[k]
     lua.execute("""

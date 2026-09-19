@@ -387,6 +387,25 @@ InstMT.__newindex = function(t, k, val)
 	rawget(t, "_p")[k] = val
 end
 
+-- Roblox's typeof(), which is how this project validates every argument that
+-- arrives from a client.
+--
+-- Leaving it undefined does not make those checks fail loudly — it makes the
+-- handler throw on the validation line, which reads as "the remote rejected
+-- bad input" when in fact the guard never ran. Nine remotes looked validated
+-- for exactly that reason.
+local function robloxTypeof(v)
+	local t = type(v)
+	if t ~= "table" then return t end
+	local mt = getmetatable(v)
+	if mt == InstMT then return "Instance" end
+	if mt == V3MT then return "Vector3" end
+	if mt == CFMT then return "CFrame" end
+	if mt == C3MT then return "Color3" end
+	if v.Name and v.Value and mt and mt.__tostring then return "EnumItem" end
+	return "table"
+end
+
 local Instance = {
 	new = function(class, parent)
 		local i = newInst(class)
@@ -624,6 +643,7 @@ end
 
 return {
 	Vector3 = Vector3, CFrame = CFrame, Color3 = Color3, Enum = Enum,
+	typeof = robloxTypeof,
 	DockWidgetPluginGuiInfo = DockWidgetPluginGuiInfo, settings = settingsFn,
 	ChangeHistoryService = ChangeHistoryService,
 	Instance = Instance, game = game, workspace = Workspace, Workspace = Workspace,

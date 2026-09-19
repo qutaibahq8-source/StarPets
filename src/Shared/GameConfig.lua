@@ -533,4 +533,31 @@ GameConfig.Settings = {
 	VIPGemMultiplier      = 3.0,
 }
 
+-- What an upgrade is currently worth for this player, or its default if they
+-- have never bought it.
+--
+-- This exists because two upgrades were purely decorative. Nothing anywhere
+-- read data.Upgrades.LuckyCharm or data.Upgrades.CoinBonus — a player could
+-- spend 54,000 coins on Lucky Charm and 126,000 on Coin Bonus and receive
+-- exactly nothing for either. UpgradeService.Buy charged, stored the level and
+-- the panel drew it as owned, so the only way to notice was to measure your
+-- income before and after and find it unchanged.
+--
+-- Reading them through one accessor is what makes "is this upgrade actually
+-- wired up" a question with an answer.
+function GameConfig.UpgradeValue(data, key)
+	for _, upg in ipairs(GameConfig.Upgrades) do
+		if upg.key == key then
+			local level = 0
+			if type(data) == "table" and type(data.Upgrades) == "table" then
+				level = tonumber(data.Upgrades[key]) or 0
+			end
+			local tier = upg.levels[level]
+			if level > 0 and tier then return tier.value end
+			return upg.default
+		end
+	end
+	return nil
+end
+
 return GameConfig

@@ -166,7 +166,13 @@ function PetService.Init()
 
 	-- Follow loop
 	RunService.Heartbeat:Connect(function(dt)
+		-- Hoisted: tick() was being called once per pet per frame to compute a
+		-- bob offset that only depends on time.
+		local now = tick()
 		for userId, models in pairs(ActiveModels) do
+			-- next() first, before the player lookup. A player with no pets
+			-- equipped is the common case, and GetPlayerByUserId is a scan.
+			if next(models) == nil then continue end
 			local player = Players:GetPlayerByUserId(userId)
 			if not player or not player.Character then continue end
 			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -181,7 +187,7 @@ function PetService.Init()
 				if not body then continue end
 
 				local targetPos = rootPart.Position + getFollowOffset(i, total)
-				local bobOffset = math.sin(tick() * 2 + i * 1.2) * 0.3
+				local bobOffset = math.sin(now * 2 + i * 1.2) * 0.3
 				targetPos = targetPos + Vector3.new(0, bobOffset, 0)
 
 				local current = body.CFrame
@@ -252,9 +258,31 @@ function PetService.DespawnAllPets(player)
 	for uniqueId, model in pairs(ActiveModels[userId]) do
 		model:Destroy()
 	end
-	ActiveModels[userId] = {}
+	-- nil, not an empty table.
+	--
+	-- This runs on PlayerRemoving, and leaving an empty table behind meant the
+	-- entry stayed in ActiveModels for the life of the server. The Heartbeat
+	-- loop walks that table sixty times a second and calls GetPlayerByUserId
+	-- on every key, so after a few hundred sessions it was doing tens of
+	-- thousands of lookups a second for players who left hours ago — a server
+	-- that gets slower the longer it stays up, which reads as "the game lags
+	-- after a while" and has no error attached to it.
+	ActiveModels[userId] = nil
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
 	if folder then folder:Destroy() end
+end
+
+-- How many players and models the follow loop is actually working on. Useful
+-- from the admin panel, and it is what makes the leak above testable at all:
+-- ActiveModels is a local, so without this the only way to see it grow is to
+-- watch the server slow down.
+function PetService.ActiveCounts()
+	local players, models = 0, 0
+	for _, set in pairs(ActiveModels) do
+		players = players + 1
+		for _ in pairs(set) do models = models + 1 end
+	end
+	return players, models
 end
 
 -- ============================================================
