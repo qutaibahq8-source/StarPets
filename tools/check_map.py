@@ -308,6 +308,50 @@ def main():
             print("  x   the client waits for workspace.%s and the server never "
                   "creates it anywhere" % name)
 
+    # ---- THINGS THE OWNER ASKED NOT TO EXIST ------------------------------
+    # Each of these was removed once already. Without a check they come back on
+    # the next person who thinks the spawn looks empty, and the owner has to
+    # notice and ask again.
+    banned_names = {
+        # the leaderboard board that stood at spawn
+        "LBBase", "LBBack", "LBFrame", "LBTitle",
+        # the shop building west of spawn, next to the rebirth machine
+        "ShopFloor", "ShopWallF", "ShopWallB", "ShopWallL", "ShopWallR",
+        "ShopRoof", "ShopRoofNeon", "ShopSign",
+        # the lamp posts that lined the walking paths
+        "LampPost", "LampArm", "LampHead",
+    }
+    banned_prefixes = ("UpgPad_", "UpgIcon_")
+
+    found, lights = [], []
+    stack = [mock["workspace"]]
+    while stack:
+        node = stack.pop()
+        for c in node["GetChildren"](node).values():
+            nm, cls = str(c._p.Name), str(c._p.ClassName)
+            if nm in banned_names or nm.startswith(banned_prefixes):
+                found.append(nm)
+            if cls in ("PointLight", "SpotLight", "SurfaceLight"):
+                lights.append("%s on %s" % (cls, str(node._p.Name)))
+            stack.append(c)
+
+    if found:
+        bad += 1
+        print("  x   the map builds %d part(s) the owner had removed: %s"
+              % (len(found), ", ".join(sorted(set(found)))))
+    else:
+        print("  ok  no shop building, no leaderboard board, no path lamps")
+
+    # "the glow" — the owner's words. One PointLight on the rebirth orb was the
+    # last light source in the map, and it was on the one machine they pointed
+    # at. Zero is the number.
+    if lights:
+        bad += 1
+        print("  x   %d light source(s) in the map, which the owner asked not to "
+              "have: %s" % (len(lights), ", ".join(sorted(set(lights)))))
+    else:
+        print("  ok  no light sources anywhere in the map")
+
     print("\nmap: %d checks failed" % bad)
     return 1 if bad else 0
 

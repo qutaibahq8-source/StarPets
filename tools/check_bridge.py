@@ -277,6 +277,58 @@ def main():
     else:
         print("  ok  a command runs once and is never repeated")
 
+    # ---- 6a. THE PURGE COMMAND REMOVES THE RIGHT THINGS AND ONLY THOSE ----
+    # A command that deletes parts out of someone's place has to be exact. Too
+    # little and the thing they asked to be rid of is still standing; too much
+    # and it has eaten work that cannot be got back.
+    lua6a, mock6a, G6a = studio()
+    lua6a.eval("function(s,n) return assert(load(s,n)) end")(src_cmd, "@StarPetsSync")()
+    lua6a.execute("""
+        local map = Instance.new("Folder"); map.Name = "StarPetsMap"; map.Parent = workspace
+        -- what must go
+        for _, n in ipairs({"LBBase","LBBack","LBFrame","LBTitle","ShopFloor",
+                            "ShopWallF","ShopRoof","ShopRoofNeon","ShopSign",
+                            "LampPost","LampHead","UpgPad_1","UpgIcon_1"}) do
+            local p = Instance.new("Part"); p.Name = n; p.Parent = map
+        end
+        local orb = Instance.new("Part"); orb.Name = "RMOrb"; orb.Parent = map
+        local lamp = Instance.new("PointLight"); lamp.Name = "Glow"; lamp.Parent = orb
+        -- what must stay: the rest of the rebirth machine, the map, and
+        -- anything hand-built
+        for _, n in ipairs({"RMBase","RMCore","RMPillar","TreeTrunk"}) do
+            local p = Instance.new("Part"); p.Name = n; p.Parent = map
+        end
+        local mine = Instance.new("Part"); mine.Name = "MyOwnBuild"; mine.Parent = workspace
+    """)
+    lua6a.globals().RUNCMDS()
+
+    def present(name):
+        ws = mock6a["workspace"]
+        return ws["FindFirstChild"](ws, name, True) is not None
+
+    gone = [n for n in ("LBBase", "LBFrame", "ShopFloor", "ShopWallF",
+                        "ShopRoofNeon", "ShopSign", "LampPost", "UpgPad_1",
+                        "UpgIcon_1") if present(n)]
+    if gone:
+        fails.append("the purge left %d of the parts it exists to remove: %s"
+                     % (len(gone), ", ".join(gone)))
+    else:
+        print("  ok  purge removes the board, the shop, the pads and the lamps")
+
+    kept = [n for n in ("RMBase", "RMCore", "RMPillar", "RMOrb", "TreeTrunk",
+                        "MyOwnBuild") if not present(n)]
+    if kept:
+        fails.append("the purge destroyed things it must not touch: %s"
+                     % ", ".join(kept))
+    else:
+        print("  ok  and leaves the rebirth machine and hand-built parts alone")
+
+    if present("Glow"):
+        fails.append("the PointLight survived — 'the glow' is what the owner "
+                     "pointed at")
+    else:
+        print("  ok  and every light source is gone")
+
     # ---- 6b. A SYNC NEVER DESTROYS WHAT WAS THERE -------------------------
     # A sync replaces the three code folders wholesale, so anything edited by
     # hand in Studio goes with them. That is "everything I customised went back

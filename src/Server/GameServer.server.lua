@@ -811,7 +811,11 @@ local function buildMap()
 	local orb = part({Name="RMOrb",Shape=Enum.PartType.Ball,Size=Vector3.new(2.5,2.5,2.5),
 		Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(198,176,236),
 		Material=Enum.Material.Glass,CanCollide=false,Transparency=0.2})
-	glow(orb,Color3.fromRGB(190,170,225),0.8)
+	-- No light on it. This PointLight was the last light source left in the
+	-- whole map and it sat on the rebirth machine, which is the one thing the
+	-- owner said they did not want glowing. The orb still reads as the thing to
+	-- click: it is glass, it is pale against the slate, it bobs and it turns.
+	-- check_map fails if any light source comes back.
 
 	-- Orbit rings around the orb
 	for i=1,3 do
