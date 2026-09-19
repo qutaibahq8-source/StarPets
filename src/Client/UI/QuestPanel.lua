@@ -54,14 +54,54 @@ function QuestPanel.Build()
 	scroll.CanvasSize=UDim2.new(0,0,0,0); scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y; scroll.Parent=panel
 	local list=Instance.new("UIListLayout",scroll); list.Padding=UDim.new(0,8); list.SortOrder=Enum.SortOrder.LayoutOrder
 
+	local function countdown(sec)
+		sec = math.max(0, math.floor(sec or 0))
+		local h = math.floor(sec/3600)
+		local m = math.floor((sec%3600)/60)
+		if h > 0 then return h.."h "..m.."m" end
+		return m.."m"
+	end
+
+	local function header(text, colour, order)
+		local h=Instance.new("TextLabel")
+		h.Size=UDim2.new(1,-6,0,26); h.BackgroundTransparency=1; h.LayoutOrder=order
+		h.Text=text; h.TextColor3=colour; h.TextScaled=true
+		h.Font=Enum.Font.GothamBold; h.TextXAlignment=Enum.TextXAlignment.Left
+		h.Parent=scroll
+		return h
+	end
+
 	local function render()
 		for _,c in ipairs(scroll:GetChildren()) do if not c:IsA("UIListLayout") then c:Destroy() end end
 		local quests = RF_GetQuests:InvokeServer()
+
+		-- The two kinds are worth telling apart on sight: one refills tomorrow,
+		-- the other is gone once it is claimed.
+		local shownDaily, shownMilestone = false, false
+		for _, q in ipairs(quests or {}) do
+			if q.kind == "daily" and not shownDaily then
+				shownDaily = true
+				header("⏳  Daily  —  resets in "..countdown(q.resetsIn),
+					Color3.fromRGB(255,205,100), 0)
+			elseif q.kind ~= "daily" and not shownMilestone then
+				shownMilestone = true
+				header("🏆  Milestones", Color3.fromRGB(150,200,255), 100)
+			end
+		end
+
 		for i, q in ipairs(quests or {}) do
+			local isDaily = q.kind == "daily"
 			local card=Instance.new("Frame")
-			card.Size=UDim2.new(1,-6,0,84); card.BackgroundColor3=Color3.fromRGB(24,20,40)
-			card.BorderSizePixel=0; card.LayoutOrder=i; card.Parent=scroll
+			card.Size=UDim2.new(1,-6,0,84)
+			card.BackgroundColor3=isDaily and Color3.fromRGB(38,30,22) or Color3.fromRGB(24,20,40)
+			-- Daily cards sort above the milestone header, milestones below it.
+			card.BorderSizePixel=0; card.LayoutOrder=isDaily and i or (100+i); card.Parent=scroll
 			Instance.new("UICorner",card).CornerRadius=UDim.new(0,10)
+			if isDaily then
+				local edge=Instance.new("UIStroke",card)
+				edge.Color=Color3.fromRGB(255,190,80); edge.Thickness=1.5
+				edge.Transparency=q.claimed and 0.75 or 0.25
+			end
 
 			local name=Instance.new("TextLabel")
 			name.Size=UDim2.new(0.62,0,0,26); name.Position=UDim2.new(0,12,0,8); name.BackgroundTransparency=1

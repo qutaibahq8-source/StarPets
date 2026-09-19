@@ -277,6 +277,55 @@ def main():
     else:
         print("  ok  a command runs once and is never repeated")
 
+    # ---- 6b. A SYNC NEVER DESTROYS WHAT WAS THERE -------------------------
+    # A sync replaces the three code folders wholesale, so anything edited by
+    # hand in Studio goes with them. That is "everything I customised went back
+    # to normal", and by the time it is noticed the work is already gone. The
+    # replaced copy has to survive somewhere, and the overwrite has to be said
+    # out loud.
+    lua7, mock7, G7 = studio()
+    lua7.eval("function(s,n) return assert(load(s,n)) end")(src, "@StarPetsSync")()
+    lua7.globals().SYNC(False)
+    lua7.execute("""
+        local server = game:GetService("ServerScriptService"):FindFirstChild("Server")
+        MINE = server:FindFirstChild("PetService")
+        MINE.Source = "-- my own change that must not vanish\\n" .. MINE.Source
+    """)
+    lua7.globals().SYNC(False)
+
+    ss = mock7["game"]["GetService"](mock7["game"], "ServerStorage")
+    shelf = ss["FindFirstChild"](ss, "StarPetsBackup")
+    if shelf is None:
+        fails.append("a sync destroyed the previous code with no copy kept — a "
+                     "hand edit in Studio is gone the moment anyone syncs")
+    else:
+        kept = None
+        for slot in shelf["GetChildren"](shelf).values():
+            folder = slot["FindFirstChild"](slot, "Server")
+            if folder is not None:
+                found = folder["FindFirstChild"](folder, "PetService")
+                if found is not None and "must not vanish" in str(found._p.Source):
+                    kept = found
+        if kept is None:
+            fails.append("the backup exists but does not contain the edited file")
+        else:
+            print("  ok  a hand-edited script survives a sync, in ServerStorage")
+        said = any("ServerStorage" in str(G7.OUT[i] or "") for i in range(1, 60))
+        if not said:
+            fails.append("nothing told the developer their files were replaced "
+                         "or where the old ones went")
+        else:
+            print("  ok  and the overwrite is announced, with where to find it")
+
+        # An unbounded shelf grows the place file by the whole codebase per sync.
+        for _ in range(5):
+            lua7.globals().SYNC(False)
+        slots = len(list(shelf["GetChildren"](shelf).values()))
+        if slots > 3:
+            fails.append("%d backups kept — the shelf grows without limit" % slots)
+        else:
+            print("  ok  keeps the last %d backups and prunes the rest" % slots)
+
     # ---- 7. THE SNAPSHOT DESCRIBES THIS PLACE, NOT A GENERIC ONE ----------
     # The return leg. Its whole value is that someone outside Studio can read
     # it and know what is wrong, so a report that omits the failure, or invents

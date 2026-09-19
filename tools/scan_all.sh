@@ -25,6 +25,7 @@ run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py
 run "game loop"  python3 tools/check_loop.py
+run "quests"     python3 tools/check_quests.py
 run "sync bridge" python3 tools/check_bridge.py
 run "studio panel" python3 tools/check_ai.py
 

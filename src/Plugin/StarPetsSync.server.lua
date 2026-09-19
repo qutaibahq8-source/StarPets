@@ -26,6 +26,7 @@
 local HttpService         = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+local ServerStorage       = game:GetService("ServerStorage")
 local StarterPlayer       = game:GetService("StarterPlayer")
 local RunService          = game:GetService("RunService")
 
@@ -135,6 +136,56 @@ local DESTINATIONS = {
 	Client = function() return StarterPlayer:FindFirstChild("StarterPlayerScripts") end,
 }
 
+-- "UI/ShopPanel" — a path relative to the folder being replaced, so the old and
+-- the new copy of the same file can be lined up. GetFullName would do it in
+-- Studio, but it answers with the whole path from the DataModel down, which is
+-- the wrong thing to key on when the two folders live in different places.
+function relPath(inst, root)
+	local parts, n = {}, inst
+	while n and n ~= root do
+		table.insert(parts, 1, n.Name)
+		n = n.Parent
+	end
+	return table.concat(parts, "/")
+end
+
+local BACKUPS_KEPT = 3
+
+-- Park the folder being replaced rather than deleting it. ServerStorage is the
+-- right shelf: nothing in there runs, so a kept copy cannot become a second
+-- GameServer quietly running alongside the real one.
+function archive(old)
+	local shelf = ServerStorage:FindFirstChild("StarPetsBackup")
+	if not shelf then
+		shelf = Instance.new("Folder")
+		shelf.Name = "StarPetsBackup"
+		shelf.Parent = ServerStorage
+	end
+
+	-- One slot per sync, never shared. Two syncs inside the same second would
+	-- otherwise both land in one folder and the second copy of Server would sit
+	-- beside the first, which is not a backup, it is a mess.
+	local stamp = os.date("!%Y-%m-%d %H-%M-%S")
+	local base, n = stamp, 1
+	while shelf:FindFirstChild(stamp) do
+		n = n + 1
+		stamp = base .. " (" .. n .. ")"
+	end
+	local slot = Instance.new("Folder")
+	slot.Name = stamp
+	slot.Parent = shelf
+	old.Parent = slot
+
+	-- Keep the last few and no more. An unbounded shelf turns into a place file
+	-- that grows by the whole codebase on every sync.
+	local slots = shelf:GetChildren()
+	if #slots > BACKUPS_KEPT then
+		table.sort(slots, function(a, b) return a.Name < b.Name end)
+		for i = 1, #slots - BACKUPS_KEPT do slots[i]:Destroy() end
+	end
+	return "StarPetsBackup > " .. stamp
+end
+
 local function sync(quiet)
 	if RunService:IsRunning() then
 		if not quiet then
@@ -184,7 +235,15 @@ local function sync(quiet)
 	end
 
 	-- Everything arrived. Now swap.
-	local swapped, total = 0, 0
+	--
+	-- The old folder is SET ASIDE, never destroyed. A sync replaces the three
+	-- code folders wholesale, so anything edited by hand in Studio is replaced
+	-- too — and the first anyone knows about it is "everything I customised went
+	-- back to normal", with the work already gone. It cannot go now: the
+	-- previous version is parked in ServerStorage, and the count of files that
+	-- differed is printed so a silent overwrite is not possible either.
+	local swapped, total, edited = 0, 0, 0
+	local backupNote = nil
 	for name, folder in pairs(built) do
 		local dest = DESTINATIONS[name] and DESTINATIONS[name]()
 		if not dest then
@@ -192,7 +251,21 @@ local function sync(quiet)
 			warn("[StarPetsSync] no destination for " .. name .. " in this place")
 		else
 			local old = dest:FindFirstChild(name)
-			if old then old:Destroy() end
+			if old then
+				local oldSrc = {}
+				for _, d in ipairs(old:GetDescendants()) do
+					if d:IsA("LuaSourceContainer") then
+						oldSrc[relPath(d, old)] = d.Source
+					end
+				end
+				for _, d in ipairs(folder:GetDescendants()) do
+					if d:IsA("LuaSourceContainer") then
+						local was = oldSrc[relPath(d, folder)]
+						if was ~= nil and was ~= d.Source then edited = edited + 1 end
+					end
+				end
+				backupNote = archive(old)
+			end
 			folder.Parent = dest
 			swapped = swapped + 1
 			for _, d in ipairs(folder:GetDescendants()) do
@@ -204,6 +277,13 @@ local function sync(quiet)
 	plugin:SetSetting("StarPetsVersion", version)
 	say("synced %d folder(s), %d scripts, version %s", swapped, total,
 		string.sub(version, 1, 8))
+	if edited > 0 then
+		say("%d file(s) were different from what is now installed. If any of "
+			.. "that was yours, it is not lost:", edited)
+	end
+	if backupNote then
+		say("  the previous version is in ServerStorage > %s", backupNote)
+	end
 	say("press Play to see it. Ctrl+S to keep it.")
 	return true, version
 end

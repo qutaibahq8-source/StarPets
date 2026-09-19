@@ -356,7 +356,15 @@ GameConfig.DefaultData = {
 	-- meant fusing, trading or deleting a pet erased it from your collection —
 	-- a collection record that forgets what you collected.
 	Discovered = {},
-	Quests = { claimed = {} },
+	Quests = { claimed = {}, daily = {} },
+	-- Lifetime totals that no reset can take back. Rebirth zeroes Coins,
+	-- TotalCoinsEarned and UnlockedAreas, and quest progress used to be read
+	-- straight off those — so rebirthing silently undid four of the nine
+	-- quests, including "Unlock all worlds", which then could not be finished
+	-- again until every world had been bought back.
+	Stats = {},
+	PetsFused = 0,
+	SpinsUsed = 0,
 	EventTokens = 0,
 	EventClaimed = {},
 	RedeemedCodes = {},
@@ -380,6 +388,33 @@ GameConfig.Quests = {
 	{ id="unlock5",  name="Globetrotter",   desc="Unlock all worlds",     type="areas",   goal=4,        reward={gems=400} },
 	{ id="rebirth1", name="Reborn",         desc="Rebirth once",          type="rebirth", goal=1,        reward={gems=250} },
 	{ id="equip3",   name="Pet Squad",      desc="Equip 3 pets at once",  type="equip",   goal=3,        reward={coins=8000} },
+}
+
+-- ============================================================
+-- DAILY QUESTS  (three a day, rolled per player, reset at UTC midnight)
+-- ============================================================
+-- The nine quests above are lifetime milestones: finish them and there is
+-- nothing left to work towards, which for a steady player is a day or two.
+-- These refill.
+--
+-- They are NOT a login reward. Nothing here arrives for showing up — every one
+-- has to be played for, and the payouts are deliberately smaller than the
+-- milestones above. That is the line the owner drew and it is the right one:
+-- a reason to come back is not the same thing as a gift for coming back.
+--
+-- Only types that count EVENTS belong here. "Equip 3 pets" or "unlock a world"
+-- are states, not things you can do again tomorrow.
+GameConfig.DailyQuestCount = 3
+GameConfig.DailyQuests = {
+	{ id="d_hatch5",   name="Morning Hatch",  desc="Hatch 5 eggs today",        type="hatch", goal=5,       reward={coins=6000} },
+	{ id="d_hatch15",  name="Shell Shocked",  desc="Hatch 15 eggs today",       type="hatch", goal=15,      reward={gems=35} },
+	{ id="d_hatch40",  name="Hatch Marathon", desc="Hatch 40 eggs today",       type="hatch", goal=40,      reward={gems=90} },
+	{ id="d_coins50k", name="Day's Wages",    desc="Earn 50,000 coins today",   type="coins", goal=50000,   reward={gems=25} },
+	{ id="d_coins250k",name="Good Haul",      desc="Earn 250,000 coins today",  type="coins", goal=250000,  reward={gems=60} },
+	{ id="d_coins2m",  name="Big Day",        desc="Earn 2,000,000 coins today",type="coins", goal=2000000, reward={gems=150} },
+	{ id="d_fuse1",    name="Alchemist",      desc="Fuse a pet today",          type="fuse",  goal=1,       reward={coins=9000} },
+	{ id="d_fuse3",    name="Master Fuser",   desc="Fuse 3 pets today",         type="fuse",  goal=3,       reward={gems=55} },
+	{ id="d_spin2",    name="Feeling Lucky",  desc="Spin the wheel twice",      type="spin",  goal=2,       reward={coins=12000} },
 }
 
 -- ============================================================

@@ -41,6 +41,15 @@ function RebirthService.DoRebirth(player)
 
 	local data = DataManager.GetData(player)
 
+	-- Bank quest progress BEFORE anything is zeroed.
+	--
+	-- Quest totals are accumulated by polling, so a counter that resets between
+	-- two polls loses whatever was earned in the gap — and the resets below are
+	-- exactly that. A player who earned 900k coins and then rebirthed without
+	-- opening the quest panel used to lose all 900k of it.
+	local QuestService = require(script.Parent.QuestService)
+	pcall(QuestService.Sync, data)
+
 	-- Despawn all pet models
 	PetService.DespawnAllPets(player)
 

@@ -135,7 +135,11 @@ def main():
         print("   x the model is missing: %s" % ", ".join(missing))
         return 1
 
-    src_count = len(list(ROOT.glob("src/**/*.lua"))) - 1   # minus Install.lua
+    # Plugins are installed into Studio, not into the place, and Install.lua is
+    # the installer itself. Counting them here reported real files as missing
+    # every time a plugin was added.
+    outside = len(list(ROOT.glob("src/Plugin/*.lua"))) + 1  # + Install.lua
+    src_count = len(list(ROOT.glob("src/**/*.lua"))) - outside
     shipped = b.scripts - 1
     print("wrote %s (%d KB)" % (dest.relative_to(ROOT), dest.stat().st_size // 1024))
     print("  contains: %s" % ", ".join(top))

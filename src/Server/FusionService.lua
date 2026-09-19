@@ -86,6 +86,10 @@ function FusionService.FuseByName(player, name)
 		fuseMult = sumFuse * FUSE_BONUS,
 		fused    = true,
 	}
+	-- Counted here because this is the only place a fusion completes, and the
+	-- daily quests read it. Monotonic: nothing decrements it, not even rebirth.
+	data.PetsFused = (data.PetsFused or 0) + 1
+
 	-- force: the three source pets were just consumed, so refusing the result
 	-- on a full inventory would delete all of them for nothing.
 	PetService.GrantPet(player, fused, true)
