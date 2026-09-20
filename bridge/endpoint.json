@@ -1,5 +1,6 @@
 {
-  "url": "https://api.anthropic.com/integrations/v1/code/webhook-triggers/a59140ae-0830-428a-a289-cd12a672af89/fire",
-  "note": "Where the Snapshot button posts a description of the open place. Rotated per session; the plugin reads whatever is here when you press the button. If it is empty or unreachable the plugin falls back to the copy-and-paste panel.",
-  "opened": "2026-09-19"
+  "url": "https://api.anthropic.com/integrations/v1/code/webhook-triggers/78dd88c9-d028-4065-9015-1e20c4fad419/fire",
+  "note": "Where the 'Send to Claude' button posts a description of the open place. This is per-session: it dies when the session that opened it ends, and a new one is published here. The plugin reads whatever is here at the moment you press the button, so nothing needs reinstalling when it rotates. If it is stale the plugin says so and falls back to the copy-and-paste panel.",
+  "opened": "2026-09-20",
+  "previous": "https://api.anthropic.com/integrations/v1/code/webhook-triggers/a59140ae-0830-428a-a289-cd12a672af89/fire"
 }
