@@ -1,6 +1,16 @@
 -- MysticPets: BadgePopup.lua
 -- Handles incoming badge earned events and shows animated popups
 -- Place in: StarterPlayerScripts > Client > UI > BadgePopup (LocalScript)
+--
+-- THIS FILE NEVER RAN.
+--
+-- It was named BadgePopup.lua, which the build ships as a ModuleScript — and a
+-- ModuleScript does not execute until something requires it. Nothing required
+-- this one. So the server granted badges, fired BadgeEarned, and the popup that
+-- is supposed to celebrate them was never even connected to the event.
+--
+-- The header above said LocalScript all along; only the filename disagreed.
+-- Renamed to BadgePopup.client.lua so it is built as what it says it is.
 
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")

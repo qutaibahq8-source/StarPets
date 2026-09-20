@@ -5,6 +5,7 @@
 local HttpService = game:GetService("HttpService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local MerchantService = {}
 local cfg   = GameConfig.Merchant
@@ -58,7 +59,7 @@ function MerchantService.Buy(player, index)
 	if bal < item.cost then return false, "Not enough " .. item.cur end
 	if item.cur == "Gems" then data.Gems = data.Gems - item.cost else data.Coins = data.Coins - item.cost end
 	if item.kind == "pet" then
-		table.insert(data.Pets, { name=item.name, rarity=item.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
+		PetService.GrantPet(player, { name=item.name, rarity=item.rarity or "Common" })
 	elseif item.kind == "coins" then
 		data.Coins = (data.Coins or 0) + item.amount; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + item.amount
 	elseif item.kind == "gems" then

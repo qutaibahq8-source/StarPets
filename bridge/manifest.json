@@ -1,0 +1,330 @@
+{
+  "version": "6326078b394999d1b41440325dba2d5222a93556e8bdfcc2a1844e1b79961999",
+  "generated_from": "default.project.json",
+  "files": [
+    {
+      "path": "src/Shared/GameConfig.lua",
+      "name": "GameConfig",
+      "group": "Shared",
+      "folders": []
+    },
+    {
+      "path": "src/Server/GameServer.server.lua",
+      "name": "GameServer",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/DataManager.lua",
+      "name": "DataManager",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/PetService.lua",
+      "name": "PetService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/EggService.lua",
+      "name": "EggService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/CurrencyService.lua",
+      "name": "CurrencyService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/RebirthService.lua",
+      "name": "RebirthService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/GamepassService.lua",
+      "name": "GamepassService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/PetModels.lua",
+      "name": "PetModels",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/BadgeService.lua",
+      "name": "BadgeService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/UpgradeService.lua",
+      "name": "UpgradeService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/LeaderboardService.lua",
+      "name": "LeaderboardService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/QuestService.lua",
+      "name": "QuestService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/MerchantService.lua",
+      "name": "MerchantService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/EventService.lua",
+      "name": "EventService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/TradeService.lua",
+      "name": "TradeService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/CodeService.lua",
+      "name": "CodeService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/DailyService.lua",
+      "name": "DailyService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/BoostService.lua",
+      "name": "BoostService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/FusionService.lua",
+      "name": "FusionService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/PlaytimeService.lua",
+      "name": "PlaytimeService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/SpinService.lua",
+      "name": "SpinService",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/MapPersist.lua",
+      "name": "MapPersist",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/RateLimit.lua",
+      "name": "RateLimit",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Server/MapProps.lua",
+      "name": "MapProps",
+      "group": "Server",
+      "folders": []
+    },
+    {
+      "path": "src/Client/GameClient.client.lua",
+      "name": "GameClient",
+      "group": "Client",
+      "folders": []
+    },
+    {
+      "path": "src/Client/UI/UIController.lua",
+      "name": "UIController",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/Responsive.lua",
+      "name": "Responsive",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/PetsPanel.lua",
+      "name": "PetsPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/HatchUI.lua",
+      "name": "HatchPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/ShopPanel.lua",
+      "name": "ShopPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/RebirthPanel.lua",
+      "name": "RebirthPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/BadgePopup.client.lua",
+      "name": "BadgePopup",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/UpgradePanel.lua",
+      "name": "UpgradePanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/LeaderboardPanel.lua",
+      "name": "LeaderboardPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/AdminPanel.lua",
+      "name": "AdminPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/QuestPanel.lua",
+      "name": "QuestPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/MerchantPanel.lua",
+      "name": "MerchantPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/EventPanel.lua",
+      "name": "EventPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/TradePanel.lua",
+      "name": "TradePanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/PetIndexPanel.lua",
+      "name": "PetIndexPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/CodesPanel.lua",
+      "name": "CodesPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/DailyPanel.lua",
+      "name": "DailyPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/BoostsPanel.lua",
+      "name": "BoostsPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/FusionPanel.lua",
+      "name": "FusionPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/PlaytimePanel.lua",
+      "name": "PlaytimePanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/SpinWheelPanel.lua",
+      "name": "SpinWheelPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local FusionService = {}
 
@@ -85,7 +86,13 @@ function FusionService.FuseByName(player, name)
 		fuseMult = sumFuse * FUSE_BONUS,
 		fused    = true,
 	}
-	table.insert(data.Pets, fused)
+	-- Counted here because this is the only place a fusion completes, and the
+	-- daily quests read it. Monotonic: nothing decrements it, not even rebirth.
+	data.PetsFused = (data.PetsFused or 0) + 1
+
+	-- force: the three source pets were just consumed, so refusing the result
+	-- on a full inventory would delete all of them for nothing.
+	PetService.GrantPet(player, fused, true)
 	return true, fused
 end
 

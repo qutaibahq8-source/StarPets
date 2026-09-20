@@ -5,28 +5,47 @@ local TweenService = game:GetService("TweenService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local EggService = {}
 
 -- ============================================================
 -- RARITY ROLLER
 -- ============================================================
-local function rollRarity(weights, luckyBoost)
-	local totalWeight = 0
-	for rarity, w in pairs(weights) do
-		totalWeight = totalWeight + math.floor(w * (luckyBoost or 1))
-	end
+local RARITY_ORDER = { "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common" }
 
-	local roll = math.random(1, totalWeight)
+-- Pick a rarity, with luck actually raising the odds of the good ones.
+--
+-- The previous version multiplied EVERY weight by the luck value and then drew
+-- from the new total. Scaling every term of a distribution by the same number
+-- leaves that distribution exactly as it was, so the Lucky Boost gamepass —
+-- 349 Robux, sold as "1.5x better egg luck always!" — changed nothing at all.
+-- Measured over 300,000 rolls with and without it, every rarity moved by less
+-- than a tenth of a percent, which is sampling noise; Mythic came out LOWER
+-- with the boost than without.
+--
+-- Luck now scales the rare tiers only. Common is left alone and absorbs the
+-- difference, which is what makes the proportions actually move.
+local function rollRarity(weights, luck)
+	luck = math.max(1, tonumber(luck) or 1)
+
+	local scaled, total = {}, 0
+	for _, rarity in ipairs(RARITY_ORDER) do
+		local w = weights[rarity] or 0
+		if rarity ~= "Common" then w = w * luck end
+		scaled[rarity] = w
+		total = total + w
+	end
+	if total <= 0 then return "Common" end
+
+	-- A float draw rather than math.random(1, total): the weights are no longer
+	-- whole numbers once luck has been applied, and math.random(1, 0) throws
+	-- outright on an egg whose weights are all zero.
+	local roll = math.random() * total
 	local cumulative = 0
-	-- Roll in order from rarest to common so lucky boost works properly
-	local rarityOrder = { "Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common" }
-	for _, rarity in ipairs(rarityOrder) do
-		local w = math.floor((weights[rarity] or 0) * (luckyBoost or 1))
-		cumulative = cumulative + w
-		if roll <= cumulative then
-			return rarity
-		end
+	for _, rarity in ipairs(RARITY_ORDER) do
+		cumulative = cumulative + scaled[rarity]
+		if roll <= cumulative then return rarity end
 	end
 	return "Common"
 end
@@ -100,7 +119,11 @@ function EggService.HatchEgg(player, eggId)
 	end
 
 	-- Lucky boost
-	local luckyBoost = data.GP_LuckyBoost and GameConfig.Settings.LuckyBoostMultiplier or 1
+	-- Both sources of luck, multiplied. The Lucky Charm upgrade was read by
+	-- nothing anywhere in the project: three levels, 54,000 coins to max, and
+	-- the only thing buying it changed was the number drawn on the panel.
+	local luckyBoost = (data.GP_LuckyBoost and GameConfig.Settings.LuckyBoostMultiplier or 1)
+		* (GameConfig.UpgradeValue(data, "LuckyCharm") or 1)
 
 	-- Roll rarity then pick a random pet of that rarity
 	local rarity = rollRarity(eggConfig.rarityWeights, luckyBoost)
@@ -126,7 +149,8 @@ function EggService.HatchEgg(player, eggId)
 			break
 		end
 	end
-	table.insert(data.Pets, newPet)
+	-- Through the choke point: it stamps the Pet Index and enforces the cap.
+	PetService.GrantPet(player, newPet)
 	data.EggsHatched = (data.EggsHatched or 0) + 1
 
 	return newPet, nil
