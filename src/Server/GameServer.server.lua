@@ -336,16 +336,30 @@ local PROP_SET = {
 local function decorateBiome(id, cx, baseY, opts)
 	local set = PROP_SET[id]
 	if not set then return 0 end
-	return MapProps.Populate(
+	local halfW = (opts and opts.halfW) or 60
+	local halfD = (opts and opts.halfD) or 90
+	local seed = 7000 + #id * 131 + string.byte(id, 1) * 17
+	local n, placed = MapProps.Populate(
 		{ part = part },
-		set, cx, 0, (opts and opts.halfW) or 60, (opts and opts.halfD) or 90, baseY,
+		set, cx, 0, halfW, halfD, baseY,
 		{
 			-- Seeded from the world id so a world looks the same on every
 			-- server, and two worlds never get the same layout.
-			seed = 7000 + #id * 131 + string.byte(id, 1) * 17,
+			seed = seed,
 			clusters = (opts and opts.clusters) or 14,
 			blocked = opts and opts.blocked or nil,
 		})
+	-- Then the small stuff, in the gaps the features leave. Same seed family,
+	-- so this is identical on every server too.
+	if MapProps.SCATTER[set] then
+		n = n + MapProps.Scatter({ part = part }, set, cx, 0, halfW, halfD, baseY, {
+			seed = seed + 911,
+			count = (opts and opts.scatter) or 44,
+			blocked = opts and opts.blocked or nil,
+			avoid = placed,
+		})
+	end
+	return n
 end
 
 
@@ -713,31 +727,122 @@ local function buildMap()
 	-- both a Shop and an Upgrade button, so every panel the building opened is
 	-- one tap away, and the spawn is no longer a shed with a purple glow on it.
 	-- ---- BOUNDARY WALLS (solid + invisible extension so no climbing out) ----
-	local wallColor = Color3.fromRGB(46,104,46)    -- hedge green (was gray concrete slab)
 	local wallH = 25
 
-	local function buildWall(name, size, pos)
-		part({Name=name,Size=size,Position=pos,Color=wallColor,Material=Enum.Material.Grass})
-		-- Invisible tall extension above (blocks jumping over)
-		part({Name=name.."Ext",Size=Vector3.new(size.X,40,size.Z),
-			Position=pos+Vector3.new(0,30,0),Transparency=1,CanCollide=true})
-		-- Bushy hedge top so it reads as a hedge, not a flat wall
-		local alongX = size.X > size.Z
-		local len = alongX and size.X or size.Z
-		local n = math.max(1, math.floor(len/16))
-		for i=0,n do
-			local t = -len/2 + (i/n)*len
-			local bpos = alongX and Vector3.new(pos.X+t, pos.Y+wallH/2, pos.Z)
-			                     or Vector3.new(pos.X, pos.Y+wallH/2, pos.Z+t)
+	-- The border, themed per world.
+	--
+	-- It used to be one 720-stud green hedge running the whole length of the
+	-- map, with a leafy ball every 16 studs, on top of a strip of green lawn —
+	-- straight past the desert, the volcano and the space station. A volcano
+	-- with a garden hedge round it, and a moon base on a lawn. Each world now
+	-- gets a wall, a cap and a ground apron that belong to it.
+	--
+	-- The visible wall is built in segments so each can take its world's look,
+	-- but the invisible extension that stops players jumping out stays one
+	-- continuous part per side: segments meeting edge to edge are fine to look
+	-- at, and a gap between two of them is a hole in the map.
+	local BORDER = {
+		{ x0=-103, x1=80,  wall=Color3.fromRGB(46,104,46),  wallMat=Enum.Material.Grass,
+		  cap=Color3.fromRGB(56,122,56),  capMat=Enum.Material.Grass,     capShape="ball" },   -- Meadow
+		{ x0=80,   x1=210, wall=Color3.fromRGB(34,82,36),   wallMat=Enum.Material.Grass,
+		  cap=Color3.fromRGB(40,96,42),   capMat=Enum.Material.Grass,     capShape="ball" },   -- Forest
+		{ x0=210,  x1=340, wall=Color3.fromRGB(176,142,86), wallMat=Enum.Material.Sandstone,
+		  cap=Color3.fromRGB(196,162,104),capMat=Enum.Material.Sandstone, capShape="block",
+		  apron=Color3.fromRGB(198,168,104), apronMat=Enum.Material.Sand },                    -- Desert
+		{ x0=340,  x1=470, wall=Color3.fromRGB(52,34,30),   wallMat=Enum.Material.Basalt,
+		  cap=Color3.fromRGB(40,28,26),   capMat=Enum.Material.Basalt,    capShape="rock",
+		  apron=Color3.fromRGB(64,40,34), apronMat=Enum.Material.Basalt },                     -- Volcano
+		{ x0=470,  x1=617, wall=Color3.fromRGB(88,90,104),  wallMat=Enum.Material.Slate,
+		  cap=Color3.fromRGB(104,106,120),capMat=Enum.Material.Slate,     capShape="rock",
+		  apron=Color3.fromRGB(100,102,116), apronMat=Enum.Material.Slate },                   -- Space
+	}
+
+	local function themeAt(x)
+		for _, t in ipairs(BORDER) do
+			if x >= t.x0 and x < t.x1 then return t end
+		end
+		return BORDER[#BORDER]
+	end
+
+	local function cap(theme, at)
+		if theme.capShape == "ball" then
 			part({Name="Hedge",Shape=Enum.PartType.Ball,Size=Vector3.new(7,6,7),
-				Position=bpos,Color=Color3.fromRGB(56,122,56),Material=Enum.Material.Grass,CanCollide=false})
+				Position=at,Color=theme.cap,Material=theme.capMat,CanCollide=false})
+		elseif theme.capShape == "block" then
+			-- Sandstone merlons: a desert wall reads as built, not grown.
+			part({Name="BorderCap",Size=Vector3.new(5,3,5),
+				Position=at+Vector3.new(0,-1,0),Color=theme.cap,Material=theme.capMat,CanCollide=false})
+		else
+			-- Rough boulders, two to a spot and not quite aligned, so the line
+			-- reads as rock rather than a row of identical balls.
+			part({Name="BorderCap",Shape=Enum.PartType.Ball,Size=Vector3.new(6,4.5,6),
+				Position=at+Vector3.new(0,-0.8,0),Color=theme.cap,Material=theme.capMat,CanCollide=false})
+			part({Name="BorderCap",Size=Vector3.new(3.4,2.6,3.2),
+				Position=at+Vector3.new(2.2,-1.2,0.9),Color=theme.wall,Material=theme.capMat,CanCollide=false})
 		end
 	end
 
-	buildWall("WallN", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1, 126))
-	buildWall("WallS", Vector3.new(720,wallH,4), Vector3.new(257,wallH/2-1,-116))
-	buildWall("WallW", Vector3.new(4,wallH,246), Vector3.new(-91,wallH/2-1,  5))
-	buildWall("WallE", Vector3.new(4,wallH,246), Vector3.new(606,wallH/2-1,  5))
+	-- A wall running along X, split into one visible segment per world.
+	local function buildWallX(name, z, xFrom, xTo)
+		local y = wallH/2-1
+		for _, t in ipairs(BORDER) do
+			local a, b = math.max(xFrom, t.x0), math.min(xTo, t.x1)
+			if b > a then
+				local mid, len = (a+b)/2, b-a
+				part({Name=name,Size=Vector3.new(len,wallH,4),Position=Vector3.new(mid,y,z),
+					Color=t.wall,Material=t.wallMat})
+				-- Spaced INSIDE the segment, never on its ends. With i/n the last
+				-- cap sat exactly on the boundary, and the boundary is the first
+				-- stud of the next world — so the Forest put a green hedge on the
+				-- Desert's wall at each end.
+				local n = math.max(1, math.floor(len/16))
+				for i=0,n do
+					cap(t, Vector3.new(a + ((i+0.5)/(n+1))*len, y+wallH/2, z))
+				end
+			end
+		end
+		-- One continuous invisible extension: no seams for anyone to climb through.
+		part({Name=name.."Ext",Size=Vector3.new(xTo-xFrom,40,4),
+			Position=Vector3.new((xFrom+xTo)/2,y+30,z),Transparency=1,CanCollide=true})
+	end
+
+	-- A short end wall along Z, in the theme of whichever world it closes off.
+	local function buildWallZ(name, x, len)
+		local t = themeAt(x)
+		local y = wallH/2-1
+		local pos = Vector3.new(x,y,5)
+		part({Name=name,Size=Vector3.new(4,wallH,len),Position=pos,Color=t.wall,Material=t.wallMat})
+		part({Name=name.."Ext",Size=Vector3.new(4,40,len),Position=pos+Vector3.new(0,30,0),
+			Transparency=1,CanCollide=true})
+		local n = math.max(1, math.floor(len/16))
+		for i=0,n do
+			cap(t, Vector3.new(x, y+wallH/2, 5 - len/2 + (i/n)*len))
+		end
+	end
+
+	buildWallX("WallN",  126, -103, 617)
+	buildWallX("WallS", -116, -103, 617)
+	buildWallZ("WallW", -91, 246)
+	buildWallZ("WallE", 606, 246)
+
+	-- Ground aprons: the strip between each world's floor and its walls was the
+	-- shared green lawn. Desert, Volcano and Space each cover theirs. Laid just
+	-- above the ground slab and below the world floor, so neither is disturbed.
+	-- Out to the edge of the ground slab, not just to the wall: a player cannot
+	-- walk past the wall, but they can see over it, and a strip of lawn behind
+	-- a volcano is still a strip of lawn behind a volcano. The last world runs
+	-- on to the slab's far end for the same reason.
+	for idx, t in ipairs(BORDER) do
+		if t.apron then
+			local x0 = math.max(t.x0, -103)
+			local x1 = (idx == #BORDER) and 670 or t.x1
+			for _, strip in ipairs({ {z0=95, z1=155}, {z0=-145, z1=-95} }) do
+				part({Name="Apron",Size=Vector3.new(x1-x0, 0.4, strip.z1-strip.z0),
+					Position=Vector3.new((x0+x1)/2, -0.55, (strip.z0+strip.z1)/2),
+					Color=t.apron, Material=t.apronMat})
+			end
+		end
+	end
 
 	-- ============================================================
 	-- 🗝️ SECRET SPOT  (hidden — tell nobody)

@@ -352,6 +352,42 @@ def main():
     else:
         print("  ok  no light sources anywhere in the map")
 
+    # ---- EACH WORLD'S BORDER BELONGS TO IT ---------------------------------
+    # The perimeter used to be one 720-stud green hedge on a strip of lawn,
+    # running straight past the desert, the volcano and the space station. A
+    # leafy hedge belongs to Meadow and Forest; past x=210 it is wrong.
+    hedges_off = []
+    aprons = {}
+    stack = [mock["workspace"]]
+    themed = {"Desert": (210, 340), "Volcano": (340, 470), "Space": (470, 680)}
+    while stack:
+        node = stack.pop()
+        for c in node["GetChildren"](node).values():
+            nm = str(c._p.Name)
+            pos = c["Position"] if str(c._p.ClassName) in ("Part", "WedgePart") else None
+            if pos is not None:
+                x = float(pos.X)
+                for world, (a, b) in themed.items():
+                    if a <= x < b:
+                        if nm == "Hedge":
+                            hedges_off.append(world)
+                        if nm == "Apron":
+                            aprons[world] = aprons.get(world, 0) + 1
+            stack.append(c)
+    if hedges_off:
+        bad += 1
+        from collections import Counter as _Cn
+        print("  x   green hedge on the border of %s" % dict(_Cn(hedges_off)))
+    else:
+        print("  ok  no garden hedge past the forest")
+    bare = [w for w in themed if not aprons.get(w)]
+    if bare:
+        bad += 1
+        print("  x   %s still sit on the green lawn — no ground apron"
+              % ", ".join(bare))
+    else:
+        print("  ok  desert, volcano and space each sit on their own ground")
+
     # ---- SIGNS MUST NOT PILE UP -------------------------------------------
     # A BillboardGui with no MaxDistance draws from anywhere on the map. With
     # four locked worlds that meant four unlock signs at 640x240, plus four

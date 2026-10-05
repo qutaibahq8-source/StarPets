@@ -615,6 +615,147 @@ end
 --
 -- Without this, features several parts wide get dropped inside one another and
 -- you get palm trees growing out of the side of a mesa.
+-- ============================================================
+-- GROUND SCATTER
+-- ============================================================
+-- The sets above are FEATURES: a lava pool with its crust, a ring of basalt
+-- columns, a burned tree. Each is several parts across and needs room, so the
+-- spacing that stops them landing inside each other also leaves wide bare
+-- floor between them. Volcano was the worst: 121 parts against Meadow's 447,
+-- and most of its walkable half was empty brown.
+--
+-- Scatter is the other kind of detail: single small pieces that fill the gaps
+-- without competing with the features. Cinders, ash, a stub of rock, a small
+-- crater. It is what makes ground look like ground.
+--
+-- No Neon anywhere in here. The map's neon budget is the lava, the crater and
+-- the station's window band, and the owner has asked for no more.
+MapProps.SCATTER = {}
+
+function MapProps.SCATTER.volcano(ctx, x, z, y, i)
+	local kind = i % 4
+	if kind == 0 then
+		-- Cinders: the debris every eruption leaves lying about.
+		for k = 0, 1 + (i % 2) do
+			local s = 1.2 + ((i + k) % 3) * 0.5
+			ball(ctx, "Cinder",
+				Vector3.new(x + k * 1.6 - 1, y + s * 0.35, z + ((k * 7) % 3) - 1),
+				Vector3.new(s, s * 0.75, s), C(46, 32, 30), Enum.Material.Basalt,
+				{ CanCollide = false })
+		end
+	elseif kind == 1 then
+		disc(ctx, "AshDrift", Vector3.new(x, y + 0.18, z), 2.6 + (i % 3) * 0.8, 0.25,
+			C(118, 108, 102), nil, { CanCollide = false })
+	elseif kind == 2 then
+		-- A stub of basalt: a column that never grew.
+		local h = 1.6 + (i % 3) * 0.9
+		column(ctx, "BasaltStub", Vector3.new(x, y + h * 0.5, z), 0.9, h,
+			C(56, 38, 35), Enum.Material.Basalt)
+	else
+		-- A cooled lava ridge, low and dark.
+		box(ctx, "LavaRidge", Vector3.new(x, y + 0.45, z), Vector3.new(4.5, 0.9, 1.6),
+			C(40, 28, 26), Enum.Material.Basalt,
+			{ CanCollide = false, Orientation = Vector3.new(0, (i * 41) % 180, 0) })
+	end
+end
+
+function MapProps.SCATTER.space(ctx, x, z, y, i)
+	local kind = i % 4
+	if kind == 0 then
+		-- Moon rock, half sunk in the dust.
+		local s = 1.6 + (i % 3) * 0.7
+		ball(ctx, "MoonRock", Vector3.new(x, y + s * 0.3, z),
+			Vector3.new(s, s * 0.7, s * 1.1), C(128, 130, 142), Enum.Material.Slate,
+			{ CanCollide = false })
+	elseif kind == 1 then
+		-- A small impact crater: pale raised rim, dark floor.
+		disc(ctx, "CraterRim", Vector3.new(x, y + 0.2, z), 3.2, 0.4,
+			C(140, 142, 154), Enum.Material.Slate, { CanCollide = false })
+		disc(ctx, "CraterFloor", Vector3.new(x, y + 0.28, z), 2.2, 0.4,
+			C(82, 84, 96), Enum.Material.Slate, { CanCollide = false })
+	elseif kind == 2 then
+		-- Ice shards. Pale and glassy — not glowing.
+		for k = 0, 2 do
+			local h = 1.4 + k * 0.7
+			box(ctx, "IceShard",
+				Vector3.new(x + k * 0.8 - 0.8, y + h * 0.5, z + (k % 2) * 0.6),
+				Vector3.new(0.6, h, 0.6), C(180, 214, 236), Enum.Material.Glass,
+				{ CanCollide = false,
+				  Orientation = Vector3.new((k - 1) * 12, k * 30, (k % 2) * 10 - 5) })
+		end
+	else
+		disc(ctx, "Regolith", Vector3.new(x, y + 0.15, z), 2.4 + (i % 3) * 0.6, 0.2,
+			C(150, 150, 160), nil, { CanCollide = false })
+	end
+end
+
+function MapProps.SCATTER.desert(ctx, x, z, y, i)
+	local kind = i % 3
+	if kind == 0 then
+		local s = 1.3 + (i % 3) * 0.6
+		ball(ctx, "DesertStone", Vector3.new(x, y + s * 0.3, z),
+			Vector3.new(s * 1.2, s * 0.7, s), C(168, 134, 86), Enum.Material.Sandstone,
+			{ CanCollide = false })
+	elseif kind == 1 then
+		-- Dry scrub: a few dead twigs.
+		for k = 0, 2 do
+			box(ctx, "DryScrub",
+				Vector3.new(x + (k - 1) * 0.5, y + 0.6, z + (k % 2) * 0.4),
+				Vector3.new(0.2, 1.2, 0.2), C(120, 90, 56), Enum.Material.Wood,
+				{ CanCollide = false, Orientation = Vector3.new((k - 1) * 22, k * 40, 0) })
+		end
+	else
+		disc(ctx, "SandRipple", Vector3.new(x, y + 0.12, z), 2.8 + (i % 2), 0.2,
+			C(214, 184, 124), Enum.Material.Sand, { CanCollide = false })
+	end
+end
+
+-- Fill the gaps between features with scatter.
+--
+-- `avoid` is the list of feature positions Populate placed; scatter keeps
+-- `keepOff` studs away from each, so a cinder never lands in a lava pool and an
+-- ice shard never pokes through the middle of a crater. A clear lane is left
+-- down the middle of the world so the way in from the gate stays readable.
+function MapProps.Scatter(ctx, setName, cx, cz, halfW, halfD, baseY, opts)
+	local fn = MapProps.SCATTER[setName]
+	if not fn then return 0 end
+	opts = opts or {}
+	local rand = Random.new(opts.seed or 1)
+	local count = opts.count or 40
+	local avoid = opts.avoid or {}
+	local keepOff = opts.keepOff or 7
+	local spacing = opts.spacing or 4.5
+	local lane = opts.lane or 5
+
+	local placed, n, tries = {}, 0, 0
+	local function clear(x, z)
+		if math.abs(z - cz) < lane then return false end
+		for _, p in ipairs(avoid) do
+			local dx, dz = x - p[1], z - p[2]
+			if dx * dx + dz * dz < keepOff * keepOff then return false end
+		end
+		for _, p in ipairs(placed) do
+			local dx, dz = x - p[1], z - p[2]
+			if dx * dx + dz * dz < spacing * spacing then return false end
+		end
+		return true
+	end
+
+	-- Bounded tries: a world that is genuinely full stops asking, rather than
+	-- spinning the server at boot looking for room that is not there.
+	while n < count and tries < count * 8 do
+		tries = tries + 1
+		local x = cx + rand:NextNumber(-1, 1) * (halfW - 4)
+		local z = cz + rand:NextNumber(-1, 1) * (halfD - 4)
+		if clear(x, z) and not (opts.blocked and opts.blocked(x, z)) then
+			table.insert(placed, { x, z })
+			n = n + 1
+			fn(ctx, x, z, baseY, n)
+		end
+	end
+	return n
+end
+
 MapProps.RADIUS = {
 	meadow = 10, forest = 9, desert = 17, volcano = 13, space = 17,
 }
@@ -655,7 +796,9 @@ function MapProps.Populate(ctx, setName, cx, cz, halfW, halfD, baseY, opts)
 			end
 		end
 	end
-	return n
+	-- `placed` as well as the count, so a scatter pass can keep clear of
+	-- every feature this put down.
+	return n, placed
 end
 
 return MapProps
