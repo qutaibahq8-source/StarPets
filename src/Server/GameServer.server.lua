@@ -463,6 +463,84 @@ local function buildMap()
 		end
 	end
 
+	-- ---- EGG PLAZA DRESSING ----
+	-- The plaza was a 130x60 slab of bare cobble with four stands on it — the
+	-- first place every new player is sent, and the emptiest place on the map,
+	-- right next to a hub full of hedges, benches and flowers. Same vocabulary
+	-- here, so the two read as one place.
+	--
+	-- Three things are kept clear: each stand (they are what you click), the
+	-- south path where it arrives at x=0, and the line of sight to the eggs.
+	-- Everything low or behind the egg row, and nothing here can be clicked
+	-- (CanQuery off), so no flower ever eats a click meant for an egg.
+	local PLAZA_Y = 0
+	local function deco(props)
+		props.CanQuery = false
+		return part(props)
+	end
+
+	-- A stone kerb along the back edge: gives the slab an edge to stop at.
+	deco({Name="PlazaKerb",Size=Vector3.new(128,0.8,1.6),Position=Vector3.new(0,PLAZA_Y+0.1,-119),
+		Color=Color3.fromRGB(150,144,134),Material=Enum.Material.Slate})
+
+	-- Planters behind the egg row, one behind each gap and one at each end.
+	local BLOOM = { Color3.fromRGB(240,120,150), Color3.fromRGB(250,210,90),
+	                Color3.fromRGB(150,130,240), Color3.fromRGB(255,255,255) }
+	for i, x in ipairs({-52, -26, 0, 26, 52}) do
+		local z = -109
+		deco({Name="Planter",Size=Vector3.new(9,1.4,3.4),Position=Vector3.new(x,PLAZA_Y+0.2,z),
+			Color=Color3.fromRGB(122,84,54),Material=Enum.Material.Wood})
+		deco({Name="PlanterSoil",Size=Vector3.new(8.2,0.3,2.6),Position=Vector3.new(x,PLAZA_Y+0.95,z),
+			Color=Color3.fromRGB(70,50,36),Material=Enum.Material.Ground})
+		for k = 0, 4 do
+			local bx = x - 3.2 + k * 1.6
+			local bz = z + ((k % 2 == 0) and -0.5 or 0.5)
+			deco({Name="PlanterStem",Size=Vector3.new(0.18,1.1,0.18),
+				Position=Vector3.new(bx,PLAZA_Y+1.6,bz),Color=Color3.fromRGB(70,130,60),
+				Material=Enum.Material.SmoothPlastic,CanCollide=false})
+			deco({Name="PlanterBloom",Shape=Enum.PartType.Ball,Size=Vector3.new(0.9,0.9,0.9),
+				Position=Vector3.new(bx,PLAZA_Y+2.25,bz),Color=BLOOM[((i + k) % #BLOOM) + 1],
+				Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		end
+	end
+
+	-- Clipped shrubs at the four corners.
+	for _, c in ipairs({ {-60,-114}, {60,-114}, {-60,-66}, {60,-66} }) do
+		deco({Name="PlazaShrub",Shape=Enum.PartType.Ball,Size=Vector3.new(6,5,6),
+			Position=Vector3.new(c[1],PLAZA_Y+2.2,c[2]),Color=Color3.fromRGB(52,118,54),
+			Material=Enum.Material.Grass,CanCollide=false})
+	end
+
+	-- Benches on each side, facing in, so the plaza has somewhere to stand
+	-- and watch a hatch.
+	for _, side in ipairs({-1, 1}) do
+		for _, z in ipairs({-82, -98}) do
+			local x = side * 59
+			deco({Name="PlazaBench",Size=Vector3.new(1.8,0.4,6),Position=Vector3.new(x,PLAZA_Y+1.3,z),
+				Color=Color3.fromRGB(150,104,66),Material=Enum.Material.Wood})
+			deco({Name="PlazaBenchBack",Size=Vector3.new(0.4,1.6,6),
+				Position=Vector3.new(x+side*0.9,PLAZA_Y+2.2,z),
+				Color=Color3.fromRGB(140,96,60),Material=Enum.Material.Wood})
+			for _, dz in ipairs({-2.4, 2.4}) do
+				deco({Name="PlazaBenchLeg",Size=Vector3.new(1.4,1.1,0.4),
+					Position=Vector3.new(x,PLAZA_Y+0.55,z+dz),Color=Color3.fromRGB(70,70,76),
+					Material=Enum.Material.Metal})
+			end
+		end
+	end
+
+	-- Low flower beds in the two gaps between the outer eggs. Not in the middle
+	-- gap: that is where the south path arrives.
+	for _, x in ipairs({-26, 26}) do
+		deco({Name="PlazaBed",Size=Vector3.new(6,0.5,4),Position=Vector3.new(x,PLAZA_Y,-90),
+			Color=Color3.fromRGB(82,140,66),Material=Enum.Material.Grass})
+		for k = 0, 3 do
+			deco({Name="PlanterBloom",Shape=Enum.PartType.Ball,Size=Vector3.new(0.8,0.8,0.8),
+				Position=Vector3.new(x-1.8+k*1.2,PLAZA_Y+0.7,-90+((k%2==0) and -0.8 or 0.8)),
+				Color=BLOOM[(k % #BLOOM) + 1],Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		end
+	end
+
 	-- ---- MEADOW ORB AREA (behind spawn between z=20 and z=110) ----
 	-- (no separate platform needed, orbs float on terrain)
 	-- Decorate the starter meadow so it isn't bare
@@ -682,8 +760,12 @@ local function buildMap()
 			if e.world == b.id then worldEgg = e break end
 		end
 		local eggX, eggZ = b.cx - 42, 24
+		-- 16, not 10. This tests where a prop is ANCHORED, and a feature
+		-- spreads its parts several studs around its anchor — a rock cluster
+		-- anchored at 11 studs put a rock 6 from the egg, close enough to take
+		-- the click meant for it. check_map measures the actual parts.
 		local function nearEgg(x, z)
-			return worldEgg ~= nil and math.abs(x - eggX) < 10 and math.abs(z - eggZ) < 10
+			return worldEgg ~= nil and math.abs(x - eggX) < 16 and math.abs(z - eggZ) < 16
 		end
 
 		decorateBiome(b.id, b.cx, 0, {

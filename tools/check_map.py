@@ -388,6 +388,46 @@ def main():
     else:
         print("  ok  desert, volcano and space each sit on their own ground")
 
+    # ---- NOTHING STEALS A CLICK FROM AN EGG --------------------------------
+    # An egg is clicked through a ClickDetector, and a click goes to the first
+    # thing the mouse ray hits. A flower bed or a planter that can be hit sitting
+    # between the camera and an egg takes the click, and the egg simply does not
+    # respond — no error, just a hatch button that sometimes does nothing.
+    eggs_at, near = [], []
+    every = []
+    stack = [mock["workspace"]]
+    while stack:
+        node = stack.pop()
+        for c in node["GetChildren"](node).values():
+            if str(c._p.ClassName) in ("Part", "WedgePart"):
+                every.append(c)
+            stack.append(c)
+    for c in every:
+        if str(c._p.Name).startswith("Egg_"):
+            pos = c["Position"]
+            eggs_at.append((float(pos.X), float(pos.Z), str(c._p.Name)[4:]))
+    own = ("Egg", "EggBase_", "EggRing_", "EggCol_", "EggSpot")
+    for c in every:
+        nm = str(c._p.Name)
+        if nm.startswith(own):
+            continue
+        pos = c["Position"]
+        if pos is None or c._p.CanQuery is False:
+            continue
+        sz = c._p.Size
+        if sz is None or float(sz.X) > 40 or float(sz.Z) > 40:
+            continue   # floors and platforms: under the egg, never in front
+        for ex, ez, eid in eggs_at:
+            if abs(float(pos.X) - ex) < 8 and abs(float(pos.Z) - ez) < 8 \
+                    and float(pos.Y) > 0.2:
+                near.append("%s by %s" % (nm, eid))
+    if near:
+        bad += 1
+        print("  x   %d clickable part(s) crowd an egg and can take its click: %s"
+              % (len(near), ", ".join(sorted(set(near))[:6])))
+    else:
+        print("  ok  nothing clickable crowds any of the %d eggs" % len(eggs_at))
+
     # ---- SIGNS MUST NOT PILE UP -------------------------------------------
     # A BillboardGui with no MaxDistance draws from anywhere on the map. With
     # four locked worlds that meant four unlock signs at 640x240, plus four
