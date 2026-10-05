@@ -238,6 +238,19 @@ local HUD
 local CoinLabel, GemLabel, RebirthLabel, PetCountLabel
 local prevCoins = 0
 
+-- Sound. Required through pcall so a broken sound module can never take the
+-- HUD down with it — a silent game is a worse game, a game with no buttons is
+-- no game at all.
+local Sfx = nil
+pcall(function() Sfx = require(script.Parent.UI.Sfx) end)
+local function sfx(name, jitter) if Sfx then Sfx.Play(name, jitter) end end
+
+-- What the last data update looked like, so each change can be heard once.
+local prevGems, prevAreas, prevRebirths, prevEquipped = nil, nil, nil, nil
+-- Coins can arrive several times a second while a player runs through orbs.
+-- One ping per pickup at that rate is a buzz, not a sound.
+local lastCoinPing = 0
+
 local function buildHUD()
 	HUD = Instance.new("ScreenGui")
 	HUD.Name="MysticPetsHUD"; HUD.ResetOnSpawn=false
@@ -370,6 +383,31 @@ local function onDataUpdated(data)
 			floatText("+"..fmt(diff).." 💰", Color3.fromRGB(255,215,0))
 		end
 	end
+	-- Each of these fires only on a CHANGE between two updates, never on the
+	-- first one. The first update is the save loading in, and a player joining
+	-- to a burst of unlock, rebirth and coin sounds for things they did last
+	-- week is noise, not feedback.
+	if CurrentData then
+		if newCoins > prevCoins and (os.clock() - lastCoinPing) > 0.12 then
+			lastCoinPing = os.clock()
+			sfx("coin", 0.08)
+		end
+		local gems = data.Gems or 0
+		if prevGems and gems > prevGems then sfx("gem", 0.05) end
+		local areas = #(data.UnlockedAreas or {})
+		if prevAreas and areas > prevAreas then sfx("unlock") end
+		local reb = data.Rebirths or 0
+		if prevRebirths and reb > prevRebirths then sfx("rebirth") end
+		local eq = #(data.EquippedPets or {})
+		if prevEquipped and eq ~= prevEquipped then
+			sfx(eq > prevEquipped and "equip" or "unequip")
+		end
+	end
+	prevGems = data.Gems or 0
+	prevAreas = #(data.UnlockedAreas or {})
+	prevRebirths = data.Rebirths or 0
+	prevEquipped = #(data.EquippedPets or {})
+
 	prevCoins = newCoins
 	CurrentData = data
 	updateBarriers(data)
@@ -392,12 +430,29 @@ end
 
 RE_DataUpdated.OnClientEvent:Connect(onDataUpdated)
 
+-- Rarest first, so a ten-hatch reveal is announced by the best thing in it.
+local RARITY_RANK = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6 }
+
 RE_HatchResult.OnClientEvent:Connect(function(pets,eggId)
+	-- The moment the whole game is built around. It was silent.
+	sfx("hatch")
+	local best = "Common"
+	for _, p in ipairs(type(pets) == "table" and pets or {}) do
+		local r = type(p) == "table" and p.rarity or nil
+		if r and (RARITY_RANK[r] or 0) > (RARITY_RANK[best] or 0) then best = r end
+	end
+	task.delay(0.35, function() if Sfx then Sfx.Reveal(best) end end)
+
 	local HatchUI = require(script.Parent.UI.HatchPanel)
 	HatchUI.ShowHatchResult(pets,eggId)
 end)
 
-RE_Notification.OnClientEvent:Connect(function(t,msg) showToast(t,msg) end)
+RE_Notification.OnClientEvent:Connect(function(t,msg)
+	-- Every toast the game already shows now has a sound, chosen from the
+	-- toast's own type, without changing any of the forty places that send one.
+	if Sfx then Sfx.Toast(t) end
+	showToast(t,msg)
+end)
 
 RE_HatchEgg.OnClientEvent:Connect(function(eggId)
 	if eggId and eggId:sub(1,11) == "__upgrade__" then

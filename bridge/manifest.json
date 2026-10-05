@@ -1,5 +1,5 @@
 {
-  "version": "6326078b394999d1b41440325dba2d5222a93556e8bdfcc2a1844e1b79961999",
+  "version": "28f3731824dc605923b01cfb3f284b76ad17d3a73736dad629b78a35e6b810f7",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -169,6 +169,14 @@
     {
       "path": "src/Client/UI/Responsive.lua",
       "name": "Responsive",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/Sfx.lua",
+      "name": "Sfx",
       "group": "Client",
       "folders": [
         "UI"

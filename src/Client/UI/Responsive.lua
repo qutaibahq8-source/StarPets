@@ -77,6 +77,13 @@ function Responsive.Liven(button)
 		TweenService:Create(scale, QUICK, { Scale = v }):Play()
 	end
 
+	-- Sound, from the same place as the spring, for the same reason: this is
+	-- the one line every button in the game passes through. Wiring a click into
+	-- eighteen panels by hand would mean the nineteenth panel is silent and
+	-- nobody notices for a month.
+	local clickSound
+	pcall(function() clickSound = require(script.Parent.Sfx) end)
+
 	-- Active is how the panels mark a button as unavailable ("Claimed", "Can't
 	-- afford"). A dead button that still springs under the cursor is a lie
 	-- about what pressing it will do.
@@ -85,7 +92,13 @@ function Responsive.Liven(button)
 	end)
 	button.MouseLeave:Connect(function() to(1) end)
 	button.MouseButton1Down:Connect(function()
-		if button.Active ~= false then to(PRESS) end
+		if button.Active ~= false then
+			to(PRESS)
+			-- Only a live button makes a noise. A click out of a button marked
+			-- "Claimed" or "Can't afford" tells the player something happened
+			-- when nothing did.
+			if clickSound then clickSound.Play("click", 0.06) end
+		end
 	end)
 	button.MouseButton1Up:Connect(function()
 		if button.Active ~= false then to(HOVER) end

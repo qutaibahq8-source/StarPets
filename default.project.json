@@ -106,6 +106,9 @@
             "Responsive": {
               "$path": "src/Client/UI/Responsive.lua"
             },
+            "Sfx": {
+              "$path": "src/Client/UI/Sfx.lua"
+            },
             "PetsPanel": {
               "$path": "src/Client/UI/PetsPanel.lua"
             },

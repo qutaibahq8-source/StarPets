@@ -280,6 +280,20 @@ function Methods.GetPivot(self) return rawget(self, "_p").CFrame or CFrame.new(0
 function Methods.SetPrimaryPartCFrame(self, c) rawget(self, "_p").CFrame = c end
 function Methods.GetBoundingBox(self) return CFrame.new(0, 0, 0), v3(3, 3, 3) end
 function Methods.GetExtentsSize(self) return v3(3, 3, 3) end
+-- Sounds that remember being played. Without this, Sound:Play() is a call on a
+-- missing method and throws — or, stubbed to nothing, every check that asks
+-- "did that make a noise" passes for a game that is silent.
+local PLAYED = {}
+function Methods.Play(self)
+	table.insert(PLAYED, { name = rawget(self, "_p").Name,
+	                       id = rawget(self, "_p").SoundId,
+	                       pitch = rawget(self, "_p").PlaybackSpeed })
+	rawget(self, "_p").IsPlaying = true
+end
+function Methods.Stop(self) rawget(self, "_p").IsPlaying = false end
+function Methods.Pause(self) rawget(self, "_p").IsPlaying = false end
+function Methods.Resume(self) rawget(self, "_p").IsPlaying = true end
+
 function Methods.BreakJoints(self) end
 function Methods.MakeJoints(self) end
 function Methods.ApplyImpulse(self) end
@@ -552,7 +566,14 @@ local ChangeHistoryService = {
 }
 
 local Debris = { AddItem = function() end }
-local SoundService = { PlayLocalSound = function() end }
+-- A real Instance. In Roblox, SoundService holds children — it is where 2D
+-- sounds are parented so they do not fade with distance. A plain table here
+-- made parenting a Sound to it throw, so every sound in the game looked broken
+-- when only the mock was.
+local SoundService = newInst("SoundService"); SoundService.Name = "SoundService"
+rawget(SoundService, "_p").PlayLocalSound = function(_, s)
+	if s and s.Play then s:Play() end
+end
 local PhysicsService = {
 	RegisterCollisionGroup = function() end,
 	CollisionGroupSetCollidable = function() end,
@@ -658,4 +679,5 @@ return {
 	PlayerList = PlayerList, RunService = RunService,
 	MODULES = MODULES, newInst = newInst, robloxRequire = robloxRequire,
 	BOUND_TO_CLOSE = BOUND_TO_CLOSE, STORE = STORE,
+	PLAYED = PLAYED,
 }
