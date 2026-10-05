@@ -7,7 +7,8 @@ local TweenService = game:GetService("TweenService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
-local PetModels   = require(script.Parent.PetModels)
+-- Shared, not Server: the client builds the same models for the hatch reveal.
+local PetModels   = require(game.ReplicatedStorage.Shared.PetModels)
 local BoostService = require(script.Parent.BoostService)
 
 local PetService   = {}

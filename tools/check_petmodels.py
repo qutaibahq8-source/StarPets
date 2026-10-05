@@ -65,7 +65,10 @@ def main():
     lua, mock, cfg = check_map.build()
     sss = mock["ServerScriptService"]
     holder = sss["FindFirstChild"](sss, "Server", True)
-    PM = mock["MODULES"][holder["FindFirstChild"](holder, "PetModels")]
+    # Shared, not Server: the client builds the same models for the reveal.
+    rs = mock["ReplicatedStorage"]
+    shared = rs["FindFirstChild"](rs, "Shared")
+    PM = mock["MODULES"][shared["FindFirstChild"](shared, "PetModels")]
     if PM is None:
         print("   x PetModels did not load")
         return 1

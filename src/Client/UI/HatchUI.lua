@@ -223,6 +223,79 @@ end
 -- ============================================================
 -- HATCH RESULT DISPLAY (dramatic reveal)
 -- ============================================================
+-- The pet itself, built from the same PetModels the server uses, turning
+-- slowly in a ViewportFrame.
+--
+-- The reveal used to show the FIRST LETTER of the pet's name in a circle: hatch
+-- a dragon and you got a "D". The moment the whole game is built around never
+-- actually showed the player what they had won.
+--
+-- Returns a function that stops the turning, or nil if no model could be made
+-- (in which case the caller falls back to the old letter rather than showing
+-- an empty circle).
+local function showModel(holder, pet, rarityInfo, mut)
+	local okReq, PetModels = pcall(function()
+		return require(game:GetService("ReplicatedStorage").Shared.PetModels)
+	end)
+	if not okReq or not PetModels then return nil end
+	local petData
+	for _, p in ipairs(G().GameConfig.Pets) do
+		if p.name == pet.name then petData = p break end
+	end
+	if not petData then return nil end
+
+	local okBuild, model = pcall(function()
+		local m = PetModels.Build(petData, "reveal", rarityInfo, mut)
+		return m
+	end)
+	if not okBuild or not model then return nil end
+
+	local vf = Instance.new("ViewportFrame")
+	vf.Name = "PetView"
+	vf.Size = UDim2.new(1, 0, 1, 0)
+	vf.BackgroundTransparency = 1
+	vf.LightDirection = Vector3.new(-1, -1.4, -0.6)
+	vf.Ambient = Color3.fromRGB(170, 170, 185)
+	vf.Parent = holder
+	model.Parent = vf
+
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 40
+	cam.Parent = vf
+	vf.CurrentCamera = cam
+
+	-- Frame the model from its own bounding box, so a tiny ant and a dragon
+	-- both fill the circle rather than one vanishing and one overflowing it.
+	local center, radius = Vector3.new(0, 0, 0), 2.5
+	pcall(function()
+		local cf, size = model:GetBoundingBox()
+		center = cf.Position
+		radius = math.max(1, size.Magnitude * 0.5)
+	end)
+	local dist = radius / math.tan(math.rad(cam.FieldOfView * 0.5)) * 1.05
+
+	local function aim(t)
+		local pos = center + Vector3.new(math.sin(t) * dist, radius * 0.35, math.cos(t) * dist)
+		local ok = pcall(function() cam.CFrame = CFrame.lookAt(pos, center) end)
+		if not ok then cam.CFrame = CFrame.new(pos, center) end
+	end
+	aim(0.6)
+
+	local t = 0.6
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		-- Stop as soon as the card is gone. Left connected, every hatch would
+		-- leave a dead spinner running behind it — thousands a session.
+		if not vf.Parent then
+			if conn then conn:Disconnect() end
+			return
+		end
+		t = t + dt * 0.9
+		aim(t)
+	end)
+	return function() if conn then conn:Disconnect() end end
+end
+
 function HatchUI.ShowHatchResult(pets, eggId)
 	local screen = Instance.new("ScreenGui")
 	screen.Name           = "HatchResultGui"
@@ -239,23 +312,50 @@ function HatchUI.ShowHatchResult(pets, eggId)
 	backdrop.BorderSizePixel  = 0
 	backdrop.Parent           = screen
 
-	-- Card display
-	local isSingle = (#pets == 1)
-	local cardWidth  = isSingle and 220 or 140
-	local cardHeight = isSingle and 300 or 200
-	local spacing    = 12
+	-- A grid that fits the screen.
+	--
+	-- Cards used to sit in a single row: ten of them at 140 wide is 1,508
+	-- pixels, past the edge of a laptop and far past a phone, so most of a
+	-- ten-hatch was off screen. Now: up to five across, as many rows as it
+	-- takes, each card shrunk to fit width AND height.
+	local cam = workspace.CurrentCamera
+	local W = (cam and cam.ViewportSize and cam.ViewportSize.X) or 1280
+	local H = (cam and cam.ViewportSize and cam.ViewportSize.Y) or 720
+	if type(W) ~= "number" or W <= 0 then W = 1280 end
+	if type(H) ~= "number" or H <= 0 then H = 720 end
 
-	local totalWidth = #pets * (cardWidth + spacing) - spacing
-	local startX = -totalWidth / 2
+	local n = #pets
+	local isSingle = (n == 1)
+	local spacing = 12
+	local cols = isSingle and 1 or math.min(n, 5, math.max(2, math.floor((W - 40) / 150)))
+	local rows = math.ceil(n / cols)
+	local maxW = isSingle and 220 or 140
+	local maxH = isSingle and 300 or 200
+	local cardWidth = math.min(maxW, math.floor((W - 40 - (cols - 1) * spacing) / cols))
+	local cardHeight = math.min(maxH, math.floor((H * 0.7 - (rows - 1) * spacing) / rows))
+	-- Keep a card taller than it is wide, so the model has room.
+	cardWidth = math.min(cardWidth, math.floor(cardHeight * 0.78))
+
+	local gridW = cols * cardWidth + (cols - 1) * spacing
+	local gridH = rows * cardHeight + (rows - 1) * spacing
+	local top = math.max(16, math.floor((H - gridH) / 2) - 24)
 
 	for i, pet in ipairs(pets) do
-		local rarityColor = G().GameConfig.Rarities[pet.rarity].color
+		local rarityInfo = G().GameConfig.Rarities[pet.rarity]
+		local rarityColor = rarityInfo.color
 		local delay = (i - 1) * 0.15
+		local col = (i - 1) % cols
+		local row = math.floor((i - 1) / cols)
+		local inRow = math.min(cols, n - row * cols)
+		local rowW = inRow * cardWidth + (inRow - 1) * spacing
+		local x = -rowW / 2 + col * (cardWidth + spacing)
+		local y = top + row * (cardHeight + spacing)
 
 		task.delay(delay, function()
+			if not screen.Parent then return end
 			local card = Instance.new("Frame")
-			card.Size             = UDim2.new(0, cardWidth, 0, cardHeight)
-			card.Position         = UDim2.new(0.5, startX + (i - 1) * (cardWidth + spacing), 0.5, -cardHeight / 2)
+			card.Name             = "HatchCard"
+			card.Position         = UDim2.new(0.5, x, 0, y)
 			card.BackgroundColor3 = Color3.fromRGB(20, 15, 40)
 			card.BackgroundTransparency = 0
 			card.BorderSizePixel  = 0
@@ -263,19 +363,19 @@ function HatchUI.ShowHatchResult(pets, eggId)
 			card.Size             = UDim2.new(0, 0, 0, 0)  -- start tiny for pop animation
 			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
 
-			-- Rarity border glow
 			local stroke = Instance.new("UIStroke")
 			stroke.Color     = rarityColor
 			stroke.Thickness = 3
 			stroke.Parent    = card
 
 			TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Size     = UDim2.new(0, cardWidth, 0, cardHeight),
+				Size = UDim2.new(0, cardWidth, 0, cardHeight),
 			}):Play()
 
 			-- Rarity banner
+			local bannerH = math.max(18, math.floor(cardHeight * 0.1))
 			local rarityBanner = Instance.new("Frame")
-			rarityBanner.Size             = UDim2.new(1, 0, 0, 30)
+			rarityBanner.Size             = UDim2.new(1, 0, 0, bannerH)
 			rarityBanner.BackgroundColor3 = rarityColor
 			rarityBanner.BorderSizePixel  = 0
 			rarityBanner.Parent           = card
@@ -284,35 +384,43 @@ function HatchUI.ShowHatchResult(pets, eggId)
 			local rarityLbl = Instance.new("TextLabel")
 			rarityLbl.Size            = UDim2.new(1, 0, 1, 0)
 			rarityLbl.BackgroundTransparency = 1
-			rarityLbl.Text            = G().GameConfig.Rarities[pet.rarity].displayName
+			rarityLbl.Text            = rarityInfo.displayName
 			rarityLbl.TextColor3      = Color3.new(1, 1, 1)
 			rarityLbl.TextScaled      = true
 			rarityLbl.Font            = Enum.Font.GothamBold
 			rarityLbl.Parent          = rarityBanner
 
-			-- Pet icon
+			-- The pet, in a circle of its rarity's colour.
+			local side = math.min(cardWidth - 16, cardHeight - bannerH - 52)
 			local petCircle = Instance.new("Frame")
-			petCircle.Size            = UDim2.new(0, cardWidth - 30, 0, cardWidth - 30)
-			petCircle.Position        = UDim2.new(0, 15, 0, 35)
+			petCircle.Name            = "PetCircle"
+			petCircle.Size            = UDim2.new(0, side, 0, side)
+			petCircle.Position        = UDim2.new(0.5, -side / 2, 0, bannerH + 6)
 			petCircle.BackgroundColor3 = rarityColor
 			petCircle.BackgroundTransparency = 0.6
 			petCircle.BorderSizePixel = 0
 			petCircle.Parent          = card
 			Instance.new("UICorner", petCircle).CornerRadius = UDim.new(1, 0)
 
-			local petIcon = Instance.new("TextLabel")
-			petIcon.Size             = UDim2.new(1, 0, 1, 0)
-			petIcon.BackgroundTransparency = 1
-			petIcon.Text             = string.upper(string.sub(pet.name, 1, 1))
-			petIcon.TextColor3       = Color3.new(1, 1, 1)
-			petIcon.TextScaled       = true
-			petIcon.Font             = Enum.Font.GothamBold
-			petIcon.Parent           = petCircle
+			local mut = pet.mutation and G().GameConfig.GetMutation and G().GameConfig.GetMutation(pet.mutation)
+
+			if not showModel(petCircle, pet, rarityInfo, mut) then
+				-- Only if the model could not be built. A letter is a poor
+				-- picture of a pet, but it is better than an empty circle.
+				local petIcon = Instance.new("TextLabel")
+				petIcon.Size             = UDim2.new(1, 0, 1, 0)
+				petIcon.BackgroundTransparency = 1
+				petIcon.Text             = string.upper(string.sub(pet.name, 1, 1))
+				petIcon.TextColor3       = Color3.new(1, 1, 1)
+				petIcon.TextScaled       = true
+				petIcon.Font             = Enum.Font.GothamBold
+				petIcon.Parent           = petCircle
+			end
 
 			-- Pet name
 			local nameLbl = Instance.new("TextLabel")
 			nameLbl.Size            = UDim2.new(1, -10, 0, 40)
-			nameLbl.Position        = UDim2.new(0, 5, 1, -50)
+			nameLbl.Position        = UDim2.new(0, 5, 1, -46)
 			nameLbl.BackgroundTransparency = 1
 			nameLbl.Text            = pet.name
 			nameLbl.TextColor3      = rarityColor
@@ -321,13 +429,30 @@ function HatchUI.ShowHatchResult(pets, eggId)
 			nameLbl.TextWrapped     = true
 			nameLbl.Parent          = card
 
-			-- Mutation badge (Shiny/Golden/Rainbow)
-			local mut = pet.mutation and G().GameConfig.GetMutation and G().GameConfig.GetMutation(pet.mutation)
 			if mut then
 				nameLbl.Text = mut.emoji.." "..mut.name.."!\n"..pet.name
 				nameLbl.TextColor3 = mut.color
 				stroke.Color = mut.color; stroke.Thickness = 5
 				petCircle.BackgroundColor3 = mut.color
+			end
+
+			-- First of its kind. The server knows (it stamps the Pet Index) and
+			-- now says so, so a first-ever Dragon does not land like a fortieth
+			-- cat.
+			if pet.isNew then
+				local ribbon = Instance.new("TextLabel")
+				ribbon.Name = "NewRibbon"
+				ribbon.Size = UDim2.new(0, math.max(44, cardWidth * 0.42), 0, math.max(18, bannerH))
+				ribbon.Position = UDim2.new(1, -math.max(44, cardWidth * 0.42) + 6, 0, bannerH - 4)
+				ribbon.BackgroundColor3 = Color3.fromRGB(255, 196, 40)
+				ribbon.Text = "NEW!"
+				ribbon.TextColor3 = Color3.fromRGB(60, 30, 0)
+				ribbon.TextScaled = true
+				ribbon.Font = Enum.Font.GothamBlack
+				ribbon.Rotation = 8
+				ribbon.ZIndex = 3
+				ribbon.Parent = card
+				Instance.new("UICorner", ribbon).CornerRadius = UDim.new(0, 6)
 			end
 
 			-- Sparkle effect for rare+
@@ -350,11 +475,13 @@ function HatchUI.ShowHatchResult(pets, eggId)
 		end)
 	end
 
-	-- Continue button
-	task.delay(0.5 + #pets * 0.15, function()
+	-- Continue: under the grid, never off the bottom of the screen.
+	task.delay(0.5 + n * 0.15, function()
+		if not screen.Parent then return end
 		local continueBtn = Instance.new("TextButton")
+		continueBtn.Name             = "Continue"
 		continueBtn.Size             = UDim2.new(0, 200, 0, 50)
-		continueBtn.Position         = UDim2.new(0.5, -100, 0.8, 0)
+		continueBtn.Position         = UDim2.new(0.5, -100, 0, math.min(H - 62, top + gridH + 16))
 		continueBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
 		continueBtn.Text             = "Continue ▶"
 		continueBtn.TextColor3       = Color3.new(1, 1, 1)
@@ -363,6 +490,10 @@ function HatchUI.ShowHatchResult(pets, eggId)
 		continueBtn.BorderSizePixel  = 0
 		continueBtn.Parent           = screen
 		Instance.new("UICorner", continueBtn).CornerRadius = UDim.new(0, 10)
+		-- The reveal does not go through UIController, so it gets the same
+		-- press feedback and click here. Liven only — Apply would resize the
+		-- cards, which are positioned by hand above.
+		pcall(function() require(script.Parent.Responsive).Liven(continueBtn) end)
 		continueBtn.MouseButton1Click:Connect(function()
 			screen:Destroy()
 		end)

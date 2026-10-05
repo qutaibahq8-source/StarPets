@@ -219,7 +219,16 @@ function EggService.HatchEgg(player, eggId)
 	end
 	data.EggsHatched = (data.EggsHatched or 0) + 1
 
-	return newPet, nil
+	-- What the client is shown: a COPY, carrying whether this species is new
+	-- to the player. GrantPet already worked that out (its second value) for
+	-- the Pet Index, and the reveal was never told, so a first-ever Dragon got
+	-- the same card as a fortieth cat. A copy, because newPet is the very
+	-- table now sitting in data.Pets — an isNew field set on it would be saved
+	-- into the player's data forever.
+	local shown = {}
+	for k, v in pairs(newPet) do shown[k] = v end
+	shown.isNew = (grantErr == true)
+	return shown, nil
 end
 
 -- ============================================================

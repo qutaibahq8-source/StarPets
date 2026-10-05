@@ -21,8 +21,6 @@
 
 local RunService = game:GetService("RunService")
 
-local camera = workspace.CurrentCamera
-
 -- How far away motion is still worth computing. Beyond this an egg bobbing
 -- half a stud is a fraction of a pixel.
 local CULL = 260
@@ -50,10 +48,15 @@ for _, d in ipairs(workspace:GetDescendants()) do track(d) end
 -- A map that streams in, or is rebuilt, after this script starts.
 workspace.DescendantAdded:Connect(track)
 
+-- Read the camera fresh every time rather than holding the one there was at
+-- startup: CurrentCamera can be replaced. And never assume it has a CFrame —
+-- this runs inside RenderStepped, where one error is sixty errors a second in
+-- Output for as long as the game is open.
 local function near(pos)
-	local cam = camera or workspace.CurrentCamera
-	if not cam then return true end
-	return (cam.CFrame.Position - pos).Magnitude < CULL
+	local cam = workspace.CurrentCamera
+	local cf = cam and cam.CFrame
+	if not cf then return true end
+	return (cf.Position - pos).Magnitude < CULL
 end
 
 local t = 0

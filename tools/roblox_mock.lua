@@ -198,6 +198,15 @@ function Methods.GetDescendants(self)
 end
 
 function Methods.Destroy(self)
+	-- Every descendant goes too, as in Roblox, each with its Parent set to nil.
+	-- Only detaching the top left a deep child believing it was still in the
+	-- game: anything that stops itself when `inst.Parent` goes nil — a spinner
+	-- in a closed popup, say — would run on forever here and pass a check for
+	-- the wrong reason.
+	local kids = {}
+	for i, c in ipairs(rawget(self, "_c")) do kids[i] = c end
+	for _, c in ipairs(kids) do Methods.Destroy(c) end
+
 	-- Detach from the PARENT's list too. Clearing only our own children leaves
 	-- the instance reachable through GetDescendants, so code that destroys
 	-- something and then counts what is left sees no change.

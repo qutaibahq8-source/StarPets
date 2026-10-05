@@ -8,6 +8,9 @@
         "$className": "Folder",
         "GameConfig": {
           "$path": "src/Shared/GameConfig.lua"
+        },
+        "PetModels": {
+          "$path": "src/Shared/PetModels.lua"
         }
       }
     },
@@ -35,9 +38,6 @@
         },
         "GamepassService": {
           "$path": "src/Server/GamepassService.lua"
-        },
-        "PetModels": {
-          "$path": "src/Server/PetModels.lua"
         },
         "BadgeService": {
           "$path": "src/Server/BadgeService.lua"

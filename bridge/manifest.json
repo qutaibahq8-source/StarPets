@@ -1,10 +1,16 @@
 {
-  "version": "8f80d98cdc224e801f7f6ea5e3604a4756b132cd8ce17590e3da62ba6701d9d3",
+  "version": "4edff067d7c685de8c1bd8bb2850f1483e5df0ab6b58d7c1b85ca5629bd858d9",
   "generated_from": "default.project.json",
   "files": [
     {
       "path": "src/Shared/GameConfig.lua",
       "name": "GameConfig",
+      "group": "Shared",
+      "folders": []
+    },
+    {
+      "path": "src/Shared/PetModels.lua",
+      "name": "PetModels",
       "group": "Shared",
       "folders": []
     },
@@ -47,12 +53,6 @@
     {
       "path": "src/Server/GamepassService.lua",
       "name": "GamepassService",
-      "group": "Server",
-      "folders": []
-    },
-    {
-      "path": "src/Server/PetModels.lua",
-      "name": "PetModels",
       "group": "Server",
       "folders": []
     },
