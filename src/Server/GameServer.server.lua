@@ -409,49 +409,58 @@ local function buildMap()
 	billboard(eggSign,"🥚  HATCH EGGS",Color3.fromRGB(255,220,100),"Click an egg to start!",
 		Color3.fromRGB(200,200,200),UDim2.new(0,240,0,60))
 
-	-- Egg stands (4 eggs spread 26 studs apart)
-	local eggDefs={{id="StarterEgg"},{id="CoolEgg"},{id="RareEgg"},{id="LegendaryEgg"}}
-	for i,eDef in ipairs(eggDefs) do
-		local eggCfg=nil
-		for _,e in ipairs(GameConfig.Eggs) do if e.id==eDef.id then eggCfg=e break end end
-		if not eggCfg then continue end
-		local x=-39+(i-1)*26
-
-		part({Name="EggBase_"..eDef.id,Size=Vector3.new(7,0.5,7),
-			Position=Vector3.new(x,-0.75,-90),Color=Color3.fromRGB(32,28,52),Material=Enum.Material.SmoothPlastic})
-		local rng=part({Name="EggRing_"..eDef.id,Size=Vector3.new(7.4,0.3,7.4),
-			Position=Vector3.new(x,-0.3,-90),Color=eggCfg.color,Material=Enum.Material.SmoothPlastic,CanCollide=false})
-		part({Name="EggCol_"..eDef.id,Size=Vector3.new(2.8,2.2,2.8),
-			Position=Vector3.new(x,0.6,-90),Color=Color3.fromRGB(120,110,135),Material=Enum.Material.Slate})
+	-- Egg stands. One builder for all of them, so a world egg out in the
+	-- Volcano is the same object as the four at spawn: same click, same
+	-- MapPersist stamp, same sign.
+	local function eggStand(eggCfg, pos)
+		local x, y0, z = pos.X, pos.Y, pos.Z
+		part({Name="EggBase_"..eggCfg.id,Size=Vector3.new(7,0.5,7),
+			Position=Vector3.new(x,y0-0.75,z),Color=Color3.fromRGB(32,28,52),Material=Enum.Material.SmoothPlastic})
+		part({Name="EggRing_"..eggCfg.id,Size=Vector3.new(7.4,0.3,7.4),
+			Position=Vector3.new(x,y0-0.3,z),Color=eggCfg.color,Material=Enum.Material.SmoothPlastic,CanCollide=false})
+		part({Name="EggCol_"..eggCfg.id,Size=Vector3.new(2.8,2.2,2.8),
+			Position=Vector3.new(x,y0+0.6,z),Color=Color3.fromRGB(120,110,135),Material=Enum.Material.Slate})
 
 		-- Actual egg: smooth tapered oval (no glow), with spots welded so they bob with it
-		local egg=part({Name="Egg_"..eDef.id,Shape=Enum.PartType.Ball,
-			Size=Vector3.new(3,4.2,3),Position=Vector3.new(x,3.8,-90),
+		local eggPos = Vector3.new(x,y0+3.8,z)
+		local egg=part({Name="Egg_"..eggCfg.id,Shape=Enum.PartType.Ball,
+			Size=Vector3.new(3,4.2,3),Position=eggPos,
 			Color=eggCfg.color,Material=Enum.Material.SmoothPlastic,CanCollide=false})
 		for _,off in ipairs({Vector3.new(0.55,0.5,0.95),Vector3.new(-0.7,-0.2,0.85),Vector3.new(0.15,1.3,0.7)}) do
 			local spot=part({Name="EggSpot",Shape=Enum.PartType.Ball,Size=Vector3.new(0.95,0.95,0.5),
-				Position=Vector3.new(x,3.8,-90)+off,Color=Color3.fromRGB(255,255,255),Material=Enum.Material.SmoothPlastic,CanCollide=false})
+				Position=eggPos+off,Color=Color3.fromRGB(255,255,255),Material=Enum.Material.SmoothPlastic,CanCollide=false})
 			spot.Anchored=false; spot.CanQuery=false  -- don't block clicks on the egg
 			local w=Instance.new("WeldConstraint"); w.Part0=egg; w.Part1=spot; w.Parent=egg
 		end
 
 		local costText = eggCfg.id=="StarterEgg"
 			and ("🆓 FREE → then 💰 "..(eggCfg.costAfterFirst or 150))
-			or ("💰 "..eggCfg.cost.." "..eggCfg.currency)
+			or ((eggCfg.currency=="Gems" and "💎 " or "💰 ")..comma(eggCfg.cost).." "..eggCfg.currency)
 		billboard(egg,eggCfg.name,Color3.new(1,1,1),costText,Color3.fromRGB(255,215,0),UDim2.new(0,180,0,72))
 
-		local sp2=Vector3.new(x,3.8,-90)
 		task.spawn(function()
 			local t=0
 			while egg and egg.Parent do
 				t=t+task.wait(0.03)
-				egg.CFrame=CFrame.new(sp2+Vector3.new(0,math.sin(t*1.5)*0.5,0))*CFrame.Angles(0,t*0.7,math.sin(t*0.4)*0.08)
+				egg.CFrame=CFrame.new(eggPos+Vector3.new(0,math.sin(t*1.5)*0.5,0))*CFrame.Angles(0,t*0.7,math.sin(t*0.4)*0.08)
 			end
 		end)
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=egg
 		-- Stamped rather than closed over, so this egg still hatches when the map
 		-- has been baked into the place and this line never ran. See MapPersist.
-		MapPersist.Bind(cd, "HatchEgg", eDef.id)
+		MapPersist.Bind(cd, "HatchEgg", eggCfg.id)
+		return egg
+	end
+
+	-- The four at spawn (spread 26 studs apart).
+	local eggDefs={{id="StarterEgg"},{id="CoolEgg"},{id="RareEgg"},{id="LegendaryEgg"}}
+	for i,eDef in ipairs(eggDefs) do
+		for _,e in ipairs(GameConfig.Eggs) do
+			if e.id==eDef.id then
+				eggStand(e, Vector3.new(-39+(i-1)*26, 0, -90))
+				break
+			end
+		end
 	end
 
 	-- ---- MEADOW ORB AREA (behind spawn between z=20 and z=110) ----
@@ -664,10 +673,26 @@ local function buildMap()
 		-- out of play for props, so the same cluster count over half the area
 		-- leaves the walkable part thinner than it was before the terrace
 		-- existed — which would make the world feel emptier, not fuller.
+		-- This world's own egg, just inside the gate and north of the walk-in
+		-- lane, so it is the first thing a player meets after unlocking it.
+		-- Props keep a square around it clear, or a basalt column grows out of
+		-- the pedestal.
+		local worldEgg = nil
+		for _, e in ipairs(GameConfig.Eggs) do
+			if e.world == b.id then worldEgg = e break end
+		end
+		local eggX, eggZ = b.cx - 42, 24
+		local function nearEgg(x, z)
+			return worldEgg ~= nil and math.abs(x - eggX) < 10 and math.abs(z - eggZ) < 10
+		end
+
 		decorateBiome(b.id, b.cx, 0, {
 			clusters = 20,
-			blocked = function(x, z) return z < -30 end,
+			blocked = function(x, z) return z < -30 or nearEgg(x, z) end,
 		})
+		if worldEgg then
+			eggStand(worldEgg, Vector3.new(eggX, 0, eggZ))
+		end
 
 		local areaConfig=nil
 		for _,a in ipairs(GameConfig.Areas) do if a.id==b.id then areaConfig=a break end end

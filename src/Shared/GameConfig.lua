@@ -204,6 +204,62 @@ GameConfig.Eggs = {
 		description = "The best egg in the game!",
 		rarityWeights = { Common = 0, Uncommon = 500, Rare = 2000, Epic = 3500, Legendary = 3000, Mythic = 1000 },
 	},
+
+	-- ---- WORLD EGGS -----------------------------------------------------
+	-- The coin eggs above stop at 20,000. The worlds cost 250K, 4M, 20M and
+	-- 200M. So after the Forest a player could already afford the best coin
+	-- egg forever, and from then on the only thing coins bought was the next
+	-- world — which gave no new pets, because every egg drew from the same
+	-- pool. Volcano and Space were bigger numbers with nothing to spend them on.
+	--
+	-- One egg per world, then. Each is priced at roughly a twenty-fifth of the
+	-- NEXT world's unlock, so it is a real purchase at the income that world
+	-- pays; each draws only from its own `pool` of animals; and each is refused
+	-- by the server until the world is owned (EggService, not the UI).
+	{
+		id = "ForestEgg", world = "Forest",
+		name = "Forest Egg",
+		cost = 150000,
+		currency = "Coins",
+		color = Color3.fromRGB(70, 140, 60),
+		description = "Woodland animals. Needs the Forest.",
+		rarityWeights = { Common = 3500, Uncommon = 3500, Rare = 2300, Epic = 600, Legendary = 95, Mythic = 5 },
+		pool = { "squirrel", "fox", "owl", "raccoon", "wolf", "bear", "eagle", "horse",
+		         "butterfly", "fawn", "super fox", "Reindeer" },
+	},
+	{
+		id = "DesertEgg", world = "Desert",
+		name = "Desert Egg",
+		cost = 800000,
+		currency = "Coins",
+		color = Color3.fromRGB(214, 176, 100),
+		description = "Sand and heat. Needs the Desert.",
+		rarityWeights = { Common = 2000, Uncommon = 3000, Rare = 3200, Epic = 1500, Legendary = 280, Mythic = 20 },
+		pool = { "rat", "ant", "bat", "camel", "flamingo", "scorpion", "snake", "bull",
+		         "buffalo", "desert snake", "goldenpeacock" },
+	},
+	{
+		id = "VolcanoEgg", world = "Volcano",
+		name = "Volcano Egg",
+		cost = 8000000,
+		currency = "Coins",
+		color = Color3.fromRGB(170, 52, 32),
+		description = "Born in the heat. Needs the Volcano.",
+		rarityWeights = { Common = 1000, Uncommon = 2200, Rare = 3300, Epic = 2800, Legendary = 650, Mythic = 50 },
+		pool = { "worm", "bat", "hippo", "elephant", "dragon", "crocodile", "spider",
+		         "peacock", "goldenpeacock" },
+	},
+	{
+		id = "SpaceEgg", world = "Space",
+		name = "Space Egg",
+		cost = 60000000,
+		currency = "Coins",
+		color = Color3.fromRGB(70, 60, 140),
+		description = "From the cold and the dark. Needs Space.",
+		rarityWeights = { Common = 500, Uncommon = 1500, Rare = 3000, Epic = 3500, Legendary = 1350, Mythic = 150 },
+		pool = { "fish", "seal", "penguin", "dolphin", "axolotl", "shark", "ray fish",
+		         "snow ram", "snowman", "wight bear", "Void Serpent" },
+	},
 }
 
 -- ============================================================

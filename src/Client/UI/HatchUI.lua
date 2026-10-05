@@ -150,6 +150,22 @@ function HatchUI.Build(data)
 			displayCost10 = fmt(eggCfg.cost * 10) .. " " .. eggCfg.currency
 		end
 
+		-- A world egg is SHOWN, not hidden: seeing what the next world holds is
+		-- the reason to go and unlock it. But it cannot be pressed until the
+		-- world is owned. The server refuses it either way; this says so before
+		-- the player has to find out by trying and losing a click to an error.
+		local locked = false
+		if eggCfg.world then
+			locked = true
+			for _, a in ipairs((data and data.UnlockedAreas) or {}) do
+				if a == eggCfg.world then locked = false break end
+			end
+		end
+		if locked then
+			displayCost   = "🔒 " .. eggCfg.world
+			displayCost10 = "Locked"
+		end
+
 		-- Hatch x1 button
 		local hatch1 = Instance.new("TextButton")
 		hatch1.Size             = UDim2.new(0, 80, 0, 36)
@@ -162,7 +178,15 @@ function HatchUI.Build(data)
 		hatch1.BorderSizePixel  = 0
 		hatch1.Parent           = card
 		Instance.new("UICorner", hatch1).CornerRadius = UDim.new(0, 8)
+		if locked then
+			-- Active=false is what Responsive reads: a dead button neither
+			-- springs nor clicks, so it does not pretend to have done something.
+			hatch1.BackgroundColor3 = Color3.fromRGB(64, 60, 78)
+			hatch1.Active = false
+			hatch1.AutoButtonColor = false
+		end
 		hatch1.MouseButton1Click:Connect(function()
+			if locked then return end
 			G().RE_HatchEgg:FireServer(eggCfg.id, 1)
 		end)
 
@@ -182,7 +206,13 @@ function HatchUI.Build(data)
 		hatch10.BorderSizePixel = 0
 		hatch10.Parent          = card
 		Instance.new("UICorner", hatch10).CornerRadius = UDim.new(0, 8)
+		if locked then
+			hatch10.BackgroundColor3 = Color3.fromRGB(54, 50, 66)
+			hatch10.Active = false
+			hatch10.AutoButtonColor = false
+		end
 		hatch10.MouseButton1Click:Connect(function()
+			if locked then return end
 			G().RE_HatchEgg:FireServer(eggCfg.id, 10)
 		end)
 	end
