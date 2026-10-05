@@ -254,6 +254,27 @@ def main():
         else:
             print("   ok  the rebirth badge sits clear of the counters")
 
+        # Roblox draws its own menu and chat buttons at the top-left of a
+        # phone. Anything of ours under them cannot be pressed.
+        ROBLOX_ICONS = (0, 0, 96, 44)
+        under = [str(c._p.Name) for c in chips if overlaps(rect(c, *PHONE), ROBLOX_ICONS)]
+        if under:
+            fails.append("counters sit under Roblox's own menu/chat icons: %s" % under)
+        else:
+            print("   ok  the counters clear Roblox's menu and chat icons")
+
+        mute = hud["FindFirstChild"](hud, "HUD_Mute")
+        if mute is None:
+            fails.append("there is no mute button on the HUD")
+        else:
+            m = rect(mute, *PHONE)
+            hit = [str(c._p.Name) for c in chips + badge if overlaps(m, rect(c, *PHONE))]
+            if m[0] < 0 or m[0] + m[2] > PHONE[0] or hit or overlaps(m, ROBLOX_ICONS):
+                fails.append("the mute button is off screen or on top of something "
+                             "on a phone (%s)" % (hit or "edge"))
+            else:
+                print("   ok  the mute button has a spot of its own on a phone")
+
         small = [str(c._p.Name) for c in dock if rect(c, *PHONE)[2] < 44]
         if small:
             fails.append("dock buttons under the 44-point touch target: %s" % small)
@@ -282,6 +303,11 @@ def main():
         # And a desktop keeps the look it had.
         chips_d, _, dock_d = at_width(1280, 720)
         xs = sorted(int(rect(c, 1280, 720)[0]) for c in chips_d)
+        mute_d = hud["FindFirstChild"](hud, "HUD_Mute")
+        if mute_d is not None:
+            md = rect(mute_d, 1280, 720)
+            if any(overlaps(md, rect(c, 1280, 720)) for c in chips_d):
+                fails.append("on a desktop the mute button sits on a counter")
         if xs != [1280 - 493, 1280 - 328, 1280 - 163]:
             fails.append("the desktop counters moved (%s)" % xs)
         elif len(dock_d) != 15:

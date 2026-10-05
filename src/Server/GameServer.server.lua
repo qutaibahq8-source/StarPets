@@ -138,6 +138,7 @@ local RE_RedeemCode   = makeEvent("RedeemCode")
 local RE_PetCmd       = makeEvent("PetCmd")
 local RF_GetDaily     = makeFunction("GetDaily")
 local RE_ClaimDaily   = makeEvent("ClaimDaily")
+local RE_SetMuted     = makeEvent("SetMuted")
 local RF_GetBoosts    = makeFunction("GetBoosts")
 local RE_BuyBoost     = makeEvent("BuyBoost")
 local RF_GetFusion    = makeFunction("GetFusion")
@@ -1400,6 +1401,15 @@ end)
 RF_GetQuests.OnServerInvoke = function(player)
 	return QuestService.GetAll(player)
 end
+-- Sound on or off. A boolean and nothing else: the value goes straight into
+-- the save, so anything that is not true or false is dropped rather than
+-- stored.
+RE_SetMuted.OnServerEvent:Connect(function(player, muted)
+	if type(muted) ~= "boolean" then return end
+	local data = DataManager.GetData(player)
+	if data then data.Muted = muted end
+end)
+
 RE_ClaimQuest.OnServerEvent:Connect(function(player, id)
 	local ok, res = QuestService.Claim(player, id)
 	if ok then

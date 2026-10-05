@@ -429,6 +429,9 @@ GameConfig.DefaultData = {
 	ActiveBoosts = {},
 	LastSeen = 0,
 	LastFreeSpin = 0,
+	-- Sound off. Saved with the player so it survives a rejoin; an old save
+	-- has no such field and DataManager fills it from here, as false.
+	Muted = false,
 }
 
 -- ============================================================

@@ -74,6 +74,9 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes",30)
 local RE_DataUpdated  = Remotes:WaitForChild("DataUpdated")
 local RE_HatchResult  = Remotes:WaitForChild("HatchResult")
 local RE_Notification = Remotes:WaitForChild("Notification")
+-- With a timeout. A bare WaitForChild on a remote the server does not have
+-- yields forever, and this is the script that builds the whole HUD.
+local RE_SetMuted     = Remotes:WaitForChild("SetMuted", 10)
 local RE_HatchEgg     = Remotes:WaitForChild("HatchEgg")
 local RE_EquipPet     = Remotes:WaitForChild("EquipPet")
 local RE_UnequipPet   = Remotes:WaitForChild("UnequipPet")
@@ -257,6 +260,7 @@ local statChips = {}
 local dockButtons = {}
 local moreBtn = nil
 local dockExpanded = false
+local muteBtn = nil
 
 local function buildHUD()
 	HUD = Instance.new("ScreenGui")
@@ -378,6 +382,20 @@ local function buildHUD()
 	moreBtn = dockButton("⋯\nMore", Color3.fromRGB(200,200,220))
 	moreBtn.Name = "Dock_More"
 	moreBtn.Visible = false
+
+	-- Sound on/off. Not a dock button: it opens no panel, and it is reached
+	-- for in a hurry.
+	muteBtn = Instance.new("TextButton")
+	muteBtn.Name = "HUD_Mute"
+	muteBtn.BackgroundColor3 = Color3.fromRGB(18,14,35)
+	muteBtn.BackgroundTransparency = 0.15
+	muteBtn.Text = "🔊"
+	muteBtn.TextScaled = true
+	muteBtn.Font = Enum.Font.GothamBold
+	muteBtn.TextColor3 = Color3.new(1,1,1)
+	muteBtn.BorderSizePixel = 0
+	muteBtn.Parent = HUD
+	Instance.new("UICorner", muteBtn).CornerRadius = UDim.new(0,10)
 end
 
 -- Lay the HUD out for the screen it is on.
@@ -407,7 +425,9 @@ local function layoutHUD()
 
 	-- ---- top bar ----
 	if compact then
-		local left = 64                       -- clear of Roblox's menu button
+		-- Clear of Roblox's own menu AND chat icons, which sit at the
+		-- top-left of a phone. 64 cleared the menu and sat under chat.
+		local left = 100
 		local gap = 6
 		local cw = math.max(70, math.floor((W - left - 8 - gap * 2) / 3))
 		for i, chip in ipairs(statChips) do
@@ -426,6 +446,18 @@ local function layoutHUD()
 		if RebirthLabel then
 			RebirthLabel.Size = UDim2.new(0, 160, 0, 38)
 			RebirthLabel.Position = UDim2.new(0.5, -80, 0, 10)
+		end
+	end
+
+	if muteBtn then
+		if compact then
+			-- Below the bar at the right, opposite the rebirth badge.
+			muteBtn.Size = UDim2.new(0, 44, 0, 30)
+			muteBtn.Position = UDim2.new(1, -52, 0, 60)
+		else
+			-- In the bar, just right of Roblox's icons, nowhere near the counters.
+			muteBtn.Size = UDim2.new(0, 42, 0, 40)
+			muteBtn.Position = UDim2.new(0, 104, 0, 9)
 		end
 	end
 
@@ -469,6 +501,13 @@ end
 -- ============================================================
 local lastInvSig = ""
 local function onDataUpdated(data)
+	-- The saved mute preference, applied BEFORE any sound for this update
+	-- could play, so a muted player is not greeted by a coin ping on join.
+	if Sfx and data.Muted ~= nil and Sfx.IsMuted() ~= (data.Muted == true) then
+		Sfx.SetMuted(data.Muted == true)
+		if muteBtn then muteBtn.Text = data.Muted and "🔇" or "🔊" end
+	end
+
 	local newCoins = data.Coins or 0
 	if CurrentData and newCoins > prevCoins then
 		local diff = newCoins - prevCoins
@@ -789,6 +828,20 @@ if moreBtn then
 	moreBtn.MouseButton1Click:Connect(function()
 		dockExpanded = not dockExpanded
 		layoutHUD()
+	end)
+end
+
+local function showMute(m)
+	if muteBtn then muteBtn.Text = m and "🔇" or "🔊" end
+end
+if muteBtn then
+	muteBtn.MouseButton1Click:Connect(function()
+		local m = not (Sfx and Sfx.IsMuted())
+		-- Click sound BEFORE muting when switching off, so the switch itself is
+		-- heard once; switching back on is heard by the click Responsive plays.
+		if Sfx then Sfx.SetMuted(m) end
+		showMute(m)
+		if RE_SetMuted then RE_SetMuted:FireServer(m) end
 	end)
 end
 

@@ -211,7 +211,62 @@ def main():
                            "event" % noisy)
         return "loading a save makes no unlock, rebirth or equip sound"
 
+    def t_mute_silences_everything():
+        clear()
+        Sfx.SetMuted(True)
+        for name in ("click", "coin", "hatch", "reveal4", "error"):
+            Sfx.Play(name)
+        heard = log()
+        Sfx.SetMuted(False)
+        Sfx.Play("coin")
+        after = log()
+        assert not heard, "muted, and still played %s" % [str(p.name) for p in heard]
+        assert after, "unmuting did not bring sound back"
+        return "muted plays nothing; unmuting restores it"
+
+    def t_hud_button_mutes_and_saves():
+        hud = gui["FindFirstChild"](gui, "MysticPetsHUD")
+        btn = hud["FindFirstChild"](hud, "HUD_Mute") if hud is not None else None
+        assert btn is not None, "there is no mute button on the HUD"
+        rs = mock["ReplicatedStorage"]
+        remotes = rs["FindFirstChild"](rs, "Remotes")
+        ev = remotes["FindFirstChild"](remotes, "SetMuted")
+        assert ev is not None, "the server never created a SetMuted remote"
+        sent = []
+        G["PY_SENT"] = sent.append
+        lua.execute("""
+            local ev = game:GetService("ReplicatedStorage").Remotes.SetMuted
+            rawget(ev, "_p").FireServer = function(_, v) PY_SENT(v) end
+        """)
+        Sfx.SetMuted(False)
+        lua.eval("function(b) b.MouseButton1Click:Fire() end")(btn)
+        assert Sfx.IsMuted(), "pressing the mute button did not mute"
+        assert sent and sent[-1] is True, "the choice was not sent to be saved (%s)" % sent
+        lua.eval("function(b) b.MouseButton1Click:Fire() end")(btn)
+        assert not Sfx.IsMuted() and sent[-1] is False, "pressing again did not unmute"
+        return "toggles, and sends true then false to be saved"
+
+    def t_saved_preference_wins_on_join():
+        rs = mock["ReplicatedStorage"]
+        ev = rs["FindFirstChild"](rs, "Remotes")
+        ev = ev["FindFirstChild"](ev, "DataUpdated")
+        fire = lua.eval("function(sig, d) sig:Fire(d) end")
+        Sfx.SetMuted(False)
+        # A muted player's update that also brings coins: the coin ping must
+        # not slip out before the preference lands.
+        fire(ev.OnClientEvent, lua.eval('{Coins=10, Gems=0, Muted=false, Pets={}, EquippedPets={}, UnlockedAreas={"Meadow"}}'))
+        clear()
+        fire(ev.OnClientEvent, lua.eval('{Coins=500, Gems=0, Muted=true, Pets={}, EquippedPets={}, UnlockedAreas={"Meadow"}}'))
+        heard = [str(p.name) for p in log()]
+        assert Sfx.IsMuted(), "a save saying Muted=true did not mute"
+        assert not heard, "a muted player heard %s on the update that muted them" % heard
+        Sfx.SetMuted(False)
+        return "a saved mute is applied before that update's sounds"
+
     print("sound:")
+    check("mute silences everything", t_mute_silences_everything)
+    check("the HUD button mutes and saves", t_hud_button_mutes_and_saves)
+    check("a saved mute wins on join", t_saved_preference_wins_on_join)
     check("every id is a real file", t_ids_are_real)
     check("hatching is heard", t_hatch_is_heard)
     check("buttons click", t_buttons_click)

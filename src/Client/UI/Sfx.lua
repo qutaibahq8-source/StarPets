@@ -114,9 +114,16 @@ end
 
 local warned = {}
 
+-- The player's mute switch. Checked at the door rather than by turning volumes
+-- down, so a muted player's client does no sound work at all.
+local muted = false
+function Sfx.SetMuted(m) muted = m == true end
+function Sfx.IsMuted() return muted end
+
 -- Play a sound by name. `jitter` varies the pitch a little, so a run of the
 -- same sound does not sound like a machine.
 function Sfx.Play(name, jitter)
+	if muted then return nil end
 	local def = SOUNDS[name]
 	if not def then
 		if not warned[name] then

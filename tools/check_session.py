@@ -257,6 +257,33 @@ def main():
 
     check("rank survives a rebirth", t_rank_survives_rebirth)
 
+    # ---- 8. the mute preference --------------------------------------------
+    print("\nsettings:")
+
+    def t_mute_survives_rejoin_and_refuses_junk():
+        srv5 = Server()
+        p, d = srv5.join(9600, "Quiet")
+        rs = srv5.mock["ReplicatedStorage"]
+        ev = rs["FindFirstChild"](rs, "Remotes")
+        ev = ev["FindFirstChild"](ev, "SetMuted")
+        assert ev is not None, "no SetMuted remote"
+        fire = srv5.lua.eval("function(sig, p, ...) sig:Fire(p, ...) end")
+        RL = srv5.mod("RateLimit")
+        for junk in ("yes", 1, srv5.lua.eval("{}")):
+            RL.Reset(p)
+            fire(ev.OnServerEvent, p, junk)
+            assert d.Muted is False or d.Muted is None, \
+                "SetMuted stored %r — anything not a boolean must be dropped" % junk
+        RL.Reset(p)
+        fire(ev.OnServerEvent, p, True)
+        assert d.Muted is True, "SetMuted(true) did not save"
+        srv5.leave(p)
+        _, d2 = srv5.join(9600, "Quiet")
+        assert d2.Muted is True, "the mute preference was lost on rejoin"
+        return "saved through a rejoin; strings, numbers and tables refused"
+
+    check("mute survives a rejoin", t_mute_survives_rejoin_and_refuses_junk)
+
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1
