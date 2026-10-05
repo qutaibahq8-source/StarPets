@@ -23,6 +23,7 @@ run "trading"    python3 tools/check_trade.py
 run "pets"       python3 tools/check_pets.py
 run "pet models" python3 tools/check_petmodels.py
 run "eggs"       python3 tools/check_eggs.py
+run "onboarding" python3 tools/check_onboarding.py
 run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py

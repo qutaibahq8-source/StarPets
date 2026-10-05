@@ -1315,6 +1315,19 @@ RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
 	count = type(count)=="number" and math.clamp(count,1,10) or 1
 	local results,errors = EggService.HatchMultiple(player,eggId,count)
 	if #results>0 then
+		-- A hatched pet goes straight into a FREE slot.
+		--
+		-- Nothing equipped a hatched pet before. PetService.EquipBest existed
+		-- and was never called, so a brand-new player hatched their free egg,
+		-- got a pet, and it sat in the inventory earning nothing until they
+		-- found the Pets panel and pressed Equip — which nothing told them to
+		-- do. Only free slots are filled: a pet the player chose to equip is
+		-- never pushed out by one they just hatched. EquipPet refuses once the
+		-- slots are full, so a ten-hatch stops filling at the limit.
+		for _, pet in ipairs(results) do
+			local ok = PetService.EquipPet(player, pet.uniqueId)
+			if not ok then break end
+		end
 		RE_HatchResult:FireClient(player,results,eggId)
 		syncData(player)
 		BadgeService.CheckAll(player)

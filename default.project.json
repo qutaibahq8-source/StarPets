@@ -165,6 +165,9 @@
             },
             "SpinWheelPanel": {
               "$path": "src/Client/UI/SpinWheelPanel.lua"
+            },
+            "Onboarding": {
+              "$path": "src/Client/UI/Onboarding.client.lua"
             }
           }
         }

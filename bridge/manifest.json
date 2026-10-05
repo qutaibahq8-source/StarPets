@@ -1,5 +1,5 @@
 {
-  "version": "41904ad4eed369ef9536dc216d85f55d33f3c61c8730c27d13f7af24c4bbc2ba",
+  "version": "11235dfc986fe3cdcf5bdcefb122f7d550cf598f5bf6c260369c8103327700a8",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -329,6 +329,14 @@
     {
       "path": "src/Client/UI/SpinWheelPanel.lua",
       "name": "SpinWheelPanel",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/Onboarding.client.lua",
+      "name": "Onboarding",
       "group": "Client",
       "folders": [
         "UI"
