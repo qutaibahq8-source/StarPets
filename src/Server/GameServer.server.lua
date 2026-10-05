@@ -438,13 +438,9 @@ local function buildMap()
 			or ((eggCfg.currency=="Gems" and "💎 " or "💰 ")..comma(eggCfg.cost).." "..eggCfg.currency)
 		billboard(egg,eggCfg.name,Color3.new(1,1,1),costText,Color3.fromRGB(255,215,0),UDim2.new(0,180,0,72))
 
-		task.spawn(function()
-			local t=0
-			while egg and egg.Parent do
-				t=t+task.wait(0.03)
-				egg.CFrame=CFrame.new(eggPos+Vector3.new(0,math.sin(t*1.5)*0.5,0))*CFrame.Angles(0,t*0.7,math.sin(t*0.4)*0.08)
-			end
-		end)
+		-- No motion here. The bob and spin are done by each client
+		-- (WorldMotion.client.lua): a server loop replicated every frame of it to
+		-- every player, and never ran at all on a baked map.
 		local cd=Instance.new("ClickDetector"); cd.MaxActivationDistance=32; cd.Parent=egg
 		-- Stamped rather than closed over, so this egg still hatches when the map
 		-- has been baked into the place and this line never ran. See MapPersist.
@@ -1042,28 +1038,13 @@ local function buildMap()
 
 	-- Orbit rings around the orb
 	for i=1,3 do
-		local ring = part({Name="RMOrbRing"..i,Size=Vector3.new(4+i*0.5,0.15,4+i*0.5),
+		part({Name="RMOrbRing"..i,Size=Vector3.new(4+i*0.5,0.15,4+i*0.5),
 			Position=machinePos+Vector3.new(0,7.5,0),Color=Color3.fromRGB(176,150,96),
 			Material=Enum.Material.Metal,CanCollide=false})
-		task.spawn(function()
-			local t = (i/3)*math.pi*2
-			while ring and ring.Parent do
-				t=t+task.wait(0.03)*0.8
-				ring.CFrame = CFrame.new(machinePos+Vector3.new(0,7.5,0))
-					* CFrame.Angles(i*0.6, t, i*0.4)
-			end
-		end)
 	end
 
-	-- Orb bob animation
-	task.spawn(function()
-		local t=0
-		while orb and orb.Parent do
-			t=t+task.wait(0.03)
-			orb.Position = machinePos+Vector3.new(0, 7.5+math.sin(t*1.2)*0.5, 0)
-			orb.CFrame = CFrame.new(orb.Position)*CFrame.Angles(0,t*0.6,0)
-		end
-	end)
+	-- The rings orbit and the orb bobs on each client (WorldMotion.client.lua),
+	-- not here: a server loop sent every frame of that motion to every player.
 
 	-- Sign billboard
 	local signAnchor = part({Name="RMSign",Size=Vector3.new(1,1,1),

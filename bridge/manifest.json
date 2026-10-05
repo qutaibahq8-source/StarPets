@@ -1,5 +1,5 @@
 {
-  "version": "11235dfc986fe3cdcf5bdcefb122f7d550cf598f5bf6c260369c8103327700a8",
+  "version": "21c3e5ffeb559bcb6c066b7c2624cad451200e7b8034c765527c4d1308e3760f",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -337,6 +337,14 @@
     {
       "path": "src/Client/UI/Onboarding.client.lua",
       "name": "Onboarding",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/WorldMotion.client.lua",
+      "name": "WorldMotion",
       "group": "Client",
       "folders": [
         "UI"

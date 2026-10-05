@@ -168,6 +168,9 @@
             },
             "Onboarding": {
               "$path": "src/Client/UI/Onboarding.client.lua"
+            },
+            "WorldMotion": {
+              "$path": "src/Client/UI/WorldMotion.client.lua"
             }
           }
         }
