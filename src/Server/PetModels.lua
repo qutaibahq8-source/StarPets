@@ -54,16 +54,11 @@ local function cyl(model, props, pos, size, rot)
 	return p
 end
 
-local function addGlow(part, color, b)
-	local l=Instance.new("PointLight")
-	l.Color=color; l.Brightness=(b or 1)*0.4; l.Range=8; l.Parent=part
-end
-
 local function addAura(part, color, rate)
 	local att=Instance.new("Attachment"); att.Parent=part
 	local pe=Instance.new("ParticleEmitter"); pe.Parent=att
 	pe.Color=ColorSequence.new(color, Color3.new(1,1,1))
-	pe.LightEmission=0.8; pe.LightInfluence=0.1
+	pe.LightEmission=0; pe.LightInfluence=1
 	pe.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,0.3),NumberSequenceKeypoint.new(1,0)})
 	pe.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.3),NumberSequenceKeypoint.new(1,1)})
 	pe.Speed=NumberRange.new(0.5,2); pe.Lifetime=NumberRange.new(0.7,1.4)
@@ -105,7 +100,12 @@ local function legs(model, s, color, bodyW, bodyH, bodyLen, legLen)
 end
 
 local SMOOTH = Enum.Material.SmoothPlastic
-local NEON   = Enum.Material.Neon
+-- Glass, not Neon. Neon is a light source: it blooms, it lights everything
+-- around it, and the owner has asked more than once for none of it. Glass is
+-- glossy and catches the light that is there, so a dragon's wing or a
+-- unicorn's horn still reads as the special part of the model without
+-- glowing. Was named SHINE; renamed so the name does not lie about what it is.
+local SHINE  = Enum.Material.Glass
 
 -- ============================================================
 -- BUILDERS  (each returns the root part)
@@ -238,7 +238,6 @@ local function buildWolf(model, s, color, rColor)
 	wedge(model,{Name="EarR",Color=color,Material=SMOOTH}, hp+Vector3.new(-0.4,0.7,0.1)*s, Vector3.new(0.45,0.7,0.35)*s)
 	box(model,{Name="Tail",Color=color,Material=SMOOTH}, Vector3.new(0,0.35,1.3)*s, Vector3.new(0.5,0.5,1.3)*s, CFrame.Angles(math.rad(-35),0,0))
 	eyes(model, hp, s, Color3.fromRGB(255,220,60))
-	if rColor then addGlow(body, rColor, 1) end
 	return body
 end
 
@@ -250,20 +249,26 @@ local function buildHorse(model, s, color, rColor, unicorn)
 	local hp = Vector3.new(0,1.3,-1.5)*s
 	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(0.9,0.9,1.4)*s)
 	-- mane
+	-- Rainbow is a unicorn's mane. Every horse, fawn, camel and reindeer was
+	-- built through here too, and got one as well. A plain one gets a mane a
+	-- shade darker than its coat, which is what a horse looks like.
+	local plainMane = Color3.new(color.R * 0.55, color.G * 0.55, color.B * 0.55)
 	for i=0,3 do
-		local mc = ({Color3.fromRGB(255,120,200),Color3.fromRGB(120,200,255),Color3.fromRGB(255,210,120)})[(i%3)+1]
-		box(model,{Name="Mane",Color=mc,Material=unicorn and NEON or SMOOTH},
+		local mc = unicorn
+			and ({Color3.fromRGB(255,120,200),Color3.fromRGB(120,200,255),Color3.fromRGB(255,210,120)})[(i%3)+1]
+			or plainMane
+		box(model,{Name="Mane",Color=mc,Material=unicorn and SHINE or SMOOTH},
 			Vector3.new(0,0.95-i*0.45,-1.0+i*0.0)*s, Vector3.new(0.4,0.5,0.25)*s)
 	end
 	-- tail
-	box(model,{Name="Tail",Color=unicorn and (rColor or color) or color,Material=unicorn and NEON or SMOOTH},
+	box(model,{Name="Tail",Color=unicorn and (rColor or color) or color,Material=unicorn and SHINE or SMOOTH},
 		Vector3.new(0,0.2,1.25)*s, Vector3.new(0.35,1.4,0.35)*s, CFrame.Angles(math.rad(20),0,0))
 	if unicorn then
-		cyl(model,{Name="Horn",Color=rColor or Color3.new(1,1,1),Material=NEON}, hp+Vector3.new(0,0.7,-0.5)*s, Vector3.new(1.0,0.25,0.25)*s, CFrame.Angles(0,0,math.rad(90)))
-		addGlow(body, rColor or Color3.fromRGB(200,150,255), 1.2)
+		cyl(model,{Name="Horn",Color=rColor or Color3.new(1,1,1),Material=SHINE}, hp+Vector3.new(0,0.7,-0.5)*s, Vector3.new(1.0,0.25,0.25)*s, CFrame.Angles(0,0,math.rad(90)))
 		addAura(body, rColor or Color3.fromRGB(200,150,255), 12)
 	end
-	eyes(model, hp, s, Color3.fromRGB(120,70,180))
+	-- Purple eyes are a unicorn's too; a horse gets the default soft navy.
+	eyes(model, hp, s, unicorn and Color3.fromRGB(120,70,180) or nil)
 	return body
 end
 
@@ -280,40 +285,38 @@ local function buildDragon(model, s, color, rColor)
 	-- wings (angled flat slabs)
 	box(model,{Name="WingL",Color=color,Material=SMOOTH}, Vector3.new(1.4,0.6,0.2)*s, Vector3.new(2.4,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(35)))
 	box(model,{Name="WingR",Color=color,Material=SMOOTH}, Vector3.new(-1.4,0.6,0.2)*s, Vector3.new(2.4,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(-35)))
-	box(model,{Name="WingLNeon",Color=rColor or color,Material=NEON}, Vector3.new(1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(35)))
-	box(model,{Name="WingRNeon",Color=rColor or color,Material=NEON}, Vector3.new(-1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(-35)))
+	box(model,{Name="WingLWeb",Color=rColor or color,Material=SHINE}, Vector3.new(1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(35)))
+	box(model,{Name="WingRWeb",Color=rColor or color,Material=SHINE}, Vector3.new(-1.4,0.55,0.2)*s, Vector3.new(2.2,0.06,1.6)*s, CFrame.Angles(0,0,math.rad(-35)))
 	-- spine spikes
 	for i=0,3 do
-		wedge(model,{Name="Spine",Color=rColor or color,Material=NEON}, Vector3.new(0,0.75,-0.4+i*0.6)*s, Vector3.new(0.18,0.45,0.3)*s)
+		wedge(model,{Name="Spine",Color=rColor or color,Material=SHINE}, Vector3.new(0,0.75,-0.4+i*0.6)*s, Vector3.new(0.18,0.45,0.3)*s)
 	end
 	-- tail
 	box(model,{Name="Tail1",Color=color,Material=SMOOTH}, Vector3.new(0,0.2,1.2)*s, Vector3.new(0.6,0.6,1.2)*s)
-	wedge(model,{Name="TailTip",Color=rColor or color,Material=NEON}, Vector3.new(0,0.2,1.95)*s, Vector3.new(0.5,0.7,0.6)*s)
-	addGlow(body, rColor or Color3.fromRGB(255,100,0), 1.2)
+	wedge(model,{Name="TailTip",Color=rColor or color,Material=SHINE}, Vector3.new(0,0.2,1.95)*s, Vector3.new(0.5,0.7,0.6)*s)
 	addAura(body, rColor or color, 14)
 	eyes(model, hp, s, Color3.fromRGB(255,60,60))
 	return body
 end
 
 local function buildPhoenix(model, s, color, rColor)
-	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=NEON}, Vector3.new(0,0,0), 1.5*s)
+	local body = ball(model,{Name="HumanoidRootPart",Color=color,Material=SHINE}, Vector3.new(0,0,0), 1.5*s)
 	local hp = Vector3.new(0,0.9,-0.5)*s
-	ball(model,{Name="Head",Color=color,Material=NEON}, hp, 1.0*s)
+	ball(model,{Name="Head",Color=color,Material=SHINE}, hp, 1.0*s)
 	wedge(model,{Name="Beak",Color=Color3.fromRGB(255,200,60),Material=SMOOTH}, hp+Vector3.new(0,-0.05,-0.55)*s, Vector3.new(0.28,0.3,0.4)*s, CFrame.Angles(0,math.rad(180),0))
 	-- crest
 	for i=0,2 do
-		wedge(model,{Name="Crest",Color=rColor or color,Material=NEON}, hp+Vector3.new(0,0.55+i*0.15,0.1+i*0.05)*s, Vector3.new(0.2,0.5+i*0.15,0.15)*s)
+		wedge(model,{Name="Crest",Color=rColor or color,Material=SHINE}, hp+Vector3.new(0,0.55+i*0.15,0.1+i*0.05)*s, Vector3.new(0.2,0.5+i*0.15,0.15)*s)
 	end
 	-- big spread wings
-	box(model,{Name="WingL",Color=color,Material=NEON}, Vector3.new(1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(20)))
-	box(model,{Name="WingR",Color=color,Material=NEON}, Vector3.new(-1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(-20)))
-	box(model,{Name="WingLTip",Color=rColor or Color3.new(1,1,1),Material=NEON}, Vector3.new(2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(20)))
-	box(model,{Name="WingRTip",Color=rColor or Color3.new(1,1,1),Material=NEON}, Vector3.new(-2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(-20)))
+	box(model,{Name="WingL",Color=color,Material=SHINE}, Vector3.new(1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(20)))
+	box(model,{Name="WingR",Color=color,Material=SHINE}, Vector3.new(-1.7,0.3,0.1)*s, Vector3.new(3.0,0.14,2.0)*s, CFrame.Angles(0,0,math.rad(-20)))
+	box(model,{Name="WingLTip",Color=rColor or Color3.new(1,1,1),Material=SHINE}, Vector3.new(2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(20)))
+	box(model,{Name="WingRTip",Color=rColor or Color3.new(1,1,1),Material=SHINE}, Vector3.new(-2.6,0.5,0.1)*s, Vector3.new(1.4,0.1,1.6)*s, CFrame.Angles(0,0,math.rad(-20)))
 	-- tail feathers
 	for i=-1,1 do
-		box(model,{Name="TailF",Color=(i==0) and (rColor or color) or color,Material=NEON}, Vector3.new(i*0.3,0.1,1.0)*s, Vector3.new(0.2,0.2,1.4+math.abs(i)*0.3)*s, CFrame.Angles(math.rad(18),0,0))
+		box(model,{Name="TailF",Color=(i==0) and (rColor or color) or color,Material=SHINE}, Vector3.new(i*0.3,0.1,1.0)*s, Vector3.new(0.2,0.2,1.4+math.abs(i)*0.3)*s, CFrame.Angles(math.rad(18),0,0))
 	end
-	addGlow(body, rColor or Color3.fromRGB(255,120,0), 2)
 	addAura(body, Color3.fromRGB(255,120,0), 24)
 	eyes(model, hp, s, Color3.fromRGB(255,240,60))
 	return body
@@ -331,7 +334,6 @@ local function buildGriffin(model, s, color, rColor)
 	box(model,{Name="WingL",Color=color,Material=SMOOTH}, Vector3.new(1.5,0.5,0.1)*s, Vector3.new(2.6,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(28)))
 	box(model,{Name="WingR",Color=color,Material=SMOOTH}, Vector3.new(-1.5,0.5,0.1)*s, Vector3.new(2.6,0.12,1.8)*s, CFrame.Angles(0,0,math.rad(-28)))
 	box(model,{Name="Tail",Color=Color3.fromRGB(220,180,80),Material=SMOOTH}, Vector3.new(0,0.2,1.2)*s, Vector3.new(0.35,0.35,1.0)*s)
-	if rColor then addGlow(body, rColor, 1); addAura(body, rColor, 16) end
 	eyes(model, hp, s, Color3.fromRGB(255,200,60))
 	return body
 end
@@ -349,9 +351,8 @@ local function buildSerpent(model, s, color, rColor)
 	local hp = Vector3.new(0,0.3,-1.1)*s
 	box(model,{Name="Head",Color=color,Material=SMOOTH}, hp, Vector3.new(1.4,1.0,1.5)*s)
 	-- cobra frill
-	wedge(model,{Name="FrillL",Color=rColor or color,Material=NEON}, hp+Vector3.new(0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(-90)))
-	wedge(model,{Name="FrillR",Color=rColor or color,Material=NEON}, hp+Vector3.new(-0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(90)))
-	addGlow(body, rColor or Color3.fromRGB(140,60,255), 1.5)
+	wedge(model,{Name="FrillL",Color=rColor or color,Material=SHINE}, hp+Vector3.new(0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(-90)))
+	wedge(model,{Name="FrillR",Color=rColor or color,Material=SHINE}, hp+Vector3.new(-0.7,0.1,0.2)*s, Vector3.new(0.1,1.0,0.9)*s, CFrame.Angles(0,0,math.rad(90)))
 	addAura(body, rColor or Color3.fromRGB(140,60,255), 22)
 	eyes(model, hp, s, rColor or Color3.fromRGB(180,80,255))
 	return body
@@ -363,7 +364,6 @@ local function buildGeneric(model, s, color, rColor)
 	ball(model,{Name="Head",Color=color,Material=SMOOTH}, hp, 1.1*s)
 	box(model,{Name="FootL",Color=color,Material=SMOOTH}, Vector3.new(0.45,-0.7,-0.2)*s, Vector3.new(0.4,0.3,0.6)*s)
 	box(model,{Name="FootR",Color=color,Material=SMOOTH}, Vector3.new(-0.45,-0.7,-0.2)*s, Vector3.new(0.4,0.3,0.6)*s)
-	if rColor then addGlow(body, rColor, 1); addAura(body, rColor, 8) end
 	eyes(model, hp, s)
 	return body
 end
@@ -371,27 +371,64 @@ end
 -- ============================================================
 -- NAME -> BUILDER
 -- ============================================================
+-- Species -> the builder that fits its shape.
+--
+-- Keyed by a NORMALISED name: lower case, no spaces. The roster was renamed at
+-- some point from "Kitten", "Puppy", "Dragon" to "cat", "dog", "dragon", and
+-- this table was keyed on the old exact names, so the lookup missed every one.
+-- 51 of 52 species fell through to buildGeneric: every pet in the game was the
+-- same lump in a different colour, while twelve hand-written builders — cats,
+-- dogs, birds, owls, foxes, wolves, bears, dragons, phoenixes, horses,
+-- griffins — sat unused. Nothing errors when this happens, which is why it
+-- went unnoticed.
+--
+-- A species with no builder that genuinely fits its shape is left on the
+-- generic model on purpose. An ant drawn as a cat is worse than an ant drawn
+-- as a lump.
+local function bird(owl)
+	return function(m,s,c,r) return buildBird(m,s,c,r,owl) end
+end
+local function horse(horned)
+	return function(m,s,c,r) return buildHorse(m,s,c,r,horned) end
+end
+
 local builders = {
-	Kitten             = buildCat,
-	Puppy              = buildDog,
-	Bunny              = buildBunny,
-	Chick              = function(m,s,c,r) return buildBird(m,s,c,r,false) end,
-	Owl                = function(m,s,c,r) return buildBird(m,s,c,r,true)  end,
-	Fox                = buildFox,
-	Wolf               = buildWolf,
-	Panda              = buildBear,
-	Tiger              = buildCat,
-	["Snow Leopard"]   = buildCat,
-	Dragon             = buildDragon,
-	Phoenix            = buildPhoenix,
-	Kirin              = function(m,s,c,r) return buildHorse(m,s,c,r,true) end,
-	Unicorn            = function(m,s,c,r) return buildHorse(m,s,c,r,true) end,
-	["Cosmic Griffin"] = buildGriffin,
-	["Shadow Wolf"]    = buildWolf,
-	["Celestial Dragon"]= buildDragon,
-	["Star Phoenix"]   = buildPhoenix,
-	["Void Serpent"]   = buildSerpent,
+	-- small four-legged
+	cat = buildCat, rat = buildCat, squirrel = buildCat, raccoon = buildCat,
+	dog = buildDog,
+	rabbit = buildBunny,
+	fox = buildFox, superfox = buildFox,
+	wolf = buildWolf,
+	-- heavy four-legged
+	bear = buildBear, panda = buildBear, koala = buildBear, wightbear = buildBear,
+	hippo = buildBear, elephant = buildBear, buffalo = buildBear, bull = buildBear,
+	-- hoofed
+	horse = horse(false), fawn = horse(false), reindeer = horse(false),
+	camel = horse(false), snowram = horse(false),
+	-- birds and anything with wings and a beak
+	chicken = bird(false), parrot = bird(false), eagle = bird(false),
+	penguin = bird(false), flamingo = bird(false), bat = bird(false),
+	owl = bird(true),
+	-- the showy ones: crest and a fanned tail
+	peacock = buildPhoenix, goldenpeacock = buildPhoenix,
+	dragon = buildDragon,
+	-- long and segmented
+	snake = buildSerpent, desertsnake = buildSerpent, worm = buildSerpent,
+	voidserpent = buildSerpent,
+
+	-- Old names, kept so a save or a config that still uses them resolves.
+	kitten = buildCat, puppy = buildDog, bunny = buildBunny,
+	chick = bird(false),
+	tiger = buildCat, snowleopard = buildCat, shadowwolf = buildWolf,
+	phoenix = buildPhoenix, starphoenix = buildPhoenix,
+	celestialdragon = buildDragon,
+	unicorn = horse(true), kirin = horse(true),
+	cosmicgriffin = buildGriffin,
 }
+
+local function builderKey(name)
+	return string.lower((string.gsub(tostring(name or ""), "%s", "")))
+end
 
 -- ============================================================
 -- PUBLIC
@@ -488,7 +525,7 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	-- 2) Otherwise fall back to the procedural part model
 	if not model then
 		model = Instance.new("Model")
-		local builder = builders[petData.name] or buildGeneric
+		local builder = builders[builderKey(petData.name)] or buildGeneric
 		root = builder(model, s, petData.color, rColor)
 	end
 
@@ -498,7 +535,7 @@ function PetModels.Build(petData, uniqueId, rarityInfo, mut)
 	if mut and root then
 		local att = Instance.new("Attachment"); att.Parent = root
 		local pe = Instance.new("ParticleEmitter"); pe.Parent = att
-		pe.Color = ColorSequence.new(mut.color); pe.LightEmission = 0.7
+		pe.Color = ColorSequence.new(mut.color); pe.LightEmission = 0; pe.LightInfluence = 1
 		pe.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0.45),NumberSequenceKeypoint.new(1,0)})
 		pe.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,1)})
 		pe.Lifetime = NumberRange.new(0.6,1.1); pe.Rate = 16; pe.Speed = NumberRange.new(1,2.5)

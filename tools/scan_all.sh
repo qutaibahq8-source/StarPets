@@ -21,6 +21,7 @@ run "map build"  python3 tools/check_map.py
 run "data safety" python3 tools/check_data.py
 run "trading"    python3 tools/check_trade.py
 run "pets"       python3 tools/check_pets.py
+run "pet models" python3 tools/check_petmodels.py
 run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py
