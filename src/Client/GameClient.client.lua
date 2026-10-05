@@ -251,6 +251,13 @@ local prevGems, prevAreas, prevRebirths, prevEquipped = nil, nil, nil, nil
 -- One ping per pickup at that rate is a buzz, not a sound.
 local lastCoinPing = 0
 
+-- The HUD's movable pieces, kept so layoutHUD can rearrange them when the
+-- screen changes size.
+local statChips = {}
+local dockButtons = {}
+local moreBtn = nil
+local dockExpanded = false
+
 local function buildHUD()
 	HUD = Instance.new("ScreenGui")
 	HUD.Name="MysticPetsHUD"; HUD.ResetOnSpawn=false
@@ -286,10 +293,12 @@ local function buildHUD()
 		valLbl.TextColor3=textColor; valLbl.TextScaled=true
 		valLbl.Font=Enum.Font.GothamBold; valLbl.TextXAlignment=Enum.TextXAlignment.Left
 		valLbl.Parent=chip
+		table.insert(statChips, chip)
 		return valLbl
 	end
 
 	-- Right-aligned so they clear the Roblox menu/chat/voice icons (top-left).
+	-- These are the DESKTOP positions; layoutHUD moves them on a narrow screen.
 	CoinLabel   = statChip(UDim2.new(1,-493,0,8), "💰","0",   Color3.fromRGB(255,215,0),  Color3.fromRGB(50,35,10))
 	GemLabel    = statChip(UDim2.new(1,-328,0,8), "💎","0",   Color3.fromRGB(0,200,255),  Color3.fromRGB(0,20,40))
 	PetCountLabel = statChip(UDim2.new(1,-163,0,8),"🐾","0/0", Color3.fromRGB(200,150,255),Color3.fromRGB(30,15,50))
@@ -323,43 +332,27 @@ local function buildHUD()
 		{ name="Playtime",emoji="⏱️", panel="PlaytimePanel",   color=Color3.fromRGB(90,200,255) },
 		{ name="Spin",    emoji="🎡", panel="SpinWheelPanel",   color=Color3.fromRGB(255,120,200) },
 	}
-	-- Clean centered button DOCK along the bottom (wraps into rows) — not stacked on one side
-	local btnSize = 50
-	local btnGap  = 6
-	local perRow  = 8
-	local n       = #navButtons
-	local numRows = math.ceil(n / perRow)
-	local bottomMargin = 16
+	-- Button DOCK along the bottom. Buttons are made once here and PLACED by
+	-- layoutHUD, which runs again whenever the screen changes size.
+	--
+	-- The old dock was eight across at 50px: 442 points wide. A portrait phone
+	-- is about 390, so the outer buttons hung off both edges and the rest sat
+	-- on top of Roblox's own thumbstick and jump button.
+	local PRIMARY = { Pets=true, Index=true, Quests=true, Upgrade=true, Shop=true }
 
-	for i, btn in ipairs(navButtons) do
-		local row      = math.floor((i-1) / perRow)
-		local idxInRow = (i-1) % perRow
-		local rowCount = math.min(perRow, n - row*perRow)
-		local rowW     = rowCount*btnSize + (rowCount-1)*btnGap
-		local xoff     = -rowW/2 + idxInRow*(btnSize+btnGap)
-		local rowsFromBottom = (numRows-1) - row
-		local yoff     = -bottomMargin - btnSize - rowsFromBottom*(btnSize+btnGap)
-
+	local function dockButton(label, color)
 		local b = Instance.new("TextButton")
-		b.Size     = UDim2.new(0, btnSize, 0, btnSize)
-		b.Position = UDim2.new(0.5, xoff, 1, yoff)
 		b.BackgroundColor3 = Color3.fromRGB(18,14,35)
 		b.BackgroundTransparency = 0.15
-		b.Text     = btn.emoji.."\n"..btn.name
+		b.Text     = label
 		b.TextColor3 = Color3.new(1,1,1)
 		b.TextScaled = true
 		b.Font     = Enum.Font.GothamBold
 		b.BorderSizePixel = 0
 		b.Parent   = HUD
 		Instance.new("UICorner",b).CornerRadius = UDim.new(0,14)
-
 		local stroke = Instance.new("UIStroke",b)
-		stroke.Color = btn.color; stroke.Thickness = 2; stroke.Transparency = 0.4
-
-		b.MouseButton1Click:Connect(function()
-			local UIController = require(script.Parent.UI.UIController)
-			UIController.TogglePanel(btn.panel, CurrentData)
-		end)
+		stroke.Color = color; stroke.Thickness = 2; stroke.Transparency = 0.4
 		b.MouseEnter:Connect(function()
 			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0}):Play()
 			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0}):Play()
@@ -368,6 +361,106 @@ local function buildHUD()
 			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0.15}):Play()
 			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0.4}):Play()
 		end)
+		return b
+	end
+
+	for _, btn in ipairs(navButtons) do
+		local b = dockButton(btn.emoji.."\n"..btn.name, btn.color)
+		b.Name = "Dock_"..btn.name
+		b.MouseButton1Click:Connect(function()
+			local UIController = require(script.Parent.UI.UIController)
+			UIController.TogglePanel(btn.panel, CurrentData)
+		end)
+		table.insert(dockButtons, { b = b, primary = PRIMARY[btn.name] == true })
+	end
+
+	-- "More": only shown on a narrow screen, where it opens the rest of the dock.
+	moreBtn = dockButton("⋯\nMore", Color3.fromRGB(200,200,220))
+	moreBtn.Name = "Dock_More"
+	moreBtn.Visible = false
+end
+
+-- Lay the HUD out for the screen it is on.
+--
+-- A desktop keeps exactly the layout it always had. Below COMPACT points wide:
+--   * the three counters share the width to the right of Roblox's own menu
+--     button, instead of sitting at fixed offsets from the right edge — which
+--     on a phone put the COIN counter 103 points off the left of the screen
+--   * the rebirth badge drops below the bar instead of being drawn on top of
+--     the gem and pet counters
+--   * the dock shows its five most used buttons plus "More", sized to the
+--     44-point touch target, and wraps to fit rather than hanging off the edge
+local COMPACT = 700
+local DESKTOP_CHIPS = { -493, -328, -163 }
+
+local function viewportWidth()
+	local cam = workspace.CurrentCamera
+	local w = cam and cam.ViewportSize and cam.ViewportSize.X
+	if type(w) ~= "number" or w <= 0 then return 1280 end
+	return w
+end
+
+local function layoutHUD()
+	if not HUD then return end
+	local W = viewportWidth()
+	local compact = W < COMPACT
+
+	-- ---- top bar ----
+	if compact then
+		local left = 64                       -- clear of Roblox's menu button
+		local gap = 6
+		local cw = math.max(70, math.floor((W - left - 8 - gap * 2) / 3))
+		for i, chip in ipairs(statChips) do
+			chip.Size = UDim2.new(0, cw, 0, 40)
+			chip.Position = UDim2.new(0, left + (i - 1) * (cw + gap), 0, 9)
+		end
+		if RebirthLabel then
+			RebirthLabel.Size = UDim2.new(0, 150, 0, 26)
+			RebirthLabel.Position = UDim2.new(0.5, -75, 0, 62)
+		end
+	else
+		for i, chip in ipairs(statChips) do
+			chip.Size = UDim2.new(0, 155, 0, 42)
+			chip.Position = UDim2.new(1, DESKTOP_CHIPS[i] or -163, 0, 8)
+		end
+		if RebirthLabel then
+			RebirthLabel.Size = UDim2.new(0, 160, 0, 38)
+			RebirthLabel.Position = UDim2.new(0.5, -80, 0, 10)
+		end
+	end
+
+	-- ---- dock ----
+	local size = compact and 44 or 50
+	local gap = compact and 5 or 6
+	local visible = {}
+	for _, d in ipairs(dockButtons) do
+		local show = (not compact) or dockExpanded or d.primary
+		d.b.Visible = show
+		if show then table.insert(visible, d.b) end
+	end
+	if moreBtn then
+		moreBtn.Visible = compact
+		moreBtn.Text = dockExpanded and "✕\nLess" or "⋯\nMore"
+		if compact then table.insert(visible, moreBtn) end
+	end
+
+	local perRow = compact
+		and math.max(1, math.floor((W - 24 + gap) / (size + gap)))
+		or 8
+	perRow = math.min(perRow, 8)
+	local n = #visible
+	local numRows = math.ceil(n / perRow)
+	local bottomMargin = 16
+	for i, b in ipairs(visible) do
+		local row      = math.floor((i-1) / perRow)
+		local idxInRow = (i-1) % perRow
+		local rowCount = math.min(perRow, n - row*perRow)
+		local rowW     = rowCount*size + (rowCount-1)*gap
+		local xoff     = -rowW/2 + idxInRow*(size+gap)
+		local rowsFromBottom = (numRows-1) - row
+		local yoff     = -bottomMargin - size - rowsFromBottom*(size+gap)
+		b.Size     = UDim2.new(0, size, 0, size)
+		b.Position = UDim2.new(0.5, xoff, 1, yoff)
 	end
 end
 
@@ -667,6 +760,7 @@ _G.MysticPets = {
 	RF_Admin=RF_Admin, RE_PetCmd=RE_PetCmd,
 	getPlayer=function() return Player end,
 	getData=function() return CurrentData end,
+	layoutHUD=function() layoutHUD() end,
 }
 
 -- Admin button — only appears for authorized users (server decides)
@@ -689,6 +783,30 @@ end)
 -- INIT
 -- ============================================================
 buildHUD()
+layoutHUD()
+
+if moreBtn then
+	moreBtn.MouseButton1Click:Connect(function()
+		dockExpanded = not dockExpanded
+		layoutHUD()
+	end)
+end
+
+-- Follow the screen: rotating a phone, resizing a window, or the camera
+-- arriving after this script ran all change the viewport.
+local function watchCamera(cam)
+	if not cam then return end
+	pcall(function()
+		cam:GetPropertyChangedSignal("ViewportSize"):Connect(layoutHUD)
+	end)
+	layoutHUD()
+end
+watchCamera(workspace.CurrentCamera)
+pcall(function()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		watchCamera(workspace.CurrentCamera)
+	end)
+end)
 
 local ok, data = pcall(function() return RF_GetData:InvokeServer() end)
 if ok and data then onDataUpdated(data) end

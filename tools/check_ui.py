@@ -192,6 +192,103 @@ def main():
         else:
             print("   ok  and so do buttons created later")
 
+    # ---- THE HUD -----------------------------------------------------------
+    # Panels open and close; the HUD is on screen the whole game. It was never
+    # measured, and on a 390-point phone the coin counter started 103 points
+    # off the left edge, the rebirth badge was drawn over the other two
+    # counters, and the dock was 442 points wide.
+    hud = gui["FindFirstChild"](gui, "MysticPetsHUD")
+    layout = lua.globals()._G.MysticPets and lua.globals()._G.MysticPets.layoutHUD
+
+    def rect(inst, W, H):
+        pos, sz = inst._p.Position, inst._p.Size
+        x = float(pos["X"]["Scale"] or 0) * W + float(pos["X"]["Offset"] or 0)
+        y = float(pos["Y"]["Scale"] or 0) * H + float(pos["Y"]["Offset"] or 0)
+        w = float(sz["X"]["Scale"] or 0) * W + float(sz["X"]["Offset"] or 0)
+        h = float(sz["Y"]["Scale"] or 0) * H + float(sz["Y"]["Offset"] or 0)
+        return x, y, w, h
+
+    def overlaps(a, b):
+        return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and \
+            a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+    def at_width(W, H):
+        lua.execute("""
+            local cam = workspace.CurrentCamera or Instance.new("Camera")
+            cam.ViewportSize = Vector2.new(%d, %d)
+            workspace.CurrentCamera = cam
+        """ % (W, H))
+        layout()
+        top = [c for c in hud["GetDescendants"](hud).values()
+               if str(c._p.ClassName) == "Frame" and c._p.Parent is not None
+               and str(c._p.Parent._p.ClassName) == "Frame"
+               and c["FindFirstChildOfClass"](c, "UIStroke") is not None
+               and c._p.Size is not None and float(c._p.Size["Y"]["Offset"] or 0) >= 38]
+        badge = [c for c in hud["GetDescendants"](hud).values()
+                 if str(c._p.ClassName) == "TextLabel" and "Rebirth" in str(c._p.Text or "")]
+        dock = [c for c in hud["GetChildren"](hud).values()
+                if str(c._p.Name).startswith("Dock_") and c._p.Visible is not False]
+        return top, badge, dock
+
+    if hud is None or layout is None:
+        fails.append("the HUD or its layout function is missing")
+    else:
+        PHONE = (390, 844)
+        chips, badge, dock = at_width(*PHONE)
+        off = []
+        for c in chips + dock:
+            x, y, w, h = rect(c, *PHONE)
+            if x < 0 or x + w > PHONE[0]:
+                off.append("%s at x %d..%d" % (str(c._p.Name), x, x + w))
+        if off:
+            fails.append("on a %d-point phone the HUD runs off screen: %s"
+                         % (PHONE[0], ", ".join(off[:5])))
+        else:
+            print("   ok  every counter and dock button is on a %d-point screen"
+                  % PHONE[0])
+
+        clash = [str(c._p.Name) for c in chips for b in badge
+                 if overlaps(rect(c, *PHONE), rect(b, *PHONE))]
+        if clash:
+            fails.append("the rebirth badge is drawn over the counters on a phone")
+        else:
+            print("   ok  the rebirth badge sits clear of the counters")
+
+        small = [str(c._p.Name) for c in dock if rect(c, *PHONE)[2] < 44]
+        if small:
+            fails.append("dock buttons under the 44-point touch target: %s" % small)
+        elif not any(str(c._p.Name) == "Dock_More" for c in dock):
+            fails.append("a phone shows a cut-down dock with no way to reach the rest")
+        else:
+            print("   ok  %d dock buttons at 44pt or more, with More for the rest"
+                  % len(dock))
+
+        # Opening More must still fit.
+        mores = [c for c in dock if str(c._p.Name) == "Dock_More"]
+        more = mores[0] if mores else None
+        if more is not None:
+            lua.eval("function(b) b.MouseButton1Click:Fire() end")(more)
+            _, _, opened = at_width(*PHONE)
+            spill = [str(c._p.Name) for c in opened
+                     if rect(c, *PHONE)[0] < 0 or sum(rect(c, *PHONE)[0:3:2]) > PHONE[0]]
+            if len(opened) <= len(dock):
+                fails.append("pressing More did not open the rest of the dock")
+            elif spill:
+                fails.append("the opened dock runs off screen: %s" % spill[:4])
+            else:
+                print("   ok  More opens all %d buttons, still on screen" % len(opened))
+            lua.eval("function(b) b.MouseButton1Click:Fire() end")(more)
+
+        # And a desktop keeps the look it had.
+        chips_d, _, dock_d = at_width(1280, 720)
+        xs = sorted(int(rect(c, 1280, 720)[0]) for c in chips_d)
+        if xs != [1280 - 493, 1280 - 328, 1280 - 163]:
+            fails.append("the desktop counters moved (%s)" % xs)
+        elif len(dock_d) != 15:
+            fails.append("the desktop dock shows %d buttons, not all 15" % len(dock_d))
+        else:
+            print("   ok  a desktop keeps exactly the layout it had")
+
     if fails:
         print("\n%d problem(s):" % len(fails))
         for f in fails:

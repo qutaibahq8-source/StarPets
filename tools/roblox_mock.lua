@@ -263,6 +263,26 @@ function Methods.IsA(self, cls)
 	return false
 end
 
+-- inst:GetPropertyChangedSignal("Prop") is a METHOD returning a signal for that
+-- property. It used to be listed among the signals, which made it a table, so
+-- calling it threw — anything that reacts to a property (a layout that follows
+-- the screen size, say) could not be run here at all.
+function Methods.GetPropertyChangedSignal(self, prop)
+	local per = rawget(self, "_psig")
+	if not per then per = {}; rawset(self, "_psig", per) end
+	if not per[prop] then
+		local handlers = {}
+		per[prop] = {
+			Connect = function(_, fn)
+				table.insert(handlers, fn)
+				return { Disconnect = function() end, Connected = true }
+			end,
+			Fire = function(_, ...) for _, fn in ipairs(handlers) do fn(...) end end,
+		}
+	end
+	return per[prop]
+end
+
 function Methods.SetAttribute(self, k, v) rawget(self, "_a")[k] = v end
 function Methods.GetAttribute(self, k) return rawget(self, "_a")[k] end
 function Methods.GetAttributes(self) return rawget(self, "_a") end
@@ -318,7 +338,7 @@ local SIGNALS = {
 	InputChanged = true, SelectionGained = true, SelectionLost = true,
 	FocusLost = true, TouchTap = true, TouchSwipe = true,
 	MouseWheelForward = true, MouseWheelBackward = true,
-	AttributeChanged = true, GetPropertyChangedSignal = true,
+	AttributeChanged = true,
 	PromptButtonHoldBegan = true, PromptButtonHoldEnded = true,
 	PromptShown = true, PromptHidden = true, ChildrenChanged = true,
 	-- Plugin toolbar buttons. Without Click here, every plugin button is a
