@@ -68,7 +68,7 @@ def boot(short_delays=False, loopback=False):
            if short_delays else "function(_, f, ...) end"))
     lua.execute("""
         __ERRORS = {}
-        __WARNINGS = {}
+        __WARNINGS = __WARNINGS or {}   -- keeps what the server said at startup
         warn = function(...)
             local p = {}
             for i = 1, select('#', ...) do p[i] = tostring((select(i, ...))) end

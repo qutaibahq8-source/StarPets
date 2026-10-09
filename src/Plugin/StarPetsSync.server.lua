@@ -553,6 +553,29 @@ local function buildReport()
 		w("    %-7s %3d scripts  %s lines", name, n, comma(lines))
 	end
 
+	-- ---- selling ------------------------------------------------
+	-- Read from GameConfig's text, not by requiring it: a plugin should not
+	-- run the game's code to describe it.
+	local shared = ReplicatedStorage:FindFirstChild("Shared")
+	local cfgModule = shared and shared:FindFirstChild("GameConfig")
+	if cfgModule and cfgModule:IsA("ModuleScript") then
+		local unset, total = {}, 0
+		for key, id in tostring(cfgModule.Source):gmatch(
+			'key%s*=%s*"(GP_[%w_]+)"[^\n]-robloxId%s*=%s*(%d+)') do
+			total = total + 1
+			if tonumber(id) == 0 then table.insert(unset, key) end
+		end
+		w("")
+		w("SELLING")
+		w("  gamepasses: %d, with a Roblox ID: %d", total, total - #unset)
+		if #unset > 0 then
+			w("  no ID yet: %s", table.concat(unset, ", "))
+			table.insert(warnings, #unset .. " gamepass(es) have no Roblox ID, so the "
+				.. "Shop cannot sell them — create them in Creator Dashboard > "
+				.. "Monetization > Passes and put each ID in GameConfig.Gamepasses")
+		end
+	end
+
 	-- ---- the world ----------------------------------------------
 	w("")
 	w("WORKSPACE")

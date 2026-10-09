@@ -11,6 +11,23 @@ local PetService  = require(script.Parent.PetService)
 
 local GamepassService = {}
 
+-- Passes that cannot be sold yet, said ONCE when the server starts, where the
+-- owner will see it in Studio's Output — not once per click, buried among
+-- everything else. Until each has an ID, the Shop's Buy button for it can do
+-- nothing but tell the player so.
+do
+	local unset = {}
+	for _, gp in ipairs(GameConfig.Gamepasses) do
+		if gp.robloxId == 0 then table.insert(unset, gp.key) end
+	end
+	if #unset > 0 then
+		warn(("[StarPets] %d gamepass(es) have no Roblox ID, so the Shop cannot sell "
+			.. "them: %s. Create each at create.roblox.com > this experience > "
+			.. "Monetization > Passes, then put its ID in GameConfig.Gamepasses.")
+			:format(#unset, table.concat(unset, ", ")))
+	end
+end
+
 -- ============================================================
 -- CHECK & GRANT
 -- ============================================================
@@ -54,13 +71,15 @@ function GamepassService.PromptPurchase(player, gpKey)
 	for _, gp in ipairs(GameConfig.Gamepasses) do
 		if gp.key == gpKey then
 			if gp.robloxId == 0 then
-				warn("[GamepassService] Cannot prompt purchase: robloxId not set for " .. gpKey)
-				return
+				-- Said to the player, who pressed Buy and would otherwise see
+				-- nothing happen at all. The owner was told at startup.
+				return false, gp.name .. " isn't on sale yet."
 			end
 			MarketplaceService:PromptGamePassPurchase(player, gp.robloxId)
-			return
+			return true
 		end
 	end
+	return false, "That pass doesn't exist."
 end
 
 -- ============================================================

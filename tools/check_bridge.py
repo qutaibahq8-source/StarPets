@@ -466,6 +466,17 @@ def main():
     else:
         print("  ok  the snapshot carries no credential")
 
+    # Every gamepass in the repo has robloxId = 0 until the owner creates it on
+    # the website, and until then the Shop cannot sell it. That is the kind of
+    # thing the snapshot exists to say out loud.
+    unsold = [k for k in ("GP_2xCoins", "GP_VIP") if k in rep.split("SELLING", 1)[-1]]
+    if "SELLING" not in rep or len(unsold) < 2 or "cannot sell" not in rep:
+        fails.append("the snapshot does not report the gamepasses with no Roblox "
+                     "ID — the Shop's Buy buttons cannot sell them")
+    else:
+        line = [ln for ln in rep.splitlines() if "gamepasses:" in ln][0].strip()
+        print("  ok  the snapshot reports what cannot be sold (%s)" % line)
+
     # The folders the client blocks on are read out of the client's own source,
     # so this check is only meaningful if it found some.
     if "FOLDERS THE CLIENT WAITS FOR" not in rep:

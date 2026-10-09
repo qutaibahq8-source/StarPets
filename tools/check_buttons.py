@@ -226,9 +226,47 @@ def main():
         assert not problems, "%d click(s) threw — %s" % (len(problems), problems[0])
         return "%d clickables clicked, nothing threw" % len(cds)
 
+    told = lua.eval("{}")
+    lua.eval("""function(told)
+        local r = game.ReplicatedStorage.Remotes:FindFirstChild("Notification")
+        r.OnClientEvent:Connect(function(kind, msg) table.insert(told, tostring(msg)) end)
+    end""")(told)
+
+    def t_unsold_pass_says_so():
+        # No pass has a Roblox ID until the owner creates them, and Buy used to
+        # do nothing at all — a warning in Output the player never sees.
+        stock_up()
+        ctrl.CloseAll()
+        ctrl.TogglePanel("ShopPanel", data)
+        tick(2)
+        s = gui["FindFirstChild"](gui, "ShopPanel")
+        buys = [b for b in live_buttons(s).values()
+                if str(b._p.Text or "").strip() not in CLOSERS]
+        assert buys, "the Shop has no Buy buttons"
+        for k in list(told.keys()):
+            told[k] = None
+        press(buys[0])
+        tick(2)
+        said = [str(v) for v in told.values()]
+        assert any("on sale" in m for m in said), \
+            "pressed Buy on a pass with no Roblox ID and the player was told nothing"
+        return "told: %r" % [m for m in said if "on sale" in m][0]
+
+    def t_owner_told_once():
+        w = lua.eval("__WARNINGS")
+        lines = [str(w[i]) for i in range(1, len(w) + 1)]
+        startup = [x for x in lines if "have no Roblox ID" in x]
+        per_click = [x for x in lines if "Cannot prompt purchase" in x]
+        assert not per_click, "a warning per click (%d of them)" % len(per_click)
+        assert len(startup) == 1, "the owner was warned %d times" % len(startup)
+        return startup[0][:90] + "..."
+
     print("every button in every panel, against the real server:")
     for name in PANELS:
         check(name, press_panel(name))
+    print("\nselling:")
+    check("an unsold pass says so", t_unsold_pass_says_so)
+    check("the owner is told once", t_owner_told_once)
     print("\nthe world:")
     check("every clickable", t_world_clicks)
     print()

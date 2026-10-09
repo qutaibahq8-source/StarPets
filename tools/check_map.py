@@ -44,8 +44,14 @@ def build():
               "TweenInfo", "Ray"):
         G[k] = mock[k]
     lua.execute("""
+        -- Recorded, not dropped: what the server says while it starts (an
+        -- unsold gamepass, a map action with no handler) is worth checking.
         __WARNINGS = {}
-        warn = function(...) end
+        warn = function(...)
+            local p = {}
+            for i = 1, select('#', ...) do p[i] = tostring((select(i, ...))) end
+            __WARNINGS[#__WARNINGS+1] = table.concat(p, ' ')
+        end
         task = { spawn=function() end, defer=function() end, delay=function() end,
                  wait=function() return .03 end }
         wait = function() return .03 end

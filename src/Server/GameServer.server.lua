@@ -1385,7 +1385,8 @@ RE_DeletePet.OnServerEvent:Connect(function(player,uniqueId)
 end)
 
 RE_BuyGamepass.OnServerEvent:Connect(function(player,gpKey)
-	GamepassService.PromptPurchase(player,gpKey)
+	local ok, why = GamepassService.PromptPurchase(player,gpKey)
+	if not ok then RE_Notification:FireClient(player,"info",why) end
 end)
 
 RF_GetLeaderboard.OnServerInvoke = function(player, category)
