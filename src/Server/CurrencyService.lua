@@ -37,6 +37,10 @@ local function createOrb(position, value, isGem, areaId)
 	end
 	orb.Anchored   = true
 	orb.CanCollide = false
+	-- Out of mouse picking: a click goes to the first part under the cursor,
+	-- and a coin in front of an egg would take the click meant for the egg.
+	-- Walking into it still collects it — that is CanTouch, not CanQuery.
+	orb.CanQuery   = false
 	orb.CastShadow = false
 	orb.Position   = position
 	orb.Parent     = OrbsFolder
@@ -54,16 +58,44 @@ function CurrencyService.SeedArea(areaId, areaOrigin, orbCount)
 	end
 	if not areaConfig then return end
 
-	for i = 1, orbCount do
+	-- Each coin is dropped onto the ground that is actually under it.
+	--
+	-- They were all placed at one fixed height, which was right while every
+	-- world was flat. The Volcano has a raised terrace now, seven studs up and
+	-- covering most of the world, so nearly every Volcano coin was buried
+	-- inside it. A ray finds the real surface; a spot whose ray lands on
+	-- something that is not open ground — a tree, a rock, the top of a wall,
+	-- a lava pool — is rerolled rather than used.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { OrbsFolder, workspace:FindFirstChild("Pets") }
+
+	local function groundAt(x, z)
+		local hit = workspace:Raycast(Vector3.new(x, areaOrigin.Y + 120, z),
+			Vector3.new(0, -240, 0), params)
+		if not hit then return nil end
+		local p = hit.Instance
+		if p.Size.X < 12 or p.Size.Z < 12 then return nil end
+		if string.sub(p.Name, 1, 4) == "Lava" then return nil end
+		return hit.Position.Y
+	end
+
+	local placed = 0
+	for _ = 1, orbCount * 6 do
+		if placed >= orbCount then break end
 		local x = areaOrigin.X + math.random(-58, 58)
 		local z = areaOrigin.Z + math.random(-85, 85)
-		local y = areaOrigin.Y + 0.4  -- low so the coin sits at ~stomach height (grass is flat now)
-		local pos = Vector3.new(x, y, z)
-
-		local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))
-		local value = isGem and 1 or areaConfig.coinOrbValue
-		createOrb(pos, value, isGem, areaId)
+		local top = groundAt(x, z)
+		if top then
+			-- 1.4 above the surface: the coin's centre at stomach height.
+			local pos = Vector3.new(x, top + 1.4, z)
+			local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))
+			local value = isGem and 1 or areaConfig.coinOrbValue
+			createOrb(pos, value, isGem, areaId)
+			placed = placed + 1
+		end
 	end
+	return placed
 end
 
 -- ============================================================

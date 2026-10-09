@@ -39,6 +39,7 @@ def build():
                 "math.round=function(x) return math.floor(x+0.5) end")
     mock = lua.execute((ROOT / "tools" / "roblox_mock.lua").read_text())
     for k in ("Vector3", "CFrame", "Color3", "Enum", "Instance", "game", "workspace", "typeof",
+              "RaycastParams",
               "Random", "UDim", "UDim2", "Vector2", "NumberRange", "NumberSequence",
               "ColorSequence", "NumberSequenceKeypoint", "ColorSequenceKeypoint",
               "TweenInfo", "Ray"):
@@ -530,6 +531,59 @@ def main():
     else:
         print("  ok  spawn sees %d sign(s) at once, %d px of text"
               % (len(at_spawn), screen))
+
+    # ---- coins on the ground ---------------------------------------------
+    # Every world has coins, and every coin sits ON its ground. The seeding
+    # was deleted once, with the old leaderboard board, and for a while not
+    # one coin existed; restored, the Volcano's coins were then buried inside
+    # its seven-stud terrace. Both are checked here.
+    ws = mock["workspace"]
+    orbs_f = ws["FindFirstChild"](ws, "Orbs")
+    orbs = list(orbs_f["GetChildren"](orbs_f).values()) if orbs_f is not None else []
+    centres = {"Meadow": 0, "Forest": 145, "Desert": 275, "Volcano": 405, "Space": 535}
+    per = {w: 0 for w in centres}
+    for o in orbs:
+        x = float(o._p.CFrame.Position.X)
+        w = min(centres, key=lambda k: abs(centres[k] - x))
+        per[w] += 1
+    thin = {w: n for w, n in per.items() if n < 30}
+    if thin:
+        bad += 1
+        print("  x   coins per world %s — a world with no coins has nothing to "
+              "walk around collecting" % per)
+    else:
+        print("  ok  coins in every world: %s" % ", ".join("%s %d" % kv for kv in per.items()))
+
+    solids = []
+    for d in ws["GetDescendants"](ws).values():
+        pr = d._p
+        if str(pr.ClassName) not in ("Part", "WedgePart", "MeshPart") or pr.CanCollide is False:
+            continue
+        if pr.CFrame is None or pr.Size is None:
+            continue
+        par = pr.Parent
+        if par is not None and str(par._p.Name) == "Orbs":
+            continue
+        c, sz, o = pr.CFrame.Position, pr.Size, pr.Orientation
+        hx, hz = float(sz.X) / 2, float(sz.Z) / 2
+        if o is not None and 45 < float(o.Y) % 180 < 135:
+            hx, hz = hz, hx
+        solids.append((str(pr.Name), float(c.X), float(c.Y), float(c.Z), hx, hz, float(sz.Y) / 2))
+    buried = []
+    for o in orbs:
+        p = o._p.CFrame.Position
+        ox, oy, oz = float(p.X), float(p.Y), float(p.Z)
+        for name, x, y, z, hx, hz, hy in solids:
+            if abs(ox - x) < hx and abs(oz - z) < hz and y - hy - 1.35 < oy < y + hy - 0.2:
+                buried.append(name)
+                break
+    if buried:
+        bad += 1
+        from collections import Counter
+        print("  x   %d coin(s) are inside something solid — nobody can reach "
+              "them: %s" % (len(buried), Counter(buried).most_common(4)))
+    else:
+        print("  ok  all %d coins sit on open ground, none buried" % len(orbs))
 
     print("\nmap: %d checks failed" % bad)
     return 1 if bad else 0

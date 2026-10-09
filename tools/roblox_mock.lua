@@ -480,6 +480,55 @@ local Instance = {
 -- Services
 -- ============================================================
 local Workspace = newInst("Workspace"); Workspace.Name = "Workspace"
+
+-- Raycasting, for straight-down rays only: "what is the ground under here?"
+-- Parts are boxes, axis-aligned, turned 90 degrees when their Orientation.Y
+-- says so (this mock's CFrames carry no rotation). Any other ray answers nil,
+-- loudly, rather than pretending.
+local RaycastParams = { new = function()
+	return { FilterType = nil, FilterDescendantsInstances = {} }
+end }
+rawget(Workspace, "_p").Raycast = function(self, origin, dir, params)
+	if math.abs(dir.X) > 1e-6 or math.abs(dir.Z) > 1e-6 or dir.Y >= 0 then
+		error("mock Raycast: only straight-down rays are supported")
+	end
+	local skip = {}
+	for _, inst in ipairs((params and params.FilterDescendantsInstances) or {}) do
+		skip[inst] = true
+	end
+	local function excluded(inst)
+		local p = inst
+		while p do
+			if skip[p] then return true end
+			p = rawget(p, "_p").Parent
+		end
+		return false
+	end
+	local lowest = origin.Y + dir.Y
+	local best, bestTop = nil, -math.huge
+	for _, d in ipairs(Methods.GetDescendants(self)) do
+		local pr = rawget(d, "_p")
+		local cls = pr.ClassName
+		if (cls == "Part" or cls == "WedgePart" or cls == "MeshPart" or cls == "SpawnLocation")
+			and pr.CFrame and pr.Size and pr.CanQuery ~= false and not excluded(d) then
+			local c, sz = pr.CFrame.Position, pr.Size
+			local hx, hz = sz.X / 2, sz.Z / 2
+			local o = pr.Orientation
+			if o and (math.abs(o.Y) % 180) > 45 and (math.abs(o.Y) % 180) < 135 then
+				hx, hz = hz, hx
+			end
+			if math.abs(origin.X - c.X) <= hx and math.abs(origin.Z - c.Z) <= hz then
+				local top = c.Y + sz.Y / 2
+				if top <= origin.Y and top >= lowest and top > bestTop then
+					best, bestTop = d, top
+				end
+			end
+		end
+	end
+	if not best then return nil end
+	return { Instance = best, Position = v3(origin.X, bestTop, origin.Z),
+	         Normal = v3(0, 1, 0), Material = rawget(best, "_p").Material }
+end
 local Terrain = newInst("Terrain"); Terrain.Name = "Terrain"; Terrain.Parent = Workspace
 rawget(Terrain, "_p").Clear = function() end
 rawget(Terrain, "_p").SetMaterialColor = function() end
@@ -519,7 +568,14 @@ local Players = {
 		for _, p in ipairs(PlayerList) do if p.UserId == id then return p end end
 		return nil
 	end,
-	GetPlayerFromCharacter = function() return nil end,
+	-- Whose character this is. It always said "nobody", so nothing that
+	-- reacts to a player touching something (walking into a coin) could run.
+	GetPlayerFromCharacter = function(_, char)
+		for _, p in ipairs(PlayerList) do
+			if char ~= nil and p.Character == char then return p end
+		end
+		return nil
+	end,
 	GetNameFromUserIdAsync = function(_, id) return "User" .. tostring(id) end,
 	GetUserThumbnailAsync = function() return "", true end,
 	PlayerAdded = signal(),
@@ -765,7 +821,7 @@ end
 
 return {
 	Vector3 = Vector3, CFrame = CFrame, Color3 = Color3, Enum = Enum,
-	typeof = robloxTypeof,
+	typeof = robloxTypeof, RaycastParams = RaycastParams,
 	DockWidgetPluginGuiInfo = DockWidgetPluginGuiInfo, settings = settingsFn,
 	ChangeHistoryService = ChangeHistoryService,
 	Instance = Instance, game = game, workspace = Workspace, Workspace = Workspace,

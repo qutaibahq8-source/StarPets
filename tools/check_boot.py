@@ -40,7 +40,7 @@ def main(studio=False, baked=False):
     for k in ("Vector3", "CFrame", "Color3", "Enum", "Instance", "game", "workspace",
               "Random", "UDim", "UDim2", "Vector2", "NumberRange", "NumberSequence",
               "ColorSequence", "NumberSequenceKeypoint", "ColorSequenceKeypoint",
-              "TweenInfo", "Ray"):
+              "TweenInfo", "Ray", "RaycastParams", "typeof"):
         G[k] = mock[k]
     if studio:
         gm = mock["game"]

@@ -1751,6 +1751,7 @@ end)
 setupLighting()
 PetService.Init()
 CurrencyService.Init()
+
 -- ============================================================
 -- BUILD THE MAP, OR KEEP THE ONE YOU MADE
 -- ============================================================
@@ -1780,6 +1781,34 @@ else
 	pcall(MapPersist.ResetWorld)
 	mapOk, mapErr = pcall(buildMap)
 	if not mapOk then warn("[StarPets] buildMap error: " .. tostring(mapErr)) end
+end
+
+-- ============================================================
+-- COINS ON THE GROUND
+-- ============================================================
+-- Seeded here, once the map exists — built or baked — and never by the map
+-- builder: they are not part of the map, and a baked map is exactly the case
+-- where the builder does not run. After it, because each coin is dropped onto
+-- whatever ground is really under it.
+--
+-- This used to live in the builder, next to the old leaderboard board, and
+-- the commit that removed the board took these lines with it. From then on
+-- there was not one coin in any world: the onboarding banner that says "walk
+-- over the coins on the ground" pointed at nothing, the Coin Bonus upgrade
+-- ("multiply coins earned from orbs") bought nothing, and Auto Collect had
+-- nothing to collect. check_firstplay walks a new player into them now.
+do
+	local ORIGINS = {
+		Meadow  = Vector3.new(0, 1, 65),
+		Forest  = Vector3.new(145, 1, 0),
+		Desert  = Vector3.new(275, 1, 0),
+		Volcano = Vector3.new(405, 1, 0),
+		Space   = Vector3.new(535, 1, 0),
+	}
+	for areaId, origin in pairs(ORIGINS) do
+		CurrencyService.SeedArea(areaId, origin, 45)
+	end
+	CurrencyService.SetupOrbTouches()
 end
 
 -- Say how to keep a map you build, IN STUDIO, at the moment it is relevant —
