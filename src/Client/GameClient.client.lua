@@ -6,6 +6,21 @@ local RunService       = game:GetService("RunService")
 
 local Player    = Players.LocalPlayer
 local PlayerGui = Player.PlayerGui
+
+-- A centred popup (rebirth, secret found, welcome back), fitted to the screen
+-- and popped in.
+--
+-- These were 420 px wide in hard pixels and slid in by tweening Position, so
+-- on a 390-wide phone they hung off both edges — and the rebirth popup's two
+-- 180-wide buttons, pinned to opposite sides, overlapped by 34 px. They are
+-- sized the way every panel is now (scale, clamped to the size they were
+-- designed at), and pop in on a UIScale, which never touches Position.
+local function popup(panel)
+	local okR, Responsive = pcall(function() return require(script.Parent.UI.Responsive) end)
+	if okR and Responsive then Responsive.FitFrame(panel) end
+	local s = Instance.new("UIScale"); s.Name = "SPEnter"; s.Scale = 0.85; s.Parent = panel
+	TweenService:Create(s, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+end
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -622,16 +637,12 @@ RE_Rebirth.OnClientEvent:Connect(function()
 
 	local panel = Instance.new("Frame")
 	panel.Size=UDim2.new(0,420,0,300)
-	panel.Position=UDim2.new(0.5,-210,0.5,400)
 	panel.BackgroundColor3=Color3.fromRGB(15,10,30)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(180,0,255); stroke.Thickness=2.5
-
-	TweenService:Create(panel,TweenInfo.new(0.35,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-210,0.5,-150)
-	}):Play()
+	popup(panel)
 
 	-- Title
 	local title=Instance.new("TextLabel")
@@ -661,7 +672,8 @@ RE_Rebirth.OnClientEvent:Connect(function()
 	-- Buttons
 	local canDo = nextTier and (data.TotalCoinsEarned or 0) >= nextTier.requirement
 	local confirmBtn=Instance.new("TextButton")
-	confirmBtn.Size=UDim2.new(0,180,0,50); confirmBtn.Position=UDim2.new(0,20,1,-70)
+	-- Half the panel each, so they share a narrow screen instead of overlapping.
+	confirmBtn.Size=UDim2.new(0.5,-30,0,50); confirmBtn.Position=UDim2.new(0,20,1,-70)
 	confirmBtn.BackgroundColor3=canDo and Color3.fromRGB(150,0,255) or Color3.fromRGB(60,60,80)
 	confirmBtn.Text=canDo and "♻️  REBIRTH!" or "Not Ready"
 	confirmBtn.TextColor3=Color3.new(1,1,1); confirmBtn.TextScaled=true
@@ -670,7 +682,7 @@ RE_Rebirth.OnClientEvent:Connect(function()
 	Instance.new("UICorner",confirmBtn).CornerRadius=UDim.new(0,10)
 
 	local cancelBtn=Instance.new("TextButton")
-	cancelBtn.Size=UDim2.new(0,180,0,50); cancelBtn.Position=UDim2.new(1,-200,1,-70)
+	cancelBtn.Size=UDim2.new(0.5,-30,0,50); cancelBtn.Position=UDim2.new(0.5,10,1,-70)
 	cancelBtn.BackgroundColor3=Color3.fromRGB(180,40,40)
 	cancelBtn.Text="✕  Cancel"; cancelBtn.TextColor3=Color3.new(1,1,1)
 	cancelBtn.TextScaled=true; cancelBtn.Font=Enum.Font.GothamBold
@@ -706,16 +718,12 @@ RE_SecretFound.OnClientEvent:Connect(function(reward)
 
 	local panel=Instance.new("Frame")
 	panel.Size=UDim2.new(0,420,0,240)
-	panel.Position=UDim2.new(0.5,-210,0.5,300)
 	panel.BackgroundColor3=Color3.fromRGB(12,8,24)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(255,215,0); stroke.Thickness=3
-
-	TweenService:Create(panel,TweenInfo.new(0.5,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-210,0.5,-120)
-	}):Play()
+	popup(panel)
 
 	local t1=Instance.new("TextLabel")
 	t1.Size=UDim2.new(1,0,0,60); t1.BackgroundTransparency=1
@@ -757,11 +765,11 @@ RE_OfflineEarnings.OnClientEvent:Connect(function(coins, awaySeconds)
 	bg.BackgroundTransparency=0.5; bg.BorderSizePixel=0; bg.Parent=screen
 
 	local panel=Instance.new("Frame")
-	panel.Size=UDim2.new(0,420,0,240); panel.Position=UDim2.new(0.5,-210,0.5,300)
+	panel.Size=UDim2.new(0,420,0,240)
 	panel.BackgroundColor3=Color3.fromRGB(12,18,28); panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel); stroke.Color=Color3.fromRGB(90,200,255); stroke.Thickness=3
-	TweenService:Create(panel,TweenInfo.new(0.5,Enum.EasingStyle.Back),{Position=UDim2.new(0.5,-210,0.5,-120)}):Play()
+	popup(panel)
 
 	local hrs = math.floor(awaySeconds/3600)
 	local mins = math.floor((awaySeconds%3600)/60)
@@ -884,9 +892,14 @@ task.delay(2, function()
 		wScreen.DisplayOrder=60; wScreen.IgnoreGuiInset=true
 		wScreen.Parent=PlayerGui
 
+		-- Anchored at its top centre, as wide as the screen allows up to the
+		-- 400 it was designed at. It was 400 hard pixels: wider than a phone.
 		local card = Instance.new("Frame")
-		card.Size    = UDim2.new(0,400,0,130)
-		card.Position= UDim2.new(0.5,-200,1,10)  -- start below screen
+		card.AnchorPoint = Vector2.new(0.5, 0)
+		card.Size    = UDim2.new(0.94,0,0,130)
+		card.Position= UDim2.new(0.5,0,1,10)  -- start below screen
+		local cardMax = Instance.new("UISizeConstraint")
+		cardMax.MaxSize = Vector2.new(400, 130); cardMax.Parent = card
 		card.BackgroundColor3 = Color3.fromRGB(12,9,25)
 		card.BackgroundTransparency = 0.05
 		card.BorderSizePixel = 0
@@ -921,14 +934,14 @@ task.delay(2, function()
 
 		-- Slide up from bottom
 		TweenService:Create(card,TweenInfo.new(0.5,Enum.EasingStyle.Back),{
-			Position=UDim2.new(0.5,-200,1,-145)
+			Position=UDim2.new(0.5,0,1,-145)
 		}):Play()
 
 		-- Slide back down after 6 seconds
 		task.delay(6, function()
 			if card and card.Parent then
 				TweenService:Create(card,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{
-					Position=UDim2.new(0.5,-200,1,10)
+					Position=UDim2.new(0.5,0,1,10)
 				}):Play()
 				task.delay(0.5,function()
 					if wScreen then wScreen:Destroy() end

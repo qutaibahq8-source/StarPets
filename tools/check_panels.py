@@ -71,17 +71,21 @@ def rect(frame, W, H):
             w, h = min(w, float(mx["X"])), min(h, float(mx["Y"]))
         if mn is not None:
             w, h = max(w, float(mn["X"])), max(h, float(mn["Y"]))
-    x = num(pos["X"], "Scale") * W + num(pos["X"], "Offset")
-    y = num(pos["Y"], "Scale") * H + num(pos["Y"], "Offset")
+    x = num(pos["X"], "Scale") * W + num(pos["X"], "Offset") if pos is not None else 0.0
+    y = num(pos["Y"], "Scale") * H + num(pos["Y"], "Offset") if pos is not None else 0.0
     ap = p.AnchorPoint
     ax, ay = (float(ap["X"]), float(ap["Y"])) if ap is not None else (0.0, 0.0)
     return x - ax * w, y - ay * h, w, h
 
 
 def root_of(screen, W, H):
+    """The panel itself: the biggest Frame that is not a full-screen backdrop."""
     best, area = None, -1
     for c in screen["GetChildren"](screen).values():
         if str(c._p.ClassName) != "Frame" or c._p.Size is None:
+            continue
+        sz = c._p.Size
+        if num(sz["X"], "Scale") >= 1 and num(sz["Y"], "Scale") >= 1:
             continue
         _, _, w, h = rect(c, W, H)
         if w * h > area:
@@ -263,6 +267,65 @@ def main():
             "buying an upgrade closed the Upgrade panel half a second later"
         return "bought one; the panel is still open for the next"
 
+    # ---------------------------------------------------- popups
+    remotes = lua.eval("game.ReplicatedStorage.Remotes")
+
+    def fire(name, *args):
+        r = remotes["FindFirstChild"](remotes, name)
+        lua.eval("function(r, ...) r.OnClientEvent:Fire(...) end")(r, *args)
+
+    def child_rect(child, parent_rect):
+        px, py, pw, ph = parent_rect
+        x, y, w, h = rect(child, pw, ph)
+        return px + x, py + y, w, h
+
+    def popup_check(gui_name, trigger):
+        def run():
+            screen_size(390, 844)
+            old = gui["FindFirstChild"](gui, gui_name)
+            if old is not None:
+                old["Destroy"](old)
+            trigger()
+            flush()
+            s = gui["FindFirstChild"](gui, gui_name)
+            assert s is not None, "%s never appeared" % gui_name
+            root = root_of(s, 390, 844)
+            out = off_screen(root, 390, 844)
+            assert not out, "on a 390-wide phone the popup is %s" % ", ".join(out)
+            pr = rect(root, 390, 844)
+            btns = [child_rect(b, pr) for b in root["GetChildren"](root).values()
+                    if str(b._p.ClassName) == "TextButton"]
+            for i in range(len(btns)):
+                for j in range(i + 1, len(btns)):
+                    a, b = btns[i], btns[j]
+                    ox = min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0])
+                    oy = min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1])
+                    assert ox <= 0 or oy <= 0, \
+                        "two of its buttons overlap by %d px on a phone" % ox
+            spill = [b for b in btns if b[0] < pr[0] - 1 or b[0] + b[2] > pr[0] + pr[2] + 1]
+            assert not spill, "a button sticks out of the popup"
+            return "%dx%d on a phone, %d button(s), none overlapping" % (
+                pr[2], pr[3], len(btns))
+        return run
+
+    def t_welcome_banner():
+        # Built by the client in its first seconds, which only exist with
+        # short delays running — so a second, separate boot.
+        lua2, mock2, gui2, _ = check_client.boot(short_delays=True)
+        mock2["FLUSH_TWEENS"]()
+        s = gui2["FindFirstChild"](gui2, "WelcomeGui")
+        assert s is not None, "no welcome banner after joining"
+        lua2.execute("""
+            local cam = workspace.CurrentCamera or Instance.new("Camera")
+            cam.ViewportSize = Vector2.new(390, 844)
+            workspace.CurrentCamera = cam
+        """)
+        card = root_of(s, 390, 844)
+        out = off_screen(card, 390, 844)
+        assert not out, "the welcome banner is %s on a phone" % ", ".join(out)
+        x, y, w, h = rect(card, 390, 844)
+        return "%dx%d at (%d, %d) on a 390x844 phone" % (w, h, x, y)
+
     print("where every panel ends up:")
     for W, H, label in SCREENS:
         check("on screen on a %s" % label, t_all_on_screen(W, H))
@@ -273,6 +336,13 @@ def main():
     check("equipping in the Pets panel", t_equip_keeps_pets_panel)
     check("a trade window", t_trade_opens_like_a_panel)
     check("buying an upgrade", t_buying_keeps_upgrade_open)
+    print("\npopups, on a phone:")
+    lua.globals()["__D"] = data
+    check("rebirth confirm", popup_check("RebirthConfirmGui", lambda: (
+        fire("DataUpdated", data), fire("Rebirth"))))
+    check("secret found", popup_check("SecretFoundGui", lambda: fire("SecretFound", lua.eval("{coins = 5000, gems = 25}"))))
+    check("welcome back", popup_check("WelcomeBackGui", lambda: fire("OfflineEarnings", 12345, 7200)))
+    check("welcome banner", t_welcome_banner)
 
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))

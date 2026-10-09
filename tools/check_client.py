@@ -28,13 +28,17 @@ from check_syntax import luau_to_lua  # noqa: E402
 import check_map  # noqa: E402
 
 
-def boot():
+def boot(short_delays=False):
     """Boot server + client and hand back the running world.
 
     Split out from main() so other checks can drive the real, booted client
     instead of standing up a second, subtly different one. Returns
     (lua, mock, PlayerGui, problems); on a failure that makes the client
     unusable the first three are None.
+
+    short_delays: run every task.delay of under three seconds as it is
+    scheduled, instead of dropping it — what a player sees in the first few
+    seconds after joining (the welcome banner, for one) only exists that way.
     """
     # A fully built world, exactly as a joining player would find it.
     lua, mock, cfg = check_map.build()
@@ -54,6 +58,10 @@ def boot():
     mock["Players"].LocalPlayer = player
 
     lua.execute("""
+        __DELAY = %s
+    """ % ("function(t, f, ...) if f and (t or 0) < 3 then pcall(f, ...) end end"
+           if short_delays else "function(_, f, ...) end"))
+    lua.execute("""
         __ERRORS = {}
         __WARNINGS = {}
         warn = function(...)
@@ -71,7 +79,7 @@ def boot():
                 if not ok then __ERRORS[#__ERRORS+1] = tostring(err) end
             end,
             defer = function(f, ...) if f then pcall(f, ...) end end,
-            delay = function(_, f, ...) end,
+            delay = __DELAY,
             wait = function() return 0.03 end,
         }
         wait = task.wait
