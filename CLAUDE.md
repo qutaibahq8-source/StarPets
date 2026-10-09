@@ -7,7 +7,7 @@ way. Read it before changing anything; it is short on purpose.
 ## Run this first
 
 ```bash
-bash tools/scan_all.sh        # 27 checks, a few minutes, no Studio needed
+bash tools/scan_all.sh        # 28 checks, a few minutes, no Studio needed
 ```
 
 They boot the real server and the real client against a Roblox mock (`lupa`),

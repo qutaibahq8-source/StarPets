@@ -28,7 +28,7 @@ from check_syntax import luau_to_lua  # noqa: E402
 import check_map  # noqa: E402
 
 
-def boot(short_delays=False):
+def boot(short_delays=False, loopback=False):
     """Boot server + client and hand back the running world.
 
     Split out from main() so other checks can drive the real, booted client
@@ -39,6 +39,11 @@ def boot(short_delays=False):
     short_delays: run every task.delay of under three seconds as it is
     scheduled, instead of dropping it — what a player sees in the first few
     seconds after joining (the welcome banner, for one) only exists that way.
+
+    loopback: remotes carry messages between this client and the server, as
+    in Roblox, and the player joins through the server's real join handler
+    first. Without it FireServer and InvokeServer go nowhere, so a button
+    can be pressed but nothing it does can be followed.
     """
     # A fully built world, exactly as a joining player would find it.
     lua, mock, cfg = check_map.build()
@@ -110,6 +115,53 @@ def boot(short_delays=False):
     def load(path, name, inst=None):
         return bind(luau_to_lua(Path(path).read_text()), "@" + name,
                     inst if inst is not None else G["script"])()
+
+    if loopback:
+        # Events are QUEUED and delivered by __DELIVER(), not run inside the
+        # sender. Run inline, a client handler fired by the server executed
+        # inside the server's own call — and a server pcall around a map
+        # action swallowed a client error that, in Roblox, happens on another
+        # machine entirely. InvokeServer stays synchronous: in Roblox the
+        # caller waits for the answer, and a server error reaches it.
+        lua.execute("""
+            local me = game:GetService("Players").LocalPlayer
+            __NET = {}
+            local function send(fn) __NET[#__NET + 1] = fn end
+            function __DELIVER()
+                local n = 0
+                while #__NET > 0 do
+                    local q = __NET
+                    __NET = {}
+                    for _, f in ipairs(q) do f(); n = n + 1 end
+                end
+                return n
+            end
+            for _, r in ipairs(game.ReplicatedStorage.Remotes:GetChildren()) do
+                if r.ClassName == "RemoteEvent" then
+                    r.FireServer = function(_, ...)
+                        local a = table.pack(...)
+                        send(function() r.OnServerEvent:Fire(me, table.unpack(a, 1, a.n)) end)
+                    end
+                    r.FireClient = function(_, p, ...)
+                        if p ~= me then return end
+                        local a = table.pack(...)
+                        send(function() r.OnClientEvent:Fire(table.unpack(a, 1, a.n)) end)
+                    end
+                    r.FireAllClients = function(_, ...)
+                        local a = table.pack(...)
+                        send(function() r.OnClientEvent:Fire(table.unpack(a, 1, a.n)) end)
+                    end
+                elseif r.ClassName == "RemoteFunction" then
+                    r.InvokeServer = function(_, ...)
+                        local f = r.OnServerInvoke
+                        if f then return f(me, ...) end
+                    end
+                end
+            end
+        """)
+        # Join first, as a real player does: the server loads their data, and
+        # the client's first GetData then finds it.
+        mock["Players"].PlayerAdded.Fire(None, player)
 
     # UI modules, as children of a Client/UI folder, the way Rojo lays them out.
     sps = mock["newInst"]("StarterPlayerScripts")
@@ -234,6 +286,10 @@ def boot(short_delays=False):
         print("\nclient: %d problems" % bad)
     else:
         print("\nclient: starts up clean against a real server")
+    if loopback:
+        # What the server sent while the player joined arrives now that the
+        # client is listening — Roblox holds remote events for a listener.
+        lua.eval("__DELIVER")()
     # The world is handed back even when `bad` is set: a client that started
     # with complaints is still a client another check can drive, and pretending
     # otherwise would make those checks unrunnable exactly when they matter.
