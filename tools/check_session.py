@@ -287,6 +287,9 @@ def main():
 
     check("mute survives a rejoin", t_mute_survives_rejoin_and_refuses_junk)
 
+    print()
+    check("no script wrote a global", lambda: check_map.no_global_writes(srv.lua, srv2.lua))
+
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1

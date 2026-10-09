@@ -94,7 +94,16 @@ def boot(short_delays=False):
     # Roblox — failed here, and a pcall around it hid the failure. Everything
     # else still reads and writes the shared globals, as before.
     bind = lua.eval("""function(s, n, sc)
-        local env = setmetatable({ script = sc }, { __index = _G, __newindex = _G })
+        -- A write to an undeclared name is a global write: recorded, then
+        -- done exactly as before. check_globals reads the record.
+        __GLOBAL_WRITES = __GLOBAL_WRITES or {}
+        local env = setmetatable({ script = sc }, { __index = _G,
+            __newindex = function(_, k, v)
+                local d = debug.getinfo(2, "Sl")
+                __GLOBAL_WRITES[#__GLOBAL_WRITES + 1] =
+                    string.format("%s:%d %s", n:sub(2), d and d.currentline or 0, tostring(k))
+                _G[k] = v
+            end })
         return assert(load(s, n, "t", env))
     end""")
 

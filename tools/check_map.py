@@ -64,7 +64,16 @@ def build():
     # resolved against whatever happened to load last, and crashed here
     # while working in the real game. Globals are otherwise shared, as before.
     bind = lua.eval("""function(s, n, sc)
-        local env = setmetatable({ script = sc }, { __index = _G, __newindex = _G })
+        -- A write to an undeclared name is a global write: recorded, then
+        -- done exactly as before. check_globals reads the record.
+        __GLOBAL_WRITES = __GLOBAL_WRITES or {}
+        local env = setmetatable({ script = sc }, { __index = _G,
+            __newindex = function(_, k, v)
+                local d = debug.getinfo(2, "Sl")
+                __GLOBAL_WRITES[#__GLOBAL_WRITES + 1] =
+                    string.format("%s:%d %s", n:sub(2), d and d.currentline or 0, tostring(k))
+                _G[k] = v
+            end })
         return assert(load(s, n, "t", env))
     end""")
 
@@ -112,6 +121,27 @@ def build():
     with contextlib.redirect_stdout(io.StringIO()):
         fn()
     return lua, mock, cfg
+
+
+def no_global_writes(*runtimes):
+    """A check: no project script wrote a global while it ran.
+
+    In Luau a write to a name with no `local` in scope is a global write. In
+    this project that has never been deliberate (shared state goes through
+    _G.Something explicitly); it is a `local` declared too late or not at all.
+    One shipped in the press tracker of Responsive: the variable was declared
+    below the function that set it, so the setter wrote a global and the
+    reader read a local that never changed. Nothing errored.
+
+    The harness records every such write (see the env in build()); this turns
+    the record into a pass or a failure."""
+    found = set()
+    for lua in runtimes:
+        w = lua.eval("__GLOBAL_WRITES or {}")
+        found |= {str(w[i]) for i in range(1, len(w) + 1)}
+    assert not found, ("these wrote a global — a missing or misplaced `local`: %s"
+                       % ", ".join(sorted(found)))
+    return "none, in everything this check ran"
 
 
 def parts_of(mock):

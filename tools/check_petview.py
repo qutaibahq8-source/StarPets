@@ -31,6 +31,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import check_client  # noqa: E402
+import check_map  # noqa: E402
 
 FAILURES = []
 SILHOUETTE = (14, 12, 22)
@@ -245,6 +246,9 @@ def main():
     check("found species in colour", t_index_found_in_colour)
     check("unfound species are silhouettes", t_index_unfound_are_silhouettes)
     check("nothing spins", t_index_does_not_spin)
+
+    print()
+    check("no script wrote a global", lambda: check_map.no_global_writes(lua))
 
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))

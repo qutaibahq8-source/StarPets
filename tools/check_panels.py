@@ -34,6 +34,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import check_client  # noqa: E402
+import check_map  # noqa: E402
 from check_ui import PANELS  # noqa: E402
 
 FAILURES = []
@@ -445,6 +446,9 @@ def main():
     check("secret found", popup_check("SecretFoundGui", lambda: fire("SecretFound", lua.eval("{coins = 5000, gems = 25}"))))
     check("welcome back", popup_check("WelcomeBackGui", lambda: fire("OfflineEarnings", 12345, 7200)))
     check("welcome banner", t_welcome_banner)
+
+    print()
+    check("no script wrote a global", lambda: check_map.no_global_writes(lua))
 
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))

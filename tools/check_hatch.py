@@ -27,6 +27,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import check_client  # noqa: E402
+import check_map  # noqa: E402
 
 FAILURES = []
 
@@ -315,6 +316,9 @@ def main():
     print("\nprices:")
     check("the x10 label is the charge", t_starter_x10_label_is_the_charge)
     check("a short batch says why", t_partial_batch_says_why)
+
+    print()
+    check("no script wrote a global", lambda: check_map.no_global_writes(lua))
 
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
