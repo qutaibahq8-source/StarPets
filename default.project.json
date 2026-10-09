@@ -109,6 +109,9 @@
             "Sfx": {
               "$path": "src/Client/UI/Sfx.lua"
             },
+            "PetView": {
+              "$path": "src/Client/UI/PetView.lua"
+            },
             "PetsPanel": {
               "$path": "src/Client/UI/PetsPanel.lua"
             },

@@ -26,6 +26,7 @@ run "eggs"       python3 tools/check_eggs.py
 run "onboarding" python3 tools/check_onboarding.py
 run "motion"     python3 tools/check_motion.py
 run "hatch"      python3 tools/check_hatch.py
+run "pet view"   python3 tools/check_petview.py
 run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py

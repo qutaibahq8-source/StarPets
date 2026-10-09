@@ -3,7 +3,6 @@
 
 local TweenService   = game:GetService("TweenService")
 local Players        = game:GetService("Players")
-local RunService     = game:GetService("RunService")
 local SoundService   = game:GetService("SoundService")
 local PlayerGui      = Players.LocalPlayer.PlayerGui
 
@@ -223,77 +222,21 @@ end
 -- ============================================================
 -- HATCH RESULT DISPLAY (dramatic reveal)
 -- ============================================================
--- The pet itself, built from the same PetModels the server uses, turning
--- slowly in a ViewportFrame.
+-- The pet itself, turning slowly in a ViewportFrame. PetView builds it, the
+-- same way the inventory and the Pet Index do.
 --
 -- The reveal used to show the FIRST LETTER of the pet's name in a circle: hatch
 -- a dragon and you got a "D". The moment the whole game is built around never
 -- actually showed the player what they had won.
 --
--- Returns a function that stops the turning, or nil if no model could be made
--- (in which case the caller falls back to the old letter rather than showing
--- an empty circle).
-local function showModel(holder, pet, rarityInfo, mut)
-	local okReq, PetModels = pcall(function()
-		return require(game:GetService("ReplicatedStorage").Shared.PetModels)
-	end)
-	if not okReq or not PetModels then return nil end
-	local petData
-	for _, p in ipairs(G().GameConfig.Pets) do
-		if p.name == pet.name then petData = p break end
-	end
-	if not petData then return nil end
-
-	local okBuild, model = pcall(function()
-		local m = PetModels.Build(petData, "reveal", rarityInfo, mut)
-		return m
-	end)
-	if not okBuild or not model then return nil end
-
-	local vf = Instance.new("ViewportFrame")
-	vf.Name = "PetView"
-	vf.Size = UDim2.new(1, 0, 1, 0)
-	vf.BackgroundTransparency = 1
-	vf.LightDirection = Vector3.new(-1, -1.4, -0.6)
-	vf.Ambient = Color3.fromRGB(170, 170, 185)
-	vf.Parent = holder
-	model.Parent = vf
-
-	local cam = Instance.new("Camera")
-	cam.FieldOfView = 40
-	cam.Parent = vf
-	vf.CurrentCamera = cam
-
-	-- Frame the model from its own bounding box, so a tiny ant and a dragon
-	-- both fill the circle rather than one vanishing and one overflowing it.
-	local center, radius = Vector3.new(0, 0, 0), 2.5
-	pcall(function()
-		local cf, size = model:GetBoundingBox()
-		center = cf.Position
-		radius = math.max(1, size.Magnitude * 0.5)
-	end)
-	local dist = radius / math.tan(math.rad(cam.FieldOfView * 0.5)) * 1.05
-
-	local function aim(t)
-		local pos = center + Vector3.new(math.sin(t) * dist, radius * 0.35, math.cos(t) * dist)
-		local ok = pcall(function() cam.CFrame = CFrame.lookAt(pos, center) end)
-		if not ok then cam.CFrame = CFrame.new(pos, center) end
-	end
-	aim(0.6)
-
-	local t = 0.6
-	local conn
-	conn = RunService.RenderStepped:Connect(function(dt)
-		-- Stop as soon as the card is gone. Left connected, every hatch would
-		-- leave a dead spinner running behind it — thousands a session.
-		if not vf.Parent then
-			if conn then conn:Disconnect() end
-			return
-		end
-		t = t + dt * 0.9
-		aim(t)
-	end)
-	return function() if conn then conn:Disconnect() end end
+-- Returns nil if no model could be made, in which case the caller falls back
+-- to the old letter rather than showing an empty circle.
+local function showModel(holder, pet)
+	local ok, PetView = pcall(function() return require(script.Parent.PetView) end)
+	if not ok or not PetView then return nil end
+	return PetView.Show(holder, pet.name, {
+		spin = true, rarity = pet.rarity, mutation = pet.mutation,
+	})
 end
 
 function HatchUI.ShowHatchResult(pets, eggId)
@@ -404,7 +347,7 @@ function HatchUI.ShowHatchResult(pets, eggId)
 
 			local mut = pet.mutation and G().GameConfig.GetMutation and G().GameConfig.GetMutation(pet.mutation)
 
-			if not showModel(petCircle, pet, rarityInfo, mut) then
+			if not showModel(petCircle, pet) then
 				-- Only if the model could not be built. A letter is a poor
 				-- picture of a pet, but it is better than an empty circle.
 				local petIcon = Instance.new("TextLabel")

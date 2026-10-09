@@ -78,9 +78,20 @@ def boot():
         delay = function() end
     """)
 
-    def load(path, name):
-        return lua.eval("function(s,n) return assert(load(s,n)) end")(
-            luau_to_lua(Path(path).read_text()), "@" + name)()
+    # Each script gets its OWN `script`, as in Roblox. It used to be one shared
+    # global, re-pointed at each script while it loaded, so after boot every
+    # `script.Parent` inside a UI function resolved against whatever loaded
+    # last. A panel that requires a sibling when it opens — which is correct
+    # Roblox — failed here, and a pcall around it hid the failure. Everything
+    # else still reads and writes the shared globals, as before.
+    bind = lua.eval("""function(s, n, sc)
+        local env = setmetatable({ script = sc }, { __index = _G, __newindex = _G })
+        return assert(load(s, n, "t", env))
+    end""")
+
+    def load(path, name, inst=None):
+        return bind(luau_to_lua(Path(path).read_text()), "@" + name,
+                    inst if inst is not None else G["script"])()
 
     # UI modules, as children of a Client/UI folder, the way Rojo lays them out.
     sps = mock["newInst"]("StarterPlayerScripts")
@@ -110,7 +121,7 @@ def boot():
                 continue
             G["script"] = m
             try:
-                mock["MODULES"][m] = load(f, name)
+                mock["MODULES"][m] = load(f, name, m)
             except Exception as e:
                 failed.append((name, str(e).splitlines()[0][:150]))
     unloaded = [n for n, (m, _) in markers.items() if mock["MODULES"][m] is None]
@@ -133,7 +144,7 @@ def boot():
         ls = mock["newInst"]("LocalScript"); ls.Name = f.name[:-11]; ls.Parent = ui
         G["script"] = ls
         try:
-            load(f, ls.Name)
+            load(f, ls.Name, ls)
         except Exception as e:
             print("   x UI LocalScript %s THREW: %s"
                   % (f.name, str(e).splitlines()[0][:150]))
@@ -146,7 +157,7 @@ def boot():
     G["script"] = gc
     src = luau_to_lua((ROOT / "src/Client/GameClient.client.lua").read_text())
     try:
-        fn = lua.eval("function(s,n) return assert(load(s,n)) end")(src, "@GameClient")
+        fn = bind(src, "@GameClient", gc)
     except Exception as e:
         print("   x GameClient did not COMPILE: %s" % str(e).splitlines()[0][:200])
         return None, None, None, 1

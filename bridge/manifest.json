@@ -1,5 +1,5 @@
 {
-  "version": "4edff067d7c685de8c1bd8bb2850f1483e5df0ab6b58d7c1b85ca5629bd858d9",
+  "version": "e177e5c2be5431bc1db7be65e4827d9a25ca10388041713779d89c3f7b6a1199",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -177,6 +177,14 @@
     {
       "path": "src/Client/UI/Sfx.lua",
       "name": "Sfx",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/PetView.lua",
+      "name": "PetView",
       "group": "Client",
       "folders": [
         "UI"

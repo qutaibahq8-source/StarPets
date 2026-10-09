@@ -35,6 +35,9 @@ function PetIndexPanel.Build(data)
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,14)
 	Instance.new("UIStroke",panel).Color=Color3.fromRGB(150,120,255)
 
+	local okView, PetView = pcall(function() return require(script.Parent.PetView) end)
+	if not okView then PetView = nil end
+
 	local total, have = #cfg.Pets, 0
 	for _, pet in ipairs(cfg.Pets) do if discovered[pet.name] then have = have + 1 end end
 
@@ -75,15 +78,26 @@ function PetIndexPanel.Build(data)
 		Instance.new("UICorner",card).CornerRadius=UDim.new(0,10)
 		local st=Instance.new("UIStroke",card); st.Color=rcol; st.Transparency=owned and 0.2 or 0.7
 
-		-- color swatch (the pet's color) as a quick icon
+		-- The pet itself. A species you have found is drawn as it is; one you
+		-- have not is drawn as its own shape in near-black, so the Index shows
+		-- what is still out there without giving away what it looks like.
+		-- This was a plain coloured disc, and "?" for anything not yet found.
 		local swatch=Instance.new("Frame")
+		swatch.Name="PetIcon"
 		swatch.Size=UDim2.new(0,54,0,54); swatch.Position=UDim2.new(0.5,-27,0,10)
-		swatch.BackgroundColor3=owned and (pet.color or rcol) or Color3.fromRGB(40,40,50)
+		swatch.BackgroundColor3=owned and rcol or Color3.fromRGB(40,40,50)
+		swatch.BackgroundTransparency=owned and 0.6 or 0
 		swatch.BorderSizePixel=0; swatch.Parent=card
 		Instance.new("UICorner",swatch).CornerRadius=UDim.new(1,0)
-		if not owned then
-			local q=Instance.new("TextLabel"); q.Size=UDim2.new(1,0,1,0); q.BackgroundTransparency=1
-			q.Text="?"; q.TextColor3=Color3.fromRGB(120,120,140); q.TextScaled=true; q.Font=Enum.Font.GothamBold; q.Parent=swatch
+		local shown = PetView and PetView.Show(swatch, pet.name, { silhouette = not owned })
+		if not shown then
+			-- Only if no model can be made for this species.
+			swatch.BackgroundColor3=owned and (pet.color or rcol) or Color3.fromRGB(40,40,50)
+			swatch.BackgroundTransparency=0
+			if not owned then
+				local q=Instance.new("TextLabel"); q.Size=UDim2.new(1,0,1,0); q.BackgroundTransparency=1
+				q.Text="?"; q.TextColor3=Color3.fromRGB(120,120,140); q.TextScaled=true; q.Font=Enum.Font.GothamBold; q.Parent=swatch
+			end
 		end
 
 		local name=Instance.new("TextLabel")
