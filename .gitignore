@@ -5,3 +5,7 @@
 *.rbxl.lock
 *.rbxlx.lock
 .DS_Store
+
+# Python bytecode from the checks: rewritten on every run
+__pycache__/
+*.pyc
