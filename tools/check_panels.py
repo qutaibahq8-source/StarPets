@@ -326,6 +326,104 @@ def main():
         x, y, w, h = rect(card, 390, 844)
         return "%dx%d at (%d, %d) on a 390x844 phone" % (w, h, x, y)
 
+    # ---------------------------------------------------- polling panels
+    # Fusion asks the server for its list every 1.5 s. Here the loop really
+    # runs: InvokeServer goes to the real server handler, and task.wait is
+    # where the test acts between polls (and stops the loop after a few).
+    lua.execute("""
+        local rf = game.ReplicatedStorage.Remotes:FindFirstChild("GetFusion")
+        rf.InvokeServer = function(_, ...)
+            return rf.OnServerInvoke(game:GetService("Players").LocalPlayer, ...)
+        end
+    """)
+
+    def poll_fusion(between, polls=3):
+        """Open Fusion and let it poll `polls` times; `between(n, btn)` runs
+        after poll n. Returns the Fuse button seen after each poll."""
+        seen = []
+        hook = lua.eval("""function(between, seen, maxn)
+            local n = 0
+            local function btn()
+                local s = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("FusionPanel")
+                if not s then return nil end
+                for _, d in ipairs(s:GetDescendants()) do
+                    if d.ClassName == "TextButton" and tostring(d.Text):find("Fuse") then return d end
+                end
+            end
+            -- Held until Build has returned: in Roblox the loop's first
+            -- InvokeServer yields, so the panel is opened (and its buttons
+            -- livened) before the first poll comes back.
+            __SPAWNED = {}
+            task.spawn = function(f, ...) table.insert(__SPAWNED, f) end
+            task.defer = function(f, ...) if f then f(...) end end
+            task.wait = function()
+                n = n + 1
+                local b = btn()
+                table.insert(seen, b or false)
+                between(n, b)
+                if n >= maxn then error("stop polling") end
+                return 0
+            end
+        end""")
+        tbl = lua.eval("{}")
+        hook(between, tbl, polls)
+        try:
+            ctrl.CloseAll()
+            ctrl.TogglePanel("FusionPanel", data)
+            lua.execute("for _, f in ipairs(__SPAWNED) do pcall(f) end")
+        finally:
+            lua.execute("task.spawn = function() end; task.defer = function() end; "
+                        "task.wait = function() return 0 end")
+        return [tbl[i + 1] for i in range(len(tbl))]
+
+    same = lua.eval("function(a, b) return rawequal(a, b) end")
+    add_pets = lua.eval("""function(d, name, n)
+        for i = 1, n do
+            table.insert(d.Pets, { name = name, rarity = "Common",
+                uniqueId = name .. "-poll-" .. tostring(#d.Pets + 1) })
+        end
+    end""")
+
+    def reset_pets():
+        for k in list(data.Pets.keys()):
+            data.Pets[k] = None
+        for k in list(data.EquippedPets.keys()):
+            data.EquippedPets[k] = None
+
+    def t_poll_unchanged_keeps_buttons():
+        reset_pets()
+        add_pets(data, "cat", 3)
+        seen = poll_fusion(lambda n, b: None)
+        assert seen[0], "the Fusion panel never listed three cats as fusable"
+        redrawn = [i for i in range(1, len(seen)) if not same(seen[0], seen[i])]
+        assert not redrawn, ("nothing changed on the server and the Fuse button "
+                             "was destroyed and remade %d time(s)" % len(redrawn))
+        return "3 polls, same answer, same button"
+
+    def t_poll_changed_redraws():
+        reset_pets()
+        add_pets(data, "cat", 3)
+        seen = poll_fusion(lambda n, b: add_pets(data, "dog", 3) if n == 1 else None)
+        assert not same(seen[0], seen[1]), \
+            "three new dogs arrived and the Fusion list did not redraw"
+        return "new fusable dogs: redrawn"
+
+    def t_poll_waits_for_press():
+        reset_pets()
+        add_pets(data, "cat", 3)
+
+        def between(n, b):
+            if n == 1:
+                lua.eval("function(b) b.MouseButton1Down:Fire() end")(b)
+                add_pets(data, "dog", 3)   # the answer changes mid-press
+            if n == 2:
+                lua.eval("function(b) b.MouseButton1Up:Fire() end")(b)
+        seen = poll_fusion(between, polls=3)
+        assert same(seen[0], seen[1]), ("the list redrew while a button was held "
+                                         "down — that press is lost")
+        assert not same(seen[1], seen[2]), "the list never caught up after release"
+        return "held: kept; released: redrawn"
+
     print("where every panel ends up:")
     for W, H, label in SCREENS:
         check("on screen on a %s" % label, t_all_on_screen(W, H))
@@ -336,6 +434,10 @@ def main():
     check("equipping in the Pets panel", t_equip_keeps_pets_panel)
     check("a trade window", t_trade_opens_like_a_panel)
     check("buying an upgrade", t_buying_keeps_upgrade_open)
+    print("\na panel that polls the server:")
+    check("same answer, same buttons", t_poll_unchanged_keeps_buttons)
+    check("new answer, redrawn", t_poll_changed_redraws)
+    check("never redrawn mid-press", t_poll_waits_for_press)
     print("\npopups, on a phone:")
     lua.globals()["__D"] = data
     check("rebirth confirm", popup_check("RebirthConfirmGui", lambda: (

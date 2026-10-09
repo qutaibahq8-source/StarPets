@@ -39,6 +39,13 @@ local PANEL_MIN_W, PANEL_MIN_H = 200, 160
 local HOVER, PRESS = 1.05, 0.94
 local QUICK = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
+-- When the last button press began, while it is still held (see Busy, below).
+-- Declared up here because Liven, next, is what sets it.
+local pressedAt = nil
+-- A press that never sees its Up (the button vanished, a finger slid off the
+-- screen) must not freeze a panel for good.
+local PRESS_HOLD = 0.8
+
 function Responsive.FitFrame(frame)
 	local size = frame.Size
 	-- Only frames sized in pure pixels. One already written in scale is doing
@@ -90,8 +97,9 @@ function Responsive.Liven(button)
 	button.MouseEnter:Connect(function()
 		if button.Active ~= false then to(HOVER) end
 	end)
-	button.MouseLeave:Connect(function() to(1) end)
+	button.MouseLeave:Connect(function() pressedAt = nil; to(1) end)
 	button.MouseButton1Down:Connect(function()
+		pressedAt = os.clock()
 		if button.Active ~= false then
 			to(PRESS)
 			-- Only a live button makes a noise. A click out of a button marked
@@ -101,9 +109,46 @@ function Responsive.Liven(button)
 		end
 	end)
 	button.MouseButton1Up:Connect(function()
+		-- Released on the next frame, not now: MouseButton1Click fires after
+		-- Up, and its handler is what tells the server. A redraw squeezed in
+		-- between would still lose the click.
+		task.defer(function() pressedAt = nil end)
 		if button.Active ~= false then to(HOVER) end
 	end)
 	return true
+end
+
+-- ============================================================
+-- PANELS THAT REDRAW THEMSELVES
+-- ============================================================
+-- Fusion, Event, Playtime, Merchant and Boosts ask the server for their state
+-- every second or so and redraw from scratch: every button destroyed and made
+-- again. A press is a Down and an Up on the SAME button; a redraw between the
+-- two leaves the Up on a button that no longer exists, and the click is lost.
+-- At one redraw a second that is roughly one press in fifteen — "I pressed
+-- Buy and nothing happened".
+--
+-- Two rules fix it without touching how any panel draws:
+--   * never redraw while a button is held down
+--   * never redraw when the server's answer is exactly what it was
+
+
+function Responsive.Busy()
+	return pressedAt ~= nil and (os.clock() - pressedAt) < PRESS_HOLD
+end
+
+-- Returns a function to call with each fresh server state: true means redraw.
+function Responsive.Poller()
+	local HttpService = game:GetService("HttpService")
+	local last = nil
+	return function(state)
+		if Responsive.Busy() then return false end
+		local ok, key = pcall(function() return HttpService:JSONEncode(state) end)
+		if not ok then return true end
+		if key == last then return false end
+		last = key
+		return true
+	end
 end
 
 local function isButton(inst)

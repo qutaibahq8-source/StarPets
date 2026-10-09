@@ -536,8 +536,39 @@ local CollectionService = {
 	GetInstanceRemovedSignal = function() return signal() end,
 }
 
+-- Real JSON, so two equal tables encode equal: code that skips work when the
+-- server's answer has not changed compares encodings. tostring(t) — what this
+-- was — made every table look new. Object keys are sorted so the output is
+-- stable here; checks that need byte-exact Roblox output install their own.
+local function jsonEncode(v)
+	local t = type(v)
+	if t == "nil" then return "null" end
+	if t == "boolean" or t == "number" then return tostring(v) end
+	if t == "string" then return string.format("%q", v) end
+	if t == "table" and getmetatable(v) == nil then
+		local n = #v
+		local count = 0
+		for _ in pairs(v) do count = count + 1 end
+		if count == n then
+			local out = {}
+			for i = 1, n do out[i] = jsonEncode(v[i]) end
+			return "[" .. table.concat(out, ",") .. "]"
+		end
+		local keys = {}
+		for k in pairs(v) do keys[#keys + 1] = tostring(k) end
+		table.sort(keys)
+		local out = {}
+		for _, k in ipairs(keys) do
+			local val = v[k]
+			if val == nil then val = v[tonumber(k)] end
+			out[#out + 1] = string.format("%q", k) .. ":" .. jsonEncode(val)
+		end
+		return "{" .. table.concat(out, ",") .. "}"
+	end
+	return string.format("%q", tostring(v))
+end
 local HttpService = {
-	JSONEncode = function(_, t) return tostring(t) end,
+	JSONEncode = function(_, t) return jsonEncode(t) end,
 	JSONDecode = function() return {} end,
 	GenerateGUID = function()
 		local n = 0
