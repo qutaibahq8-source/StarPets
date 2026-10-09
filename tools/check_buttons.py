@@ -261,9 +261,39 @@ def main():
         assert len(startup) == 1, "the owner was warned %d times" % len(startup)
         return startup[0][:90] + "..."
 
+    def t_hud():
+        # The always-on-screen buttons: the dock, More, mute, chips. Each one
+        # pressed in turn, with whatever it opened closed again before the
+        # next, so every press starts from the HUD a player normally sees.
+        stock_up()
+        hud = gui["FindFirstChild"](gui, "MysticPetsHUD")
+        assert hud is not None, "no HUD"
+        pressed, problems = set(), []
+        for _ in range(80):
+            ctrl.CloseAll()
+            cands = [b for b in live_buttons(hud).values()
+                     if str(path_of(b, hud)) not in pressed]
+            if not cands:
+                break
+            b = cands[0]
+            label = str(path_of(b, hud))
+            pressed.add(label)
+            try:
+                press(b)
+                tick(2)
+            except Exception as e:  # noqa: BLE001
+                problems.append("%s: %s" % (label, str(e).splitlines()[0][:150]))
+            for e in thread_errors().values():
+                problems.append("%s: %s" % (label, str(e).splitlines()[0][:150]))
+        assert pressed, "the HUD has no buttons"
+        assert not problems, "%d press(es) threw — %s" % (len(problems), problems[0])
+        return "%d HUD buttons pressed, nothing threw" % len(pressed)
+
     print("every button in every panel, against the real server:")
     for name in PANELS:
         check(name, press_panel(name))
+    print("\nthe HUD:")
+    check("every HUD button", t_hud)
     print("\nselling:")
     check("an unsold pass says so", t_unsold_pass_says_so)
     check("the owner is told once", t_owner_told_once)
