@@ -77,6 +77,9 @@ class Server:
         root = self.mock["newInst"]("Part")
         root.Name = "HumanoidRootPart"
         root.Parent = char
+        # A spawned character is standing somewhere; a nil CFrame is not a
+        # state a real HumanoidRootPart can be in.
+        root.CFrame = self.lua.eval("CFrame.new(0, 5, %d)" % (uid % 1000))
         hum = self.mock["newInst"]("Humanoid")
         hum.Name = "Humanoid"
         hum.Parent = char

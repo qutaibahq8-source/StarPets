@@ -112,6 +112,9 @@
             "PetView": {
               "$path": "src/Client/UI/PetView.lua"
             },
+            "PetFollow": {
+              "$path": "src/Client/UI/PetFollow.client.lua"
+            },
             "PetsPanel": {
               "$path": "src/Client/UI/PetsPanel.lua"
             },

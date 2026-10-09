@@ -7,7 +7,7 @@ way. Read it before changing anything; it is short on purpose.
 ## Run this first
 
 ```bash
-bash tools/scan_all.sh        # 11 checks, ~2 minutes, no Studio needed
+bash tools/scan_all.sh        # 26 checks, a few minutes, no Studio needed
 ```
 
 They boot the real server and the real client against a Roblox mock (`lupa`),
@@ -66,6 +66,11 @@ now.
 - **Remotes are created through `makeEvent` / `makeFunction`**, which wrap them
   in a rate-limit guard. A remote made with `Instance.new` directly is
   unguarded.
+- **The server never moves anything every frame.** Pets are placed once and
+  moved by each client (`PetFollow.client.lua`); bobbing eggs and the rebirth
+  rings likewise (`WorldMotion.client.lua`). A server loop setting CFrame
+  replicates every part to every player, every frame. `check_follow` and
+  `check_motion` fail if one comes back.
 
 ## What the owner has asked for
 

@@ -1,5 +1,5 @@
 {
-  "version": "e177e5c2be5431bc1db7be65e4827d9a25ca10388041713779d89c3f7b6a1199",
+  "version": "90f61d1c47625a31a92acc4f11b0718495ef4640af9180dae26f189dd3d4cff0",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -185,6 +185,14 @@
     {
       "path": "src/Client/UI/PetView.lua",
       "name": "PetView",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/PetFollow.client.lua",
+      "name": "PetFollow",
       "group": "Client",
       "folders": [
         "UI"

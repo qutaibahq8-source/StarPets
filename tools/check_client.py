@@ -47,6 +47,7 @@ def boot():
     gui = mock["newInst"]("PlayerGui"); gui.Name = "PlayerGui"; gui.Parent = player
     char = mock["newInst"]("Model"); char.Name = "Tester"
     root = mock["newInst"]("Part"); root.Name = "HumanoidRootPart"; root.Parent = char
+    root.CFrame = lua.eval("CFrame.new(0, 5, 0)")
     hum = mock["newInst"]("Humanoid"); hum.Name = "Humanoid"; hum.Parent = char
     player.Character = char
     mock["PlayerList"][1] = player

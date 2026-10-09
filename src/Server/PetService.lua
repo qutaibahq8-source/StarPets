@@ -1,8 +1,6 @@
 -- MysticPets: PetService.lua
 -- Place in: ServerScriptService > Server > PetService (ModuleScript)
 
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
@@ -56,47 +54,15 @@ function PetService.Init()
 	PetsFolder.Name = "Pets"
 	PetsFolder.Parent = workspace
 
-	-- Follow loop
-	RunService.Heartbeat:Connect(function(dt)
-		-- Hoisted: tick() was being called once per pet per frame to compute a
-		-- bob offset that only depends on time.
-		local now = tick()
-		for userId, models in pairs(ActiveModels) do
-			-- next() first, before the player lookup. A player with no pets
-			-- equipped is the common case, and GetPlayerByUserId is a scan.
-			if next(models) == nil then continue end
-			local player = Players:GetPlayerByUserId(userId)
-			if not player or not player.Character then continue end
-			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-			if not rootPart then continue end
-
-			local modelList = {}
-			for _, m in pairs(models) do table.insert(modelList, m) end
-			local total = #modelList
-
-			for i, model in ipairs(modelList) do
-				local body = model:FindFirstChild("HumanoidRootPart")
-				if not body then continue end
-
-				local targetPos = rootPart.Position + getFollowOffset(i, total)
-				local bobOffset = math.sin(now * 2 + i * 1.2) * 0.3
-				targetPos = targetPos + Vector3.new(0, bobOffset, 0)
-
-				local current = body.CFrame
-				-- Face the same direction the player faces (so pets turn with you)
-				local _, yaw = rootPart.CFrame:ToOrientation()
-				local target  = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
-
-				local speed = GameConfig.Settings.PetFollowSpeed
-				local newCF = current:Lerp(target, math.min(dt * speed, 1))
-
-				local petName = model.Name:match("^(.-)_")
-				local petData = PetLookup[petName]
-				local size = petData and (petData.size or 1) or 1
-				updateModelCFrames(model, newCF, size)
-			end
-		end
-	end)
+	-- No follow loop here. Pets are placed once, when they spawn, and every
+	-- client moves them from then on (PetFollow.client.lua).
+	--
+	-- This used to PivotTo every equipped pet on every Heartbeat. Each pet is
+	-- an anchored model of up to thirty parts and every part's CFrame was
+	-- replicated to every player, sixty times a second — over fifty thousand
+	-- updates a second to each client on a busy server. Roblox throttles that,
+	-- so pets moved late and in steps, and a player's own pets trailed them by
+	-- a full round trip.
 end
 
 function PetService.SpawnPet(player, petEntry, slotIndex, totalSlots)
@@ -117,10 +83,14 @@ function PetService.SpawnPet(player, petEntry, slotIndex, totalSlots)
 	local mut = GameConfig.GetMutation and GameConfig.GetMutation(petEntry.mutation)
 	local model = PetModels.Build(petData, petEntry.uniqueId, rarityInfo, mut)
 
-	-- Start at player position
+	-- Placed once, at its spot behind the player, and never moved by the server
+	-- again; clients take it from here. Placed where it belongs rather than
+	-- inside the player, so the first frame anyone sees of it is already right.
 	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if rootPart then
-		updateModelCFrames(model, rootPart.CFrame, petData.size or 1)
+		local _, yaw = rootPart.CFrame:ToOrientation()
+		local spot = rootPart.Position + getFollowOffset(slotIndex or 1, math.max(totalSlots or 1, 1))
+		updateModelCFrames(model, CFrame.new(spot) * CFrame.Angles(0, yaw, 0), petData.size or 1)
 	end
 
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
@@ -153,12 +123,12 @@ function PetService.DespawnAllPets(player)
 	-- nil, not an empty table.
 	--
 	-- This runs on PlayerRemoving, and leaving an empty table behind meant the
-	-- entry stayed in ActiveModels for the life of the server. The Heartbeat
-	-- loop walks that table sixty times a second and calls GetPlayerByUserId
-	-- on every key, so after a few hundred sessions it was doing tens of
-	-- thousands of lookups a second for players who left hours ago — a server
-	-- that gets slower the longer it stays up, which reads as "the game lags
-	-- after a while" and has no error attached to it.
+	-- entry stayed in ActiveModels for the life of the server. When the server
+	-- still ran the follow loop, that loop walked this table sixty times a
+	-- second and called GetPlayerByUserId on every key, so after a few hundred
+	-- sessions it was doing tens of thousands of lookups a second for players
+	-- who left hours ago. The loop is gone; a table that only grows is still
+	-- a leak.
 	ActiveModels[userId] = nil
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
 	if folder then folder:Destroy() end

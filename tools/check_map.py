@@ -52,6 +52,10 @@ def build():
         delay = function() end
         spawn = function() end
         print = function() end
+        -- Roblox globals. Missing, any code calling them crashed the check
+        -- instead of being tested.
+        tick = tick or os.clock
+        time = time or os.clock
     """)
 
     def load(path, name):

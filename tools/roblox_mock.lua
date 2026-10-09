@@ -59,6 +59,17 @@ function CFrame.fromEulerAnglesXYZ() return cf(v3(0, 0, 0)) end
 CFMT.__index = function(t, k)
 	if k == "Position" or k == "p" then return rawget(t, "p") end
 	if k == "LookVector" then return v3(0, 0, -1) end
+	-- Position-only, like the rest of this CFrame: enough to test where a
+	-- thing goes, not which way it faces. Without these, any code that eases
+	-- toward a target or reads a facing simply crashes here — the old server
+	-- pet-follow loop did, and no check ever fired a Heartbeat with a pet out.
+	if k == "Lerp" then
+		return function(a, b, alpha)
+			local pa, pb = rawget(a, "p"), rawget(b, "p")
+			return cf(pa + (pb - pa) * alpha)
+		end
+	end
+	if k == "ToOrientation" then return function() return 0, 0, 0 end end
 	return nil
 end
 CFMT.__mul = function(a, b)
