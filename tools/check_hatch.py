@@ -168,6 +168,138 @@ def main():
             "isNew is set on the pet that is saved, so it is written into the save"
         return "the flag rides on a copy, not the saved pet"
 
+    # ---------------------------------------------------- clicking an egg
+    remotes = lua.eval("game.ReplicatedStorage.Remotes")
+    hatch_remote = remotes["FindFirstChild"](remotes, "HatchEgg")
+    click_egg = lua.eval("function(r, id) r.OnClientEvent:Fire(id) end")
+    eggs = [str(e.id) for e in lua.eval("_G.MysticPets.GameConfig.Eggs").values()]
+    egg_names = {str(e.id): str(e.name) for e in lua.eval("_G.MysticPets.GameConfig.Eggs").values()}
+    ctrl = mock["MODULES"][ui["FindFirstChild"](ui, "UIController")]
+
+    def panel_root(screen):
+        frames = [c for c in screen["GetChildren"](screen).values()
+                  if str(c._p.ClassName) == "Frame"]
+        return frames[0] if frames else None
+
+    def focused_card(screen):
+        cards = [d for d in screen["GetDescendants"](screen).values()
+                 if str(d._p.Name).startswith("EggCard_")]
+        first = min(cards, key=lambda c: int(c._p.LayoutOrder or 0))
+        has_edge = first["FindFirstChild"](first, "Focus") is not None
+        return str(first._p.Name)[8:], has_edge
+
+    def t_egg_click_uses_controller():
+        screen_size(390, 844)
+        target = eggs[-1]
+        click_egg(hatch_remote, target)
+        s = gui["FindFirstChild"](gui, "HatchPanel")
+        assert s is not None, "clicking an egg opened nothing"
+        root = panel_root(s)
+        assert root is not None and root["FindFirstChildOfClass"](root, "UISizeConstraint") \
+            is not None, ("the hatch panel opened by clicking an egg was not fitted "
+                          "to the screen — a 600-wide panel on a 390-wide phone")
+        return "opened through UIController, fitted to a phone"
+
+    def t_egg_click_focuses_that_egg():
+        target = eggs[-1]
+        s = gui["FindFirstChild"](gui, "HatchPanel")
+        got, edge = focused_card(s)
+        assert got == target, ("clicked the %s, but the panel leads with the %s"
+                               % (target, got))
+        assert edge, "the clicked egg's card is not outlined"
+        hdr = [str(d._p.Text) for d in s["GetDescendants"](s).values()
+               if str(d._p.ClassName) == "TextLabel" and "🥚" in str(d._p.Text or "")]
+        assert any(egg_names[target] in h for h in hdr), \
+            "the header does not name the clicked egg (%s)" % hdr
+        return "%s first, outlined, named in the header" % egg_names[target]
+
+    def t_second_egg_refocuses():
+        click_egg(hatch_remote, eggs[0])
+        s = gui["FindFirstChild"](gui, "HatchPanel")
+        assert s is not None, ("clicking a second egg CLOSED the panel — the "
+                               "world click toggled it like a HUD button")
+        got, _ = focused_card(s)
+        assert got == eggs[0], "clicked the %s second, panel still leads with %s" % (eggs[0], got)
+        return "still open, now on the %s" % egg_names[eggs[0]]
+
+    def t_one_panel_at_a_time():
+        ctrl.TogglePanel("PetsPanel", lua.eval("{Pets={}, EquippedPets={}}"))
+        assert gui["FindFirstChild"](gui, "PetsPanel") is not None, "PetsPanel did not open"
+        click_egg(hatch_remote, eggs[0])
+        assert gui["FindFirstChild"](gui, "PetsPanel") is None, \
+            "clicking an egg stacked the hatch panel on top of the Pets panel"
+        return "the Pets panel closed when an egg was clicked"
+
+    # ------------------------------------------- the price is the charge
+    sss = mock["ServerScriptService"]
+    holder = sss["FindFirstChild"](sss, "Server", True)
+    DM = mock["MODULES"][holder["FindFirstChild"](holder, "DataManager")]
+    me = mock["Players"].LocalPlayer
+    sent = lua.eval("{}")
+    lua.eval("""function(remotes, sent)
+        for _, n in ipairs({"Notification", "HatchResult"}) do
+            local r = remotes:FindFirstChild(n)
+            r.FireClient = function(_, _, ...) table.insert(sent, {n, ...}) end
+        end
+    end""")(remotes, sent)
+    hatch_on_server = lua.eval(
+        "function(r, p, id, n) r.OnServerEvent:Fire(p, id, n) end")
+
+    def fresh_data():
+        res = DM.LoadPlayer(me)
+        d = res[0] if isinstance(res, tuple) else res
+        assert d is not None, "no player data"
+        return d
+
+    def drain():
+        out = [[str(v) if not lua_type(v) else v for v in row.values()]
+               for row in sent.values()]
+        for k in list(sent.keys()):
+            sent[k] = None
+        return out
+
+    lua_type = lua.eval("function(v) return type(v) == 'table' end")
+
+    def t_starter_x10_label_is_the_charge():
+        d = fresh_data()
+        d.HasClaimedFreeEgg = False
+        d.Coins = 100000
+        ctrl.CloseAll()
+        Hatch.Build(d, "StarterEgg")
+        s = gui["FindFirstChild"](gui, "HatchPanel")
+        card = [x for x in s["GetDescendants"](s).values()
+                if str(x._p.Name) == "EggCard_StarterEgg"][0]
+        x10 = [str(b._p.Text) for b in card["GetChildren"](card).values()
+               if str(b._p.ClassName) == "TextButton" and str(b._p.Text).startswith("x10")][0]
+        drain()
+        hatch_on_server(hatch_remote, me, "StarterEgg", 10)
+        charged = 100000 - int(float(d.Coins))
+        shown = str(lua.eval("_G.MysticPets.formatNum")(charged))
+        assert "FREE x10" not in x10, ("the x10 button says %r, and pressing it "
+                                       "charged %d coins" % (x10.replace("\n", " "), charged))
+        assert shown in x10, ("the x10 button says %r; the server charged %s"
+                              % (x10.replace("\n", " "), shown))
+        return "label %r, server charged %s" % (x10.replace("\n", " "), shown)
+
+    def t_partial_batch_says_why():
+        d = fresh_data()
+        d.HasClaimedFreeEgg = True
+        d.Coins = 450
+        for k in list(d.Pets.keys()):
+            d.Pets[k] = None
+        drain()
+        hatch_on_server(hatch_remote, me, "StarterEgg", 10)
+        rows = drain()
+        results = [r for r in rows if r[0] == "HatchResult"]
+        notes = [r[2] for r in rows if r[0] == "Notification"]
+        assert results, "nothing hatched at all"
+        got = len(list(results[0][1].values()))
+        assert got == 3, "450 coins at 150 each hatched %d" % got
+        assert any("3 of 10" in str(n) for n in notes), \
+            ("an x10 stopped after %d and the player was told nothing (notes: %s)"
+             % (got, notes))
+        return "3 hatched, told: %r" % [n for n in notes if "of 10" in str(n)][0]
+
     print("hatch reveal:")
     check("shows the pet, not a letter", t_shows_the_pet)
     check("ten cards fit a laptop", t_ten_fit_a_laptop)
@@ -175,6 +307,14 @@ def main():
     check("a new species is called out", t_new_is_called_out)
     check("the spinner stops on close", t_spinner_stops)
     check("isNew is never saved", t_new_flag_is_not_saved)
+    print("\nclicking an egg in the world:")
+    check("opens like every other panel", t_egg_click_uses_controller)
+    check("opens on the egg clicked", t_egg_click_focuses_that_egg)
+    check("a second egg refocuses", t_second_egg_refocuses)
+    check("one panel at a time", t_one_panel_at_a_time)
+    print("\nprices:")
+    check("the x10 label is the charge", t_starter_x10_label_is_the_charge)
+    check("a short batch says why", t_partial_batch_says_why)
 
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))

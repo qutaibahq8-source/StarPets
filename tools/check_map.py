@@ -58,9 +58,18 @@ def build():
         time = time or os.clock
     """)
 
+    # Each script gets its OWN `script`, as in Roblox. A shared global, re-
+    # pointed while each script loaded, meant any `script.Parent` read when a
+    # function RUNS — BadgeService.CheckAll requires DataManager that way —
+    # resolved against whatever happened to load last, and crashed here
+    # while working in the real game. Globals are otherwise shared, as before.
+    bind = lua.eval("""function(s, n, sc)
+        local env = setmetatable({ script = sc }, { __index = _G, __newindex = _G })
+        return assert(load(s, n, "t", env))
+    end""")
+
     def load(path, name):
-        return lua.eval("function(s,n) return assert(load(s,n)) end")(
-            luau_to_lua(Path(path).read_text()), "@" + name)()
+        return bind(luau_to_lua(Path(path).read_text()), "@" + name, G["script"])()
 
     rs = mock["ReplicatedStorage"]
     shared = mock["newInst"]("Folder"); shared.Name = "Shared"; shared.Parent = rs
@@ -99,7 +108,7 @@ def build():
     gs = mock["newInst"]("Script"); gs.Name = "GameServer"; gs.Parent = holder
     G["script"] = gs
     src = luau_to_lua((ROOT / "src/Server/GameServer.server.lua").read_text())
-    fn = lua.eval("function(s,n) return assert(load(s,n)) end")(src, "@GameServer")
+    fn = bind(src, "@GameServer", gs)
     with contextlib.redirect_stdout(io.StringIO()):
         fn()
     return lua, mock, cfg

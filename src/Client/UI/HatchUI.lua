@@ -14,9 +14,11 @@ local function G() return _G.MysticPets end
 local function fmt(n) return G().formatNum(n) end
 
 -- ============================================================
--- EGG SELECTION PANEL (shown when no specific egg chosen)
+-- EGG SELECTION PANEL
 -- ============================================================
-function HatchUI.Build(data)
+-- focusEggId: the egg the player clicked in the world, if any. Its card goes
+-- first and is outlined, and the header names it.
+function HatchUI.Build(data, focusEggId)
 	ActiveData = data
 	if ActiveGui then ActiveGui:Destroy() end
 
@@ -45,6 +47,9 @@ function HatchUI.Build(data)
 	header.BackgroundColor3 = Color3.fromRGB(30, 20, 60)
 	header.BackgroundTransparency = 0
 	header.Text             = "🥚  Hatch Eggs"
+	for _, e in ipairs(G().GameConfig.Eggs) do
+		if e.id == focusEggId then header.Text = "🥚  " .. e.name end
+	end
 	header.TextColor3       = Color3.new(1, 1, 1)
 	header.TextScaled       = true
 	header.Font             = Enum.Font.GothamBold
@@ -80,15 +85,24 @@ function HatchUI.Build(data)
 
 	local listLayout = Instance.new("UIListLayout")
 	listLayout.Padding = UDim.new(0, 8)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	listLayout.Parent  = scroll
 
-	for _, eggCfg in ipairs(G().GameConfig.Eggs) do
+	for i, eggCfg in ipairs(G().GameConfig.Eggs) do
+		local focused = (eggCfg.id == focusEggId)
 		local card = Instance.new("Frame")
+		card.Name             = "EggCard_" .. eggCfg.id
 		card.Size             = UDim2.new(1, -8, 0, 80)
 		card.BackgroundColor3 = Color3.fromRGB(28, 22, 50)
 		card.BorderSizePixel  = 0
+		card.LayoutOrder      = focused and 0 or i
 		card.Parent           = scroll
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+		if focused then
+			local edge = Instance.new("UIStroke")
+			edge.Name = "Focus"; edge.Color = eggCfg.color; edge.Thickness = 3
+			edge.Parent = card
+		end
 
 		-- Egg icon
 		local eggIcon = Instance.new("Frame")
@@ -143,7 +157,10 @@ function HatchUI.Build(data)
 			local claimed = data and data.HasClaimedFreeEgg
 			local afterCost = eggCfg.costAfterFirst or 150
 			displayCost   = claimed and (fmt(afterCost) .. " Coins") or "🆓 FREE"
-			displayCost10 = claimed and (fmt(afterCost * 10) .. " Coins") or "🆓 FREE x10"
+			-- Only the first egg is free; the other nine are charged. This read
+			-- "FREE x10", and pressing it took 1,350 coins.
+			displayCost10 = claimed and (fmt(afterCost * 10) .. " Coins")
+				or ("1 free + " .. fmt(afterCost * 9))
 		else
 			displayCost   = fmt(eggCfg.cost) .. " " .. eggCfg.currency
 			displayCost10 = fmt(eggCfg.cost * 10) .. " " .. eggCfg.currency

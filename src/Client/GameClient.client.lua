@@ -593,8 +593,13 @@ RE_HatchEgg.OnClientEvent:Connect(function(eggId)
 		UIController.TogglePanel("UpgradePanel", CurrentData)
 		return
 	end
-	local HatchUI = require(script.Parent.UI.HatchPanel)
-	HatchUI.Build(CurrentData)
+	-- Through UIController, like every other panel, and opened ON the egg that
+	-- was clicked. This called HatchUI.Build directly: it skipped the pass that
+	-- fits panels to a phone (a 600-wide panel on a 390-wide screen), could
+	-- stack on top of another open panel, and threw away which egg was clicked,
+	-- so clicking the Volcano egg opened the same list as clicking any other.
+	local UIController = require(script.Parent.UI.UIController)
+	UIController.Open("HatchPanel", CurrentData, eggId)
 end)
 
 -- Machine fires this → show rebirth confirmation popup

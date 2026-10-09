@@ -54,12 +54,8 @@ def main():
         print("   x UIController never loaded, so no panel can open")
         return 1
 
-    # In Roblox `script` is a local unique to each script. Here it is one
-    # global that every load overwrote, so by now it points at GameClient —
-    # and UIController's require(script.Parent[panelName]) would look for the
-    # panels beside GameClient, find nothing, and quietly warn. Point it back
-    # at UIController, which is what Roblox would have given it.
-    lua.globals()["script"] = controller_inst
+    # Each script now has its own `script`, as in Roblox (see check_client), so
+    # UIController finds the panels beside it without any help here.
 
     # Panels start animation threads — spinning wheels, pulsing buttons — that
     # are written as `while true do ... task.wait() end`. The client harness

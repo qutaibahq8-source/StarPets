@@ -1311,6 +1311,13 @@ RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
 			if not ok then break end
 		end
 		RE_HatchResult:FireClient(player,results,eggId)
+		-- A batch that stopped early says why. It used to drop the reason, so
+		-- an x10 that ran out of coins after three showed three pets and
+		-- nothing else, which looks like the other seven were eaten.
+		if #results < count and errors[1] then
+			RE_Notification:FireClient(player,"info",
+				("Hatched %d of %d — %s"):format(#results, count, tostring(errors[1])))
+		end
 		syncData(player)
 		BadgeService.CheckAll(player)
 	else

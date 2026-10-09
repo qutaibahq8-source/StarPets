@@ -35,12 +35,7 @@ function UIController.CloseAll()
 	destroyAllPanels()
 end
 
-function UIController.TogglePanel(panelName, data)
-	-- Clicking the same open panel's button closes it
-	if CurrentPanelName == panelName and PlayerGui:FindFirstChild(panelName) then
-		destroyAllPanels()
-		return
-	end
+local function open(panelName, data, ...)
 	destroyAllPanels()  -- guarantees only one panel is ever open
 
 	-- Load the panel module
@@ -52,7 +47,7 @@ function UIController.TogglePanel(panelName, data)
 		return
 	end
 
-	local panel = module.Build(data)
+	local panel = module.Build(data, ...)
 	if not panel then return end
 
 	-- Every panel in the game passes through this line, which is why the
@@ -66,6 +61,21 @@ function UIController.TogglePanel(panelName, data)
 	panel.Parent = PlayerGui
 	CurrentPanel = panel
 	CurrentPanelName = panelName
+end
+
+-- A HUD button: pressing it again closes its panel.
+function UIController.TogglePanel(panelName, data, ...)
+	if CurrentPanelName == panelName and PlayerGui:FindFirstChild(panelName) then
+		destroyAllPanels()
+		return
+	end
+	open(panelName, data, ...)
+end
+
+-- Something in the world: it always opens, never closes. Clicking a second egg
+-- while the hatch panel is up should show that egg, not shut the panel.
+function UIController.Open(panelName, data, ...)
+	open(panelName, data, ...)
 end
 
 function UIController.RefreshCurrent(data)
