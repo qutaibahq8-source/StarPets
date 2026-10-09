@@ -1,7 +1,6 @@
 -- MysticPets: PetsPanel.lua
 -- Place in: StarterPlayerScripts > Client > UI > PetsPanel (ModuleScript)
 
-local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local PlayerGui    = Players.LocalPlayer.PlayerGui
 
@@ -85,16 +84,15 @@ function PetsPanel.Build(data)
 	-- Main panel
 	local panel = Instance.new("Frame")
 	panel.Size             = UDim2.new(0, 600, 0, 500)
-	panel.Position         = UDim2.new(0.5, -300, 0.5, 400)
+	panel.Position         = UDim2.new(0.5, -300, 0.5, -250)
 	panel.BackgroundColor3 = Color3.fromRGB(18, 14, 35)
 	panel.BorderSizePixel  = 0
 	panel.Parent           = screen
 	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
 
 	-- Slide in
-	TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-		Position = UDim2.new(0.5, -300, 0.5, -250)
-	}):Play()
+	-- No slide-in: UIController gives every panel the same entrance, and a
+	-- Position tween here fought the phone fit and dragged the panel off screen.
 
 	-- Header
 	local header = Instance.new("Frame")
@@ -298,8 +296,9 @@ function PetsPanel.Refresh(data)
 	local sig = sigOf(data)
 	if sig ~= lastSig then
 		lastSig = sig
-		existing:Destroy()
-		PetsPanel.Build(data)
+		-- Through UIController, which keeps the phone fit, the scroll position, and
+		-- the panel itself when nothing on it actually changed.
+		require(script.Parent.UIController).Rebuild("PetsPanel", data)
 	end
 end
 

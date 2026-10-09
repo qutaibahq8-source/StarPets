@@ -7,7 +7,7 @@ way. Read it before changing anything; it is short on purpose.
 ## Run this first
 
 ```bash
-bash tools/scan_all.sh        # 26 checks, a few minutes, no Studio needed
+bash tools/scan_all.sh        # 27 checks, a few minutes, no Studio needed
 ```
 
 They boot the real server and the real client against a Roblox mock (`lupa`),
@@ -51,6 +51,17 @@ which is what lets a saved map still work when the builder never runs.
 on `workspace` folders by name; moving one into `StarPetsMap` without updating
 the client left every world barrier frozen. `check_map` cross-references these
 now.
+
+**A panel's root frame belongs to UIController.** Open with `TogglePanel` or
+`Open`, refresh with `Rebuild` — never `Build` directly — and never tween a
+panel root's Position or Size. Responsive centres it; a slide-in tween kept
+writing Position after that and left six panels mostly off a phone screen.
+The mock's tweens land when a check calls `FLUSH_TWEENS`; `check_panels`
+measures where each panel ends up.
+
+**The harness must not change what code means.** `continue` used to be
+transpiled to a comment, so every loop that skipped with it ran the skipped
+code under test. `check_syntax` now proves the rewrite on a probe first.
 
 ## Rules that are load-bearing — do not quietly undo them
 

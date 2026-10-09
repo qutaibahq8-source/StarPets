@@ -28,6 +28,7 @@ run "motion"     python3 tools/check_motion.py
 run "hatch"      python3 tools/check_hatch.py
 run "pet view"   python3 tools/check_petview.py
 run "pet follow" python3 tools/check_follow.py
+run "panels"     python3 tools/check_panels.py
 run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py

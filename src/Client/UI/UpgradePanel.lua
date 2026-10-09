@@ -1,7 +1,6 @@
 -- MysticPets: UpgradePanel.lua
 -- Place in: StarterPlayerScripts > Client > UI > UpgradePanel (ModuleScript)
 
-local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local PlayerGui    = Players.LocalPlayer.PlayerGui
 
@@ -24,16 +23,15 @@ function UpgradePanel.Build(data)
 
 	local panel = Instance.new("Frame")
 	panel.Size=UDim2.new(0,580,0,480)
-	panel.Position=UDim2.new(0.5,-290,0.5,500)
+	panel.Position=UDim2.new(0.5,-290,0.5,-240)
 	panel.BackgroundColor3=Color3.fromRGB(14,10,28)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,14)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(140,80,255); stroke.Thickness=2
 
-	TweenService:Create(panel,TweenInfo.new(0.3,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-290,0.5,-240)
-	}):Play()
+	-- No slide-in: UIController gives every panel the same entrance, and a
+	-- Position tween here fought the phone fit and dragged the panel off screen.
 
 	-- Header
 	local header=Instance.new("Frame")
@@ -138,12 +136,11 @@ function UpgradePanel.Build(data)
 
 		if not isMaxed then
 			buyBtn.MouseButton1Click:Connect(function()
+				-- The server syncs after a purchase, and the sync rebuilds this
+				-- panel in place. This used to destroy the panel half a second
+				-- later — "refresh" in the comment, close in the code — so every
+				-- purchase shut the Upgrade panel and the next meant reopening it.
 				G().RE_BuyUpgrade:FireServer(upg.key)
-				-- Refresh after short delay
-				task.delay(0.5,function()
-					local existing=PlayerGui:FindFirstChild("UpgradePanel")
-					if existing then existing:Destroy() end
-				end)
 			end)
 		end
 	end
@@ -152,8 +149,9 @@ function UpgradePanel.Build(data)
 end
 
 function UpgradePanel.Refresh(data)
-	local existing=PlayerGui:FindFirstChild("UpgradePanel")
-	if existing then existing:Destroy(); UpgradePanel.Build(data) end
+	-- Through UIController, which keeps the phone fit, the scroll position, and
+	-- the panel itself when nothing on it actually changed.
+	require(script.Parent.UIController).Rebuild("UpgradePanel", data)
 end
 
 return UpgradePanel

@@ -32,15 +32,14 @@ function HatchUI.Build(data, focusEggId)
 
 	local panel = Instance.new("Frame")
 	panel.Size             = UDim2.new(0, 600, 0, 400)
-	panel.Position         = UDim2.new(0.5, -300, 0.5, 400)
+	panel.Position         = UDim2.new(0.5, -300, 0.5, -200)
 	panel.BackgroundColor3 = Color3.fromRGB(18, 14, 35)
 	panel.BorderSizePixel  = 0
 	panel.Parent           = screen
 	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
 
-	TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-		Position = UDim2.new(0.5, -300, 0.5, -200)
-	}):Play()
+	-- No slide-in: UIController gives every panel the same entrance, and a
+	-- Position tween here fought the phone fit and dragged the panel off screen.
 
 	local header = Instance.new("TextLabel")
 	header.Size             = UDim2.new(1, 0, 0, 50)
@@ -465,18 +464,6 @@ function HatchUI.ShowHatchResult(pets, eggId)
 			screen:Destroy()
 		end
 	end)
-end
-
--- Called when egg stand is clicked (from server fire)
-function HatchUI.OpenForEgg(eggId, data, RE_HatchEgg, RE_Notification)
-	local eggCfg = nil
-	for _, e in ipairs(G().GameConfig.Eggs) do
-		if e.id == eggId then eggCfg = e break end
-	end
-	if not eggCfg then return end
-
-	-- If panel is already open just switch context; otherwise build
-	HatchUI.Build(data)
 end
 
 function HatchUI.Refresh(data)

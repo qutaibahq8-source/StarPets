@@ -103,9 +103,11 @@ local function simple(name)
 		__call = function() return {} end, __tostring = function() return name end })
 end
 local UDim  = { new = function(s, o) return { Scale = s or 0, Offset = o or 0 } end }
+-- A metatable only so typeof can say "UDim2", as Roblox does.
+local U2MT = {}
 local UDim2 = { new = function(sx, ox, sy, oy)
-	return { X = { Scale = sx or 0, Offset = ox or 0 },
-	         Y = { Scale = sy or 0, Offset = oy or 0 } }
+	return setmetatable({ X = { Scale = sx or 0, Offset = ox or 0 },
+	         Y = { Scale = sy or 0, Offset = oy or 0 } }, U2MT)
 end, fromScale = function(x, y) return UDim2.new(x, 0, y, 0) end,
      fromOffset = function(x, y) return UDim2.new(0, x, 0, y) end }
 local Vector2 = { new = function(x, y) return { X = x or 0, Y = y or 0 } end }
@@ -394,8 +396,11 @@ InstMT.__index = function(t, k)
 		return sigs[k]
 	end
 	if k == "Position" then
+		-- A part's Position comes from its CFrame. A GUI object's Position is
+		-- its own UDim2; it used to come back as a Vector3 made out of one.
 		local cfr = rawget(t, "_p").CFrame
-		return cfr and cfr.Position or nil
+		if cfr then return cfr.Position end
+		return rawget(t, "_p").Position
 	end
 	local p = rawget(t, "_p")[k]
 	if p ~= nil then return p end
@@ -434,7 +439,9 @@ InstMT.__newindex = function(t, k, val)
 		return
 	end
 	if k == "Position" then
-		rawget(t, "_p").CFrame = CFrame.new(val)
+		-- Only a Vector3 places a part. A UDim2 is a GUI position and has no
+		-- CFrame to make.
+		if getmetatable(val) == V3MT then rawget(t, "_p").CFrame = CFrame.new(val) end
 		rawget(t, "_p").Position = val
 		return
 	end
@@ -456,6 +463,7 @@ local function robloxTypeof(v)
 	if mt == V3MT then return "Vector3" end
 	if mt == CFMT then return "CFrame" end
 	if mt == C3MT then return "Color3" end
+	if mt == U2MT then return "UDim2" end
 	if v.Name and v.Value and mt and mt.__tostring then return "EnumItem" end
 	return "table"
 end
@@ -574,9 +582,31 @@ local MarketplaceService = {
 	ProcessReceipt = nil,
 }
 
+-- A played tween lands on its goal LATER, not when Play is called: in Roblox
+-- it writes the property every frame for its duration, over anything set in
+-- the meantime. These were no-ops, which hid a panel that was centred by one
+-- line and then dragged off screen by a slide-in tween already playing.
+-- Nothing changes until a check calls FLUSH_TWEENS — "let time pass" — so a
+-- check that never does sees what it always saw.
+local PENDING_TWEENS = {}
+local function flushTweens()
+	local list = PENDING_TWEENS
+	PENDING_TWEENS = {}
+	for _, tw in ipairs(list) do
+		if not tw.cancelled then
+			for k, v in pairs(tw.goals) do tw.inst[k] = v end
+			tw.Completed:Fire(Enum and Enum.PlaybackState and Enum.PlaybackState.Completed)
+		end
+	end
+	return #list
+end
 local TweenService = {
-	Create = function()
-		return { Play = function() end, Cancel = function() end, Completed = signal() }
+	Create = function(_, inst, _info, goals)
+		local tw = { inst = inst, goals = goals or {}, Completed = signal() }
+		tw.Play = function() table.insert(PENDING_TWEENS, tw) end
+		tw.Cancel = function() tw.cancelled = true end
+		tw.Pause = tw.Cancel
+		return tw
 	end,
 }
 local BadgeService = {
@@ -720,4 +750,5 @@ return {
 	MODULES = MODULES, newInst = newInst, robloxRequire = robloxRequire,
 	BOUND_TO_CLOSE = BOUND_TO_CLOSE, STORE = STORE,
 	PLAYED = PLAYED,
+	FLUSH_TWEENS = flushTweens,
 }

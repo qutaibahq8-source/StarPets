@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+"""Every panel ends up ON the screen, and stays put while it is open.
+
+check_ui proves each panel is SIZED to fit a phone. That is not the same as
+being where the player can see it, and the difference was hiding a bug in the
+six most-used panels:
+
+  ENDED OFF SCREEN   Responsive centres a panel by setting AnchorPoint 0.5
+                     and Position (0.5, 0.5). But each panel's Build had
+                     already started a slide-in tween toward its old pixel
+                     position, and a playing tween writes its property every
+                     frame until it finishes. It finished at the old offset,
+                     now measured from the panel's centre: on a phone, Pets,
+                     Shop, Upgrade, Rebirth, Hatch and Ranks ended with their
+                     centre left of the screen's edge.
+
+  BOUNCED ON REFRESH Rebirth, Shop and Upgrade rebuilt themselves on every
+                     data sync — every two seconds — skipping the fitting
+                     pass and replaying the slide-in each time. Scroll jumped
+                     back to the top, and a click landing mid-rebuild was lost.
+
+The mock's tweens used to do nothing, which is why no check saw any of this.
+They now land on their goal when a check lets time pass (FLUSH_TWEENS), which
+is what Roblox does.
+"""
+import sys
+from pathlib import Path
+
+try:
+    import lupa  # noqa: F401
+except ImportError:
+    sys.exit("lupa is not installed (pip install lupa)")
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+import check_client  # noqa: E402
+from check_ui import PANELS  # noqa: E402
+
+FAILURES = []
+SCREENS = [(390, 844, "phone"), (1280, 720, "laptop")]
+
+
+def check(label, fn):
+    try:
+        print("   ok  %-38s %s" % (label, fn() or ""))
+    except AssertionError as e:
+        print("   x   %-38s %s" % (label, e))
+        FAILURES.append(label)
+    except Exception as e:  # noqa: BLE001
+        print("   x   %-38s crashed: %r" % (label, e))
+        FAILURES.append(label)
+
+
+def num(v, k):
+    try:
+        return float(v[k] or 0)
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def rect(frame, W, H):
+    """Where a frame actually is on a W x H screen: (left, top, w, h)."""
+    p = frame._p
+    sz, pos = p.Size, p.Position
+    w = num(sz["X"], "Scale") * W + num(sz["X"], "Offset")
+    h = num(sz["Y"], "Scale") * H + num(sz["Y"], "Offset")
+    clamp = frame["FindFirstChildOfClass"](frame, "UISizeConstraint")
+    if clamp is not None:
+        mx, mn = clamp._p.MaxSize, clamp._p.MinSize
+        if mx is not None:
+            w, h = min(w, float(mx["X"])), min(h, float(mx["Y"]))
+        if mn is not None:
+            w, h = max(w, float(mn["X"])), max(h, float(mn["Y"]))
+    x = num(pos["X"], "Scale") * W + num(pos["X"], "Offset")
+    y = num(pos["Y"], "Scale") * H + num(pos["Y"], "Offset")
+    ap = p.AnchorPoint
+    ax, ay = (float(ap["X"]), float(ap["Y"])) if ap is not None else (0.0, 0.0)
+    return x - ax * w, y - ay * h, w, h
+
+
+def root_of(screen, W, H):
+    best, area = None, -1
+    for c in screen["GetChildren"](screen).values():
+        if str(c._p.ClassName) != "Frame" or c._p.Size is None:
+            continue
+        _, _, w, h = rect(c, W, H)
+        if w * h > area:
+            best, area = c, w * h
+    return best
+
+
+def off_screen(frame, W, H):
+    x, y, w, h = rect(frame, W, H)
+    out = []
+    if x < -1:
+        out.append("%d px off the left" % -x)
+    if y < -1:
+        out.append("%d px off the top" % -y)
+    if x + w > W + 1:
+        out.append("%d px off the right" % (x + w - W))
+    if y + h > H + 1:
+        out.append("%d px off the bottom" % (y + h - H))
+    return out
+
+
+def main():
+    lua, mock, gui, _ = check_client.boot()
+    print()
+    lua.execute("task.spawn = function() end; task.defer = function() end")
+    flush = mock["FLUSH_TWEENS"]
+
+    ui = lua.eval('game:GetService("StarterPlayer").StarterPlayerScripts.Client.UI')
+    ctrl = mock["MODULES"][ui["FindFirstChild"](ui, "UIController")]
+    sss = mock["ServerScriptService"]
+    holder = sss["FindFirstChild"](sss, "Server", True)
+    DM = mock["MODULES"][holder["FindFirstChild"](holder, "DataManager")]
+    res = DM.LoadPlayer(mock["Players"].LocalPlayer)
+    data = res[0] if isinstance(res, tuple) else res
+
+    def screen_size(W, H):
+        lua.execute("""
+            local cam = workspace.CurrentCamera or Instance.new("Camera")
+            cam.ViewportSize = Vector2.new(%d, %d)
+            workspace.CurrentCamera = cam
+        """ % (W, H))
+
+    def open_panel(name):
+        ctrl.CloseAll()
+        flush()
+        ctrl.TogglePanel(name, data)
+        flush()  # let every tween that was started run to its end
+        return gui["FindFirstChild"](gui, name)
+
+    # ---------------------------------------------------- where they land
+    def t_all_on_screen(W, H):
+        def run():
+            screen_size(W, H)
+            bad = []
+            for name in PANELS:
+                s = open_panel(name)
+                if s is None:
+                    bad.append("%s did not open" % name)
+                    continue
+                root = root_of(s, W, H)
+                if root is None:
+                    continue
+                out = off_screen(root, W, H)
+                if out:
+                    bad.append("%s %s" % (name, ", ".join(out)))
+            assert not bad, "once their animations finish: " + "; ".join(bad)
+            return "all %d panels fully on a %dx%d screen" % (len(PANELS), W, H)
+        return run
+
+    # ---------------------------------------------------- refresh
+    def t_refresh_unchanged_keeps_panel():
+        screen_size(390, 844)
+        s = open_panel("ShopPanel")
+        ctrl.RefreshCurrent(data)
+        flush()
+        s2 = gui["FindFirstChild"](gui, "ShopPanel")
+        assert s2 is not None, "the Shop panel vanished on refresh"
+        same = lua.eval("function(a, b) return rawequal(a, b) end")(s, s2)
+        assert same, ("a data sync with nothing on the panel changed rebuilt it "
+                      "anyway — every two seconds, losing scroll and clicks")
+        return "a sync that changes nothing on it leaves it alone"
+
+    def t_refresh_changed_stays_fitted():
+        screen_size(390, 844)
+        bad = []
+        for name in ("ShopPanel", "UpgradePanel", "RebirthPanel"):
+            open_panel(name)
+            before = data.Coins
+            data.Coins = 987654321
+            ctrl.RefreshCurrent(data)
+            flush()
+            data.Coins = before
+            s = gui["FindFirstChild"](gui, name)
+            if s is None:
+                bad.append("%s vanished" % name)
+                continue
+            root = root_of(s, 390, 844)
+            if root["FindFirstChildOfClass"](root, "UISizeConstraint") is None:
+                bad.append("%s rebuilt without the phone fit" % name)
+            out = off_screen(root, 390, 844)
+            if out:
+                bad.append("%s after refresh: %s" % (name, ", ".join(out)))
+        assert not bad, "; ".join(bad)
+        return "Shop, Upgrade, Rebirth: rebuilt, fitted, on screen"
+
+    def t_refresh_keeps_scroll():
+        screen_size(390, 844)
+        # An upgrade level goes up between open and sync, so the panel really
+        # is rebuilt. With nothing visible changed the old one is kept, and
+        # this would pass without testing anything.
+        data.Upgrades["CoinBonus"] = 0
+        s = open_panel("UpgradePanel")
+        scrolls = [d for d in s["GetDescendants"](s).values()
+                   if str(d._p.ClassName) == "ScrollingFrame"]
+        assert scrolls, "no scrolling list in the Upgrade panel"
+        scrolls[0].CanvasPosition = lua.eval("Vector2.new(0, 180)")
+        data.Upgrades["CoinBonus"] = 1
+        ctrl.RefreshCurrent(data)
+        flush()
+        data.Upgrades["CoinBonus"] = 0
+        s2 = gui["FindFirstChild"](gui, "UpgradePanel")
+        rebuilt = not lua.eval("function(a, b) return rawequal(a, b) end")(s, s2)
+        assert rebuilt, "an upgrade level went up and the panel was not rebuilt"
+        sc2 = [d for d in s2["GetDescendants"](s2).values()
+               if str(d._p.ClassName) == "ScrollingFrame"][0]
+        y = float(sc2._p.CanvasPosition["Y"]) if sc2._p.CanvasPosition is not None else 0
+        assert y == 180, "a refresh scrolled the list back to %d (was 180)" % y
+        return "scrolled to 180, still at 180 after a rebuild"
+
+    def t_equip_keeps_pets_panel():
+        screen_size(390, 844)
+        open_panel("PetsPanel")
+        d = lua.eval("""{ Pets = { {name="cat", rarity="Common", uniqueId="q1"} },
+                          EquippedPets = { "q1" }, Discovered = {} }""")
+        ctrl.RefreshCurrent(d)
+        flush()
+        s = gui["FindFirstChild"](gui, "PetsPanel")
+        assert s is not None, "the Pets panel closed on equip"
+        root = root_of(s, 390, 844)
+        assert root["FindFirstChildOfClass"](root, "UISizeConstraint") is not None, \
+            "after equipping, the Pets panel was rebuilt without the phone fit"
+        out = off_screen(root, 390, 844)
+        assert not out, "after equipping, the Pets panel is %s" % ", ".join(out)
+        return "equip: rebuilt, fitted, on screen"
+
+    # ---------------------------------------------------- trade
+    def t_trade_opens_like_a_panel():
+        screen_size(390, 844)
+        open_panel("PetsPanel")
+        remotes = lua.eval("game.ReplicatedStorage.Remotes")
+        ts = remotes["FindFirstChild"](remotes, "TradeState")
+        lua.eval("function(r) r.OnClientEvent:Fire({active=true, partner='Bob', "
+                 "yourOffer={}, theirOffer={}}) end")(ts)
+        flush()
+        s = gui["FindFirstChild"](gui, "TradePanel")
+        assert s is not None, "an active trade opened no window"
+        assert gui["FindFirstChild"](gui, "PetsPanel") is None, \
+            "the trade window opened on top of the Pets panel"
+        root = root_of(s, 390, 844)
+        out = off_screen(root, 390, 844)
+        assert not out, "the trade window is %s" % ", ".join(out)
+        return "closes the open panel, fits the phone"
+
+    def t_buying_keeps_upgrade_open():
+        screen_size(1280, 720)
+        data.Coins = 10 ** 9
+        s = open_panel("UpgradePanel")
+        btns = [b for b in s["GetDescendants"](s).values()
+                if str(b._p.ClassName) == "TextButton" and b._p.Active is not False
+                and str(b._p.Text or "") not in ("✕", "X")]
+        assert btns, "no buy button in the Upgrade panel"
+        # Run every short delay now: what happens half a second after a press.
+        lua.execute("task.delay = function(t, f, ...) if f and (t or 0) < 3 then f(...) end end")
+        try:
+            lua.eval("function(b) b.MouseButton1Click:Fire() end")(btns[0])
+        finally:
+            lua.execute("task.delay = function() end")
+        assert gui["FindFirstChild"](gui, "UpgradePanel") is not None, \
+            "buying an upgrade closed the Upgrade panel half a second later"
+        return "bought one; the panel is still open for the next"
+
+    print("where every panel ends up:")
+    for W, H, label in SCREENS:
+        check("on screen on a %s" % label, t_all_on_screen(W, H))
+    print("\nwhile one is open:")
+    check("a sync that changes nothing", t_refresh_unchanged_keeps_panel)
+    check("a sync that changes something", t_refresh_changed_stays_fitted)
+    check("scroll survives a rebuild", t_refresh_keeps_scroll)
+    check("equipping in the Pets panel", t_equip_keeps_pets_panel)
+    check("a trade window", t_trade_opens_like_a_panel)
+    check("buying an upgrade", t_buying_keeps_upgrade_open)
+
+    if FAILURES:
+        print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
+        return 1
+    print("\npanels: on screen, and they stay put")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

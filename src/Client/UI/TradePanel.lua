@@ -38,7 +38,11 @@ end)
 
 RE_TradeState.OnClientEvent:Connect(function(s)
 	state = s or { active=false }
-	if state.active and not PlayerGui:FindFirstChild("TradePanel") then TradePanel.Build() end
+	-- Opened through UIController like any panel: fitted to the screen, and
+	-- whatever else was open is closed rather than left underneath.
+	if state.active and not PlayerGui:FindFirstChild("TradePanel") then
+		require(script.Parent.UIController).Open("TradePanel")
+	end
 	if rerender then rerender() end
 end)
 
