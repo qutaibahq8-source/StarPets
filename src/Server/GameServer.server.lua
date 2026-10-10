@@ -1715,8 +1715,10 @@ RF_Admin.OnServerInvoke = function(player, action, arg)
 		data.RebirthMultiplier = (data.Rebirths > 0 and GameConfig.Rebirths[data.Rebirths].multiplier) or 1.0
 		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "giveAllPets" and data then
+		-- To the TARGET. This granted to whoever pressed the button, while
+		-- syncing the target, so "give all pets" to a player gave them nothing.
 		for _, pet in ipairs(GameConfig.Pets) do
-			PetService.GrantPet(player, { name=pet.name, rarity=pet.rarity }, true)
+			PetService.GrantPet(target, { name=pet.name, rarity=pet.rarity }, true)
 		end
 		syncData(target); pcall(BadgeService.CheckAll, target)
 	elseif action == "clearPets" and data then

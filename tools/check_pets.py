@@ -158,6 +158,103 @@ def main():
     else:
         print("  ok  every grant in src/Server goes through PetService.GrantPet")
 
+    # --- EVERY PET THE GAME NAMES IS A PET THE GAME HAS ----------------------
+    # The merchant and both event shops sold pets that were not in the roster
+    # — names from before it was replaced with the imported models — so a
+    # player paid up to 12,000 gems for a pet with no model, no earnings and
+    # no place in the Index. Every name anywhere in the config is checked
+    # against the roster, with its stated rarity.
+    roster = {str(x.name): str(x.rarity) for x in cfg.Pets.values()}
+    named = []
+    for it in cfg.MerchantPool.values():
+        if str(it.kind) == "pet":
+            named.append(("merchant", it.name, it.rarity))
+    for eid, ev in cfg.Events.items():
+        for it in ev.shop.values():
+            if str(it.kind) == "pet":
+                named.append(("event %s" % eid, it.name, it.rarity))
+    for group in ("Quests", "DailyQuests"):
+        for q in (cfg[group].values() if cfg[group] is not None else []):
+            if q.reward is not None and q.reward.pet is not None:
+                named.append(("quest %s" % q.id, q.reward.pet, q.reward.petRarity))
+    for code, r in cfg.Codes.items():
+        if r.pet is not None:
+            named.append(("code %s" % code, r.pet, r.petRarity))
+    gp_src = (ROOT / "src/Server/GamepassService.lua").read_text()
+    for m in re.finditer(r'newPet\s*=\s*\{\s*name\s*=\s*"([^"]+)"\s*,\s*rarity\s*=\s*"([^"]+)"', gp_src):
+        named.append(("VIP pass", m.group(1), m.group(2)))
+    bad_names = ["%s sells %r, which is not a pet in the game" % (w, str(n))
+                 for w, n, _ in named if str(n) not in roster]
+    bad_rarity = ["%s calls %s %s, but it is %s" % (w, n, r, roster[str(n)])
+                  for w, n, r in named
+                  if str(n) in roster and r is not None and str(r) != roster[str(n)]]
+    if bad_names or bad_rarity:
+        fails.append("; ".join((bad_names + bad_rarity)[:6]))
+    else:
+        print("  ok  all %d pets named in shops, quests, codes and passes exist, "
+              "at their real rarity" % len(named))
+
+    # --- A SHOP NEVER CHARGES FOR A PET IT CANNOT GIVE -----------------------
+    MS, ES = mods["MerchantService"], mods["EventService"]
+    while len(data.Pets) < cap:                         # full, from here on
+        Pets.GrantPet(p, lua.table_from({"name": "ant", "rarity": "Common"}))
+    data.Gems = 10 ** 9
+    data.EventTokens = 10 ** 6
+    pet_slot = None
+    for _ in range(80):
+        MS.ForceSpawn()
+        stock = MS.GetState().stock
+        for i, it in stock.items():
+            if str(it.kind) == "pet":
+                pet_slot = (i, it)
+                break
+        if pet_slot:
+            break
+
+    def outcome(r):
+        return (r[0], str(r[1])) if isinstance(r, tuple) else (r, "")
+
+    if pet_slot is None:
+        fails.append("the merchant never stocked a pet in 80 visits")
+    else:
+        i, it = pet_slot
+        gems = int(data.Gems)
+        ok, why = outcome(MS.Buy(p, i))
+        if ok or int(data.Gems) != gems:
+            fails.append("the merchant took %d gems for a %s with the inventory full"
+                         % (gems - int(data.Gems), it.name))
+        else:
+            data.Pets[len(data.Pets)] = None              # make room
+            ok, why = outcome(MS.Buy(p, i))
+            got = data.Pets[len(data.Pets)]
+            if not ok or str(got.name) != str(it.name) or str(got.rarity) != roster.get(str(it.name)):
+                fails.append("with room, the merchant's %s arrived as %s (%s): %s"
+                             % (it.name, got and got.name, got and got.rarity, why))
+            elif gems - int(data.Gems) != int(it.cost):
+                fails.append("the merchant charged %d for a %d-gem pet"
+                             % (gems - int(data.Gems), int(it.cost)))
+            else:
+                print("  ok  merchant: full inventory refused, nothing taken; with "
+                      "room, a %s %s for %d gems" % (got.rarity, got.name, int(it.cost)))
+
+    ES.Start("summer")
+    ev_pet = [(i, it) for i, it in cfg.Events["summer"].shop.items() if str(it.kind) == "pet"][0]
+    i, it = ev_pet
+    tokens = int(data.EventTokens)
+    ok, why = outcome(ES.Buy(p, i))
+    if ok or int(data.EventTokens) != tokens:
+        fails.append("the event shop took %d tokens for a %s with the inventory full"
+                     % (tokens - int(data.EventTokens), it.name))
+    else:
+        data.Pets[len(data.Pets)] = None
+        ok, why = outcome(ES.Buy(p, i))
+        got = data.Pets[len(data.Pets)]
+        if not ok or str(got.name) != str(it.name):
+            fails.append("with room, the event's %s did not arrive (%s)" % (it.name, why))
+        else:
+            print("  ok  event shop: full inventory refused, nothing taken; with "
+                  "room, a %s %s" % (got.rarity, got.name))
+
     if fails:
         print("\npets: %d problems" % len(fails))
         for f in fails:

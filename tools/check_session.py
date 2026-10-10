@@ -330,6 +330,26 @@ def main():
 
     check("served from cache, in order", t_ranks_board)
 
+    # ---- the admin panel acts on its target ---------------------------------
+    print("\nthe admin panel:")
+
+    def t_admin_gives_to_target():
+        srv7 = Server()
+        srv7.lua.execute('game:GetService("RunService").__studio = true')   # Studio: admin
+        admin, ad = srv7.join(9801, "Admin")
+        bob, bd = srv7.join(9802, "Bob")
+        rf = srv7.lua.eval("game.ReplicatedStorage.Remotes.AdminCmd")
+        srv7.lua.eval("function(rf, p, a, arg) return rf.OnServerInvoke(p, a, arg) end")(
+            rf, admin, "giveAllPets", srv7.lua.eval('{ target = "Bob" }'))
+        n_bob = len(list(bd.Pets.values()))
+        n_admin = len(list(ad.Pets.values()))
+        roster = len(list(srv7.cfg.Pets.values()))
+        assert n_bob == roster and n_admin == 0, (
+            "'give all pets' to Bob gave Bob %d and the admin %d" % (n_bob, n_admin))
+        return "Bob got all %d, the admin none" % roster
+
+    check("'give all pets' goes to the target", t_admin_gives_to_target)
+
     print()
     check("no script wrote a global", lambda: check_map.no_global_writes(srv.lua, srv2.lua))
 

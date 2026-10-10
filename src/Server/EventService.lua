@@ -62,9 +62,16 @@ function EventService.Buy(player, index)
 	if not item then return false, "No such item" end
 	local data = DataManager.GetData(player); if not data then return false, "no data" end
 	if (data.EventTokens or 0) < item.cost then return false, "Not enough " .. d.tokenName end
+	-- Checked before charging: a real species, and room for it.
+	local species
+	if item.kind == "pet" then
+		local why
+		species, why = PetService.CanReceive(player, item.name)
+		if not species then return false, why end
+	end
 	data.EventTokens = data.EventTokens - item.cost
 	if item.kind == "pet" then
-		PetService.GrantPet(player, { name=item.name, rarity=item.rarity or "Common" })
+		PetService.GrantPet(player, { name = species.name, rarity = species.rarity })
 	elseif item.kind == "coins" then
 		data.Coins = (data.Coins or 0) + item.amount; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + item.amount
 	elseif item.kind == "gems" then

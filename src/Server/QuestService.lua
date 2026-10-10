@@ -217,7 +217,10 @@ local function payout(player, data, r)
 	if r.pet then
 		-- Through GrantPet, never table.insert: it is what enforces the pet cap
 		-- and stamps the permanent Discovered record the Pet Index reads.
-		PetService.GrantPet(player, { name = r.pet, rarity = r.petRarity or "Common" })
+		local species = PetService.Species(r.pet)
+		if species then
+			PetService.GrantPet(player, { name = species.name, rarity = species.rarity })
+		end
 	end
 	-- A reward that pays coins has just moved a counter a quest might read, so
 	-- fold it in before anything else looks.
@@ -240,6 +243,10 @@ function QuestService.Claim(player, id)
 		if dailyProgress(data, d, daily) < daily.goal then
 			return false, "not complete yet"
 		end
+		if daily.reward and daily.reward.pet then
+			local ok, why = PetService.CanReceive(player, daily.reward.pet)
+			if not ok then return false, why end
+		end
 		-- Marked BEFORE paying out. If payout throws half way, the worst case is
 		-- an unpaid claim the player can report, not a reward that can be taken
 		-- repeatedly.
@@ -256,6 +263,10 @@ function QuestService.Claim(player, id)
 	if not def then return false, "unknown quest" end
 	if q.claimed[id] then return false, "already claimed" end
 	if milestoneProgress(data, def) < def.goal then return false, "not complete yet" end
+	if def.reward and def.reward.pet then
+		local ok, why = PetService.CanReceive(player, def.reward.pet)
+		if not ok then return false, why end
+	end
 	q.claimed[id] = true
 	payout(player, data, def.reward)
 	return true, def

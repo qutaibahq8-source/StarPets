@@ -321,6 +321,30 @@ PetService.RecordDiscovery = recordDiscovery
 -- already paid for or already owns arriving back (a trade the server has
 -- already validated, a gamepass re-grant). Refusing those would destroy the
 -- item rather than protect the player.
+-- Before anything is paid for a pet, or a reward that includes one is marked
+-- as given: is it a real species, and is there room for it? Returns the
+-- species' config, or nil and what to tell the player.
+--
+-- Every shop used to charge first and grant after, ignoring the result. With a
+-- full inventory the player paid and got nothing. Worse, the merchant and the
+-- event shops were selling pets that were no longer in the game at all —
+-- names left over from before the roster was replaced — and GrantPet took
+-- them anyway: up to 12,000 gems for a pet with no model, no earnings and no
+-- place in the Index.
+function PetService.CanReceive(player, name)
+	local data = DataManager.GetData(player)
+	if not data then return nil, "no data" end
+	local species = PetLookup[name]
+	if not species then return nil, "That pet is no longer in the game" end
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	if #(data.Pets or {}) >= cap then return nil, "Make room in your inventory first" end
+	return species
+end
+
+function PetService.Species(name)
+	return PetLookup[name]
+end
+
 function PetService.GrantPet(player, pet, force)
 	local data = DataManager.GetData(player)
 	if not data then return nil, "no data" end

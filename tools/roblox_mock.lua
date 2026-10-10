@@ -409,6 +409,10 @@ InstMT.__index = function(t, k)
 	end
 	local p = rawget(t, "_p")[k]
 	if p ~= nil then return p end
+	-- Every Roblox player has a DisplayName, the Name unless they chose one.
+	if k == "DisplayName" and rawget(t, "_p").ClassName == "Player" then
+		return rawget(t, "_p").Name
+	end
 	-- Child-by-name access, which is how ReplicatedStorage.Shared.GameConfig
 	-- and similar paths are written throughout this project.
 	return Methods.FindFirstChild(t, k, false)

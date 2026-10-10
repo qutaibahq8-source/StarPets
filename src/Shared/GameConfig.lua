@@ -484,13 +484,20 @@ GameConfig.Merchant = {
 	GapTime  = 240,   -- seconds between visits
 	StockSize = 4,    -- items offered per visit
 }
--- Pool the merchant draws its rotating stock from
+-- Pool the merchant draws its rotating stock from.
+--
+-- Every pet name here must be a species in GameConfig.Pets, spelled exactly,
+-- and `rarity` must be that species' rarity (check_pets enforces both). These
+-- used to sell Dragon, Phoenix, Unicorn, Shadow Wolf and Kirin: names from
+-- before the roster was replaced with the imported models, so four of the five
+-- did not exist and the fifth was spelled differently. Each slot keeps its
+-- price and its tier, with a species of that tier from the current roster.
 GameConfig.MerchantPool = {
-	{ kind="pet",   name="Dragon",        rarity="Legendary", cost=4000,   cur="Gems",  label="🐉 Dragon" },
-	{ kind="pet",   name="Phoenix",       rarity="Legendary", cost=6000,   cur="Gems",  label="🔥 Phoenix" },
-	{ kind="pet",   name="Unicorn",       rarity="Legendary", cost=5000,   cur="Gems",  label="🦄 Unicorn" },
-	{ kind="pet",   name="Shadow Wolf",   rarity="Epic",      cost=2500,   cur="Gems",  label="🐺 Shadow Wolf" },
-	{ kind="pet",   name="Kirin",         rarity="Mythic",    cost=12000,  cur="Gems",  label="✨ Kirin" },
+	{ kind="pet",   name="fawn",          rarity="Legendary", cost=4000,   cur="Gems",  label="🦌 Fawn" },
+	{ kind="pet",   name="wight bear",    rarity="Legendary", cost=6000,   cur="Gems",  label="🐻‍❄️ Wight Bear" },
+	{ kind="pet",   name="snow ram",      rarity="Legendary", cost=5000,   cur="Gems",  label="🐏 Snow Ram" },
+	{ kind="pet",   name="dragon",        rarity="Epic",      cost=2500,   cur="Gems",  label="🐉 Dragon" },
+	{ kind="pet",   name="Void Serpent",  rarity="Mythic",    cost=12000,  cur="Gems",  label="🐍 Void Serpent" },
 	{ kind="coins", amount=100000,        cost=300,    cur="Gems",  label="💰 100K Coins" },
 	{ kind="coins", amount=1000000,       cost=2000,   cur="Gems",  label="💰 1M Coins" },
 	{ kind="gems",  amount=500,           cost=200000, cur="Coins", label="💎 500 Gems" },
@@ -507,8 +514,8 @@ GameConfig.Events = {
 		tokenName = "Sun Tokens", tokenIcon = "☀️",
 		shop = {
 			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
-			{ kind="pet", name="Phoenix",      rarity="Legendary", cost=120, label="🔥 Phoenix" },
-			{ kind="pet", name="Star Phoenix", rarity="Mythic",    cost=600, label="🌟 Star Phoenix (EVENT)" },
+			{ kind="pet", name="ray fish",     rarity="Legendary", cost=120, label="🐠 Ray Fish" },
+			{ kind="pet", name="Void Serpent", rarity="Mythic",    cost=600, label="🐍 Void Serpent" },
 		},
 	},
 	winter = {
@@ -516,8 +523,8 @@ GameConfig.Events = {
 		tokenName = "Snowflakes", tokenIcon = "❄️",
 		shop = {
 			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
-			{ kind="pet", name="Snow Leopard", rarity="Rare",   cost=80,  label="🐆 Snow Leopard" },
-			{ kind="pet", name="Celestial Dragon", rarity="Mythic", cost=600, label="🐉 Celestial Dragon (EVENT)" },
+			{ kind="pet", name="wolf",     rarity="Rare",   cost=80,  label="🐺 Wolf" },
+			{ kind="pet", name="Reindeer", rarity="Mythic", cost=600, label="🦌 Reindeer" },
 		},
 	},
 }

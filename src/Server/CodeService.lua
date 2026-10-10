@@ -25,14 +25,9 @@ function CodeService.Redeem(player, codeStr)
 	-- species itself.
 	local petCfg
 	if reward.pet then
-		for _, p in ipairs(GameConfig.Pets) do
-			if p.name == reward.pet then petCfg = p break end
-		end
-		if not petCfg then return false, "This code's pet is no longer in the game" end
-		local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
-		if #(data.Pets or {}) >= cap then
-			return false, "Make room in your inventory first, then try again"
-		end
+		local why
+		petCfg, why = PetService.CanReceive(player, reward.pet)
+		if not petCfg then return false, why end
 	end
 
 	if reward.coins then data.Coins = (data.Coins or 0) + reward.coins; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + reward.coins end
