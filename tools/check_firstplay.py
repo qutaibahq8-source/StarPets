@@ -13,6 +13,9 @@ pet simulator either hooks someone or loses them:
    6. they press Hatch again, broke           -> told why, charged nothing
    7. they walk into coins                    -> coins go up
    8. they can afford an egg and hatch it     -> charged exactly its price
+   9. they click the Forest gate              -> asked, with the price
+  10. they unlock it                          -> charged, the gate opens
+  11. the Forest egg can be hatched           -> the next world's pets
 
 A break anywhere in that chain is a new player who quits in the first minute,
 and no other check would notice.
@@ -200,6 +203,84 @@ def main():
         assert eq == 2, "the second pet did not fill a free slot (%d equipped)" % eq
         return "charged exactly %d; now %d pets, %d equipped" % (price, count(data.Pets), eq)
 
+    areas = list(lua.eval("_G.MysticPets.GameConfig.Areas").values())
+    forest, desert = areas[1], areas[2]
+
+    def gate(area_id):
+        g = ws["FindFirstChild"](ws, "Barrier_" + area_id, True)
+        assert g is not None, "there is no %s gate in the world" % area_id
+        return g
+
+    def click_gate(area_id):
+        g = gate(area_id)
+        cd = g["FindFirstChildOfClass"](g, "ClickDetector")
+        assert cd is not None, "the %s gate cannot be clicked" % area_id
+        old = gui["FindFirstChild"](gui, "AreaUnlockGui")
+        if old is not None:
+            old["Destroy"](old)
+        lua.eval("function(cd, p) cd.MouseClick:Fire(p) end")(cd, me)
+        tick(3)
+        no_errors()
+        return gui["FindFirstChild"](gui, "AreaUnlockGui")
+
+    def owns(area_id):
+        return any(str(v) == area_id for v in data.UnlockedAreas.values())
+
+    def t_out_of_order_refused():
+        data.Coins = int(desert.unlockCost) + 1000
+        s = click_gate(str(desert.id))
+        assert s is not None, "clicking the Desert gate asked nothing"
+        yes = s["FindFirstChild"](s, "Unlock", True)
+        text = " ".join(str(d._p.Text) for d in s["GetDescendants"](s).values()
+                        if str(d._p.ClassName) == "TextLabel")
+        assert yes._p.Active is False, "the Desert can be bought before the Forest"
+        assert str(forest.name) in text, "the prompt does not say to unlock the Forest first"
+        # And straight at the server, the way an exploiter would.
+        r = lua.eval("game.ReplicatedStorage.Remotes.BuyArea")
+        lua.eval("function(r) r:FireServer('%s') end" % desert.id)(r)
+        tick(3)
+        assert not owns(str(desert.id)), "the server sold the Desert before the Forest"
+        return "the prompt says Forest first, and the server agrees"
+
+    def t_gate_asks():
+        price = int(forest.unlockCost)
+        data.Coins = price + 5
+        s = click_gate(str(forest.id))
+        assert s is not None, ("clicking the Forest gate did nothing — no player can "
+                               "ever leave the Meadow")
+        yes = s["FindFirstChild"](s, "Unlock", True)
+        assert yes is not None and yes._p.Active is not False, "the Unlock button is dead"
+        return "%r" % str(yes._p.Text)
+
+    def t_unlock_forest():
+        price = int(forest.unlockCost)
+        s = gui["FindFirstChild"](gui, "AreaUnlockGui")
+        press(s["FindFirstChild"](s, "Unlock", True))
+        no_errors()
+        assert owns(str(forest.id)), "pressed Unlock and the Forest is still locked"
+        assert int(data.Coins) == 5, "charged %d for a %d-coin world" % (price + 5 - int(data.Coins), price)
+        g = gate(str(forest.id))
+        assert g._p.CanCollide is False, "the Forest is bought but its gate still blocks the way"
+        assert gui["FindFirstChild"](gui, "OnboardingGui") is None, \
+            "the new-player banner is still up after the first world was bought"
+        return "bought for %d, the gate is open, the banner has gone" % price
+
+    def t_forest_egg_opens():
+        ui = lua.eval('game:GetService("StarterPlayer").StarterPlayerScripts.Client.UI')
+        ctrl = mock["MODULES"][ui["FindFirstChild"](ui, "UIController")]
+        ctrl.CloseAll()
+        ctrl.TogglePanel("HatchPanel", data)
+        tick(1)
+        s = gui["FindFirstChild"](gui, "HatchPanel")
+        eggs = list(lua.eval("_G.MysticPets.GameConfig.Eggs").values())
+        fe = [e for e in eggs if str(e.world or "") == str(forest.id)]
+        assert fe, "there is no Forest egg"
+        card = s["FindFirstChild"](s, "EggCard_" + str(fe[0].id), True)
+        btn = [b for b in card["GetChildren"](card).values()
+               if str(b._p.ClassName) == "TextButton" and str(b._p.Text).startswith("Hatch")][0]
+        assert btn._p.Active is not False, "the Forest egg is still locked after buying the Forest"
+        return "%s: %r" % (fe[0].name, str(btn._p.Text).replace("\n", " "))
+
     print("a new player's first minutes:")
     for label, fn in (
             ("1 the banner says hatch", t_banner_says_hatch),
@@ -210,7 +291,11 @@ def main():
             ("  continue closes the reveal", t_continue_closes_reveal),
             ("6 broke: told, not charged", t_broke_is_told),
             ("7 walk into coins", t_walk_into_coins),
-            ("8 afford one, hatch it", t_buy_an_egg)):
+            ("8 afford one, hatch it", t_buy_an_egg),
+            ("  the Desert waits its turn", t_out_of_order_refused),
+            ("9 the Forest gate asks", t_gate_asks),
+            ("10 unlock the Forest", t_unlock_forest),
+            ("11 the Forest egg opens", t_forest_egg_opens)):
         check(label, fn)
         if FAILURES:
             print("\n   (stopping: every later step depends on this one)")
@@ -221,7 +306,7 @@ def main():
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1
-    print("\nfirst play: from the banner to a bought egg, unbroken")
+    print("\nfirst play: from the banner to the second world, unbroken")
     return 0
 
 

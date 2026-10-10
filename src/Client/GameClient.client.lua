@@ -617,6 +617,89 @@ RE_HatchEgg.OnClientEvent:Connect(function(eggId)
 	UIController.Open("HatchPanel", CurrentData, eggId)
 end)
 
+-- A world gate was clicked → ask, and buy on yes.
+--
+-- Nothing listened for this. Clicking a gate made the server send BuyArea to
+-- the client, and no version of the client ever had a handler for it, or ever
+-- asked the server to buy an area at all: the purchase code on the server was
+-- unreachable. No player could leave the Meadow except through the admin
+-- panel's "Unlock ALL Worlds". check_firstplay now walks a player through
+-- the Forest gate.
+RE_BuyArea.OnClientEvent:Connect(function(areaId)
+	if not CurrentData then return end
+	local area, prev
+	for i, a in ipairs(GameConfig.Areas) do
+		if a.id == areaId then area = a; prev = GameConfig.Areas[i - 1]; break end
+	end
+	if not area then return end
+	local owned = {}
+	for _, id in ipairs(CurrentData.UnlockedAreas or {}) do owned[id] = true end
+	if owned[areaId] then return end
+
+	local existing = PlayerGui:FindFirstChild("AreaUnlockGui")
+	if existing then existing:Destroy() end
+	local screen = Instance.new("ScreenGui")
+	screen.Name = "AreaUnlockGui"; screen.ResetOnSpawn = false
+	screen.DisplayOrder = 80; screen.IgnoreGuiInset = true; screen.Parent = PlayerGui
+
+	local panel = Instance.new("Frame")
+	panel.Size = UDim2.new(0, 420, 0, 260)
+	panel.BackgroundColor3 = Color3.fromRGB(14, 18, 30); panel.BorderSizePixel = 0
+	panel.Parent = screen
+	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 16)
+	local stroke = Instance.new("UIStroke", panel)
+	stroke.Color = area.groundColor or Color3.fromRGB(120, 200, 120); stroke.Thickness = 3
+	popup(panel)
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -20, 0, 46); title.Position = UDim2.new(0, 10, 0, 10)
+	title.BackgroundTransparency = 1; title.Text = "🔓  " .. area.name
+	title.TextColor3 = Color3.new(1, 1, 1); title.TextScaled = true
+	title.Font = Enum.Font.GothamBold; title.Parent = panel
+
+	local icon = area.currency == "Gems" and "💎 " or "💰 "
+	local have = area.currency == "Gems" and (CurrentData.Gems or 0) or (CurrentData.Coins or 0)
+	local needPrev = prev and not owned[prev.id]
+	local canPay = have >= (area.unlockCost or 0)
+
+	local body = Instance.new("TextLabel")
+	body.Size = UDim2.new(1, -30, 0, 110); body.Position = UDim2.new(0, 15, 0, 60)
+	body.BackgroundTransparency = 1; body.TextWrapped = true; body.TextScaled = true
+	body.Font = Enum.Font.Gotham; body.TextColor3 = Color3.fromRGB(200, 205, 220)
+	body.Text = (area.description or "") .. "\n\n"
+		.. (needPrev and ("Unlock " .. prev.name .. " first.")
+			or ("Costs " .. icon .. fmt(area.unlockCost) .. (canPay and ""
+				or ("  —  you have " .. icon .. fmt(have)))))
+	body.Parent = panel
+
+	local yes = Instance.new("TextButton")
+	yes.Name = "Unlock"
+	yes.Size = UDim2.new(0.5, -30, 0, 50); yes.Position = UDim2.new(0, 20, 1, -66)
+	local ready = canPay and not needPrev
+	yes.BackgroundColor3 = ready and Color3.fromRGB(50, 170, 80) or Color3.fromRGB(60, 62, 76)
+	yes.Active = ready; yes.AutoButtonColor = ready
+	yes.Text = "Unlock " .. icon .. fmt(area.unlockCost)
+	yes.TextColor3 = Color3.new(1, 1, 1); yes.TextScaled = true
+	yes.Font = Enum.Font.GothamBold; yes.BorderSizePixel = 0; yes.Parent = panel
+	Instance.new("UICorner", yes).CornerRadius = UDim.new(0, 10)
+
+	local no = Instance.new("TextButton")
+	no.Name = "Cancel"
+	no.Size = UDim2.new(0.5, -30, 0, 50); no.Position = UDim2.new(0.5, 10, 1, -66)
+	no.BackgroundColor3 = Color3.fromRGB(80, 50, 60); no.Text = "Not yet"
+	no.TextColor3 = Color3.new(1, 1, 1); no.TextScaled = true
+	no.Font = Enum.Font.GothamBold; no.BorderSizePixel = 0; no.Parent = panel
+	Instance.new("UICorner", no).CornerRadius = UDim.new(0, 10)
+
+	yes.MouseButton1Click:Connect(function()
+		if not ready then return end
+		RE_BuyArea:FireServer(areaId)
+		screen:Destroy()
+	end)
+	no.MouseButton1Click:Connect(function() screen:Destroy() end)
+	pcall(function() require(script.Parent.UI.Responsive).Apply(screen) end)
+end)
+
 -- Machine fires this → show rebirth confirmation popup
 RE_Rebirth.OnClientEvent:Connect(function()
 	if not CurrentData then return end

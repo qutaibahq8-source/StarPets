@@ -1341,9 +1341,21 @@ RE_BuyArea.OnServerEvent:Connect(function(player,areaId)
 	for _,id in ipairs(data.UnlockedAreas) do
 		if id==areaId then RE_Notification:FireClient(player,"info","Already unlocked!"); return end
 	end
-	local areaConfig=nil
-	for _,a in ipairs(GameConfig.Areas) do if a.id==areaId then areaConfig=a break end end
+	local areaConfig, prev = nil, nil
+	for i,a in ipairs(GameConfig.Areas) do
+		if a.id==areaId then areaConfig=a; prev=GameConfig.Areas[i-1]; break end
+	end
 	if not areaConfig then return end
+	-- In order. The gates enforce this physically, but a gate's collision is
+	-- the client's to decide; the remote is anyone's to fire. Without this a
+	-- direct call could buy Space before ever seeing the Forest.
+	if prev then
+		local hasPrev = false
+		for _,id in ipairs(data.UnlockedAreas) do if id==prev.id then hasPrev=true break end end
+		if not hasPrev then
+			RE_Notification:FireClient(player,"error","Unlock "..prev.name.." first!"); return
+		end
+	end
 	if areaConfig.currency=="Coins" then
 		if data.Coins<areaConfig.unlockCost then
 			RE_Notification:FireClient(player,"error","Need 💰 "..areaConfig.unlockCost.." Coins!"); return
