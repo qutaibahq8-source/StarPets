@@ -16,6 +16,8 @@ pet simulator either hooks someone or loses them:
    9. they click the Forest gate              -> asked, with the price
   10. they unlock it                          -> charged, the gate opens
   11. the Forest egg can be hatched           -> the next world's pets
+  12. the rebirth machine                     -> asked, reborn, reset cleanly
+  13. the secret spot                         -> found, rewarded
 
 A break anywhere in that chain is a new player who quits in the first minute,
 and no other check would notice.
@@ -281,6 +283,53 @@ def main():
         assert btn._p.Active is not False, "the Forest egg is still locked after buying the Forest"
         return "%s: %r" % (fe[0].name, str(btn._p.Text).replace("\n", " "))
 
+    def by_action(cls, action):
+        return [d for d in ws["GetDescendants"](ws).values()
+                if str(d._p.ClassName) == cls
+                and str(d["GetAttribute"](d, "SPAction") or "") == action]
+
+    def t_rebirth_machine():
+        tiers = list(lua.eval("_G.MysticPets.GameConfig.Rebirths").values())
+        data.TotalCoinsEarned = int(tiers[0].requirement)
+        cds = by_action("ClickDetector", "Rebirth")
+        assert cds, "the rebirth machine cannot be clicked"
+        old = gui["FindFirstChild"](gui, "RebirthConfirmGui")
+        if old is not None:
+            old["Destroy"](old)
+        lua.eval("function(cd, p) cd.MouseClick:Fire(p) end")(cds[0], me)
+        tick(3)
+        no_errors()
+        s = gui["FindFirstChild"](gui, "RebirthConfirmGui")
+        assert s is not None, "clicking the rebirth machine asked nothing"
+        btns = [b for b in s["GetDescendants"](s).values()
+                if str(b._p.ClassName) == "TextButton" and "REBIRTH" in str(b._p.Text).upper()
+                and "cancel" not in str(b._p.Text).lower()]
+        assert btns, "the rebirth popup has no confirm button"
+        press(btns[0])
+        no_errors()
+        assert int(data.Rebirths or 0) == 1, "confirmed, and Rebirths is %s" % data.Rebirths
+        assert float(data.RebirthMultiplier) == float(tiers[0].multiplier), "the multiplier did not rise"
+        folder = ws["FindFirstChild"](ws, "Pets")
+        mine = folder and folder["FindFirstChild"](folder, str(me.UserId))
+        ghosts = count(mine["GetChildren"](mine)) if mine is not None else 0
+        assert ghosts == 0, "%d pet model(s) still follow a player whose pets were reset" % ghosts
+        g = gate(str(forest.id))
+        assert g._p.CanCollide is not False, "the Forest gate stayed open after the rebirth reset it"
+        return "reborn as %s, %sx; pets reset, gate closed again" % (
+            tiers[0].title, tiers[0].multiplier)
+
+    def t_secret():
+        prompts = by_action("ProximityPrompt", "SecretChest")
+        assert prompts, "there is no secret to find"
+        gems = int(data.Gems or 0)
+        lua.eval("function(pp, p) pp.Triggered:Fire(p) end")(prompts[0], me)
+        tick(3)
+        no_errors()
+        assert int(data.Gems or 0) > gems or gui["FindFirstChild"](gui, "SecretFoundGui") is not None, \
+            "searching the secret spot gave nothing and said nothing"
+        return "found: %s gems, popup %s" % (int(data.Gems or 0) - gems,
+            "shown" if gui["FindFirstChild"](gui, "SecretFoundGui") is not None else "not shown")
+
     print("a new player's first minutes:")
     for label, fn in (
             ("1 the banner says hatch", t_banner_says_hatch),
@@ -295,7 +344,9 @@ def main():
             ("  the Desert waits its turn", t_out_of_order_refused),
             ("9 the Forest gate asks", t_gate_asks),
             ("10 unlock the Forest", t_unlock_forest),
-            ("11 the Forest egg opens", t_forest_egg_opens)):
+            ("11 the Forest egg opens", t_forest_egg_opens),
+            ("12 the rebirth machine", t_rebirth_machine),
+            ("13 the secret spot", t_secret)):
         check(label, fn)
         if FAILURES:
             print("\n   (stopping: every later step depends on this one)")
