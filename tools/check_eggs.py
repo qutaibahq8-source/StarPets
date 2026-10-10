@@ -236,6 +236,29 @@ def main():
     check("a normal hatch still charges", t_normal_hatch_still_charges)
     check("every egg has a stand", t_every_egg_has_a_stand)
 
+    def t_ids_never_repeat():
+        # Ids were a random six-digit number plus the clock's last four
+        # digits, so pets hatched in the same second differed only by chance:
+        # 3,000 of them would expect about five duplicates. Equip, delete and
+        # trade all find a pet by id.
+        p, d = g.player(coins=10 ** 12)
+        seen, dupes = set(), 0
+        for _ in range(30):
+            for _ in range(100):
+                pet, _err = g.hatch(p, "CoolEgg")
+                if pet is None:
+                    break
+                uid = str(pet.uniqueId)
+                dupes += uid in seen
+                seen.add(uid)
+            for k in list(d.Pets.keys()):
+                d.Pets[k] = None
+        assert len(seen) >= 2900, "only %d pets hatched" % len(seen)
+        assert dupes == 0, "%d of %d hatched pets reused an id" % (dupes, len(seen) + dupes)
+        return "%d hatches, every id different" % len(seen)
+
+    check("pet ids never repeat", t_ids_never_repeat)
+
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1

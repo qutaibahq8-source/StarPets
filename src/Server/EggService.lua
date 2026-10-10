@@ -103,8 +103,13 @@ local function pickSpecies(eggConfig, rarity)
 	return nil
 end
 
+-- A GUID, as trading already uses. This was a random six-digit number plus
+-- the last four digits of the clock: an x10 hatch mints ten ids in the same
+-- second, so they differed only by the random part, and about one x10 hatch in
+-- twenty thousand produced two pets with the same id. Equip, delete and trade
+-- all find a pet by its id, so the wrong pet gets moved.
 local function generateUniqueId()
-	return tostring(math.random(100000, 999999)) .. tostring(os.time()):sub(-4)
+	return game:GetService("HttpService"):GenerateGUID(false)
 end
 
 -- ============================================================
