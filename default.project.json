@@ -2,17 +2,18 @@
   "name": "MysticPets",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$className": "Folder",
         "GameConfig": {
           "$path": "src/Shared/GameConfig.lua"
+        },
+        "PetModels": {
+          "$path": "src/Shared/PetModels.lua"
         }
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
@@ -37,9 +38,6 @@
         },
         "GamepassService": {
           "$path": "src/Server/GamepassService.lua"
-        },
-        "PetModels": {
-          "$path": "src/Server/PetModels.lua"
         },
         "BadgeService": {
           "$path": "src/Server/BadgeService.lua"
@@ -79,10 +77,18 @@
         },
         "SpinService": {
           "$path": "src/Server/SpinService.lua"
+        },
+        "MapPersist": {
+          "$path": "src/Server/MapPersist.lua"
+        },
+        "RateLimit": {
+          "$path": "src/Server/RateLimit.lua"
+        },
+        "MapProps": {
+          "$path": "src/Server/MapProps.lua"
         }
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
@@ -97,6 +103,18 @@
             "UIController": {
               "$path": "src/Client/UI/UIController.lua"
             },
+            "Responsive": {
+              "$path": "src/Client/UI/Responsive.lua"
+            },
+            "Sfx": {
+              "$path": "src/Client/UI/Sfx.lua"
+            },
+            "PetView": {
+              "$path": "src/Client/UI/PetView.lua"
+            },
+            "PetFollow": {
+              "$path": "src/Client/UI/PetFollow.client.lua"
+            },
             "PetsPanel": {
               "$path": "src/Client/UI/PetsPanel.lua"
             },
@@ -110,7 +128,7 @@
               "$path": "src/Client/UI/RebirthPanel.lua"
             },
             "BadgePopup": {
-              "$path": "src/Client/UI/BadgePopup.lua"
+              "$path": "src/Client/UI/BadgePopup.client.lua"
             },
             "UpgradePanel": {
               "$path": "src/Client/UI/UpgradePanel.lua"
@@ -153,6 +171,12 @@
             },
             "SpinWheelPanel": {
               "$path": "src/Client/UI/SpinWheelPanel.lua"
+            },
+            "Onboarding": {
+              "$path": "src/Client/UI/Onboarding.client.lua"
+            },
+            "WorldMotion": {
+              "$path": "src/Client/UI/WorldMotion.client.lua"
             }
           }
         }

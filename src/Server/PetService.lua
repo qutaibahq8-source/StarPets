@@ -1,13 +1,12 @@
 -- MysticPets: PetService.lua
 -- Place in: ServerScriptService > Server > PetService (ModuleScript)
 
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
-local PetModels   = require(script.Parent.PetModels)
+-- Shared, not Server: the client builds the same models for the hatch reveal.
+local PetModels   = require(game.ReplicatedStorage.Shared.PetModels)
 local BoostService = require(script.Parent.BoostService)
 
 local PetService   = {}
@@ -20,120 +19,11 @@ for _, petData in ipairs(GameConfig.Pets) do
 	PetLookup[petData.name] = petData
 end
 
--- ============================================================
--- MODEL BUILDER  (geometric stand-in, replace with real models)
--- ============================================================
-local function buildPetModel(petData, uniqueId)
-	local rarityInfo = GameConfig.Rarities[petData.rarity]
-	local size = (petData.size or 1.0)
-
-	local model = Instance.new("Model")
-	model.Name  = petData.name .. "_" .. uniqueId
-
-	-- Body
-	local body = Instance.new("Part")
-	body.Name       = "HumanoidRootPart"
-	body.Size       = Vector3.new(1.6 * size, 1.4 * size, 1.2 * size)
-	body.Color      = petData.color
-	body.Material   = Enum.Material.SmoothPlastic
-	body.Anchored   = true
-	body.CanCollide = false
-	body.CastShadow = false
-	body.Parent     = model
-
-	-- Head
-	local head = Instance.new("Part")
-	head.Name       = "Head"
-	head.Shape      = Enum.PartType.Ball
-	head.Size       = Vector3.new(1.3 * size, 1.3 * size, 1.3 * size)
-	head.Color      = petData.color
-	head.Material   = Enum.Material.SmoothPlastic
-	head.Anchored   = true
-	head.CanCollide = false
-	head.CastShadow = false
-	head.Parent     = model
-
-	-- Eyes
-	for i, offset in ipairs({ Vector3.new(0.28, 0.15, -0.55), Vector3.new(-0.28, 0.15, -0.55) }) do
-		local eye = Instance.new("Part")
-		eye.Name      = "Eye" .. i
-		eye.Shape     = Enum.PartType.Ball
-		eye.Size      = Vector3.new(0.28*size, 0.28*size, 0.28*size)
-		eye.Color     = Color3.new(1,1,1)
-		eye.Material  = Enum.Material.Neon
-		eye.Anchored  = true
-		eye.CanCollide = false
-		eye.CastShadow = false
-		eye.Parent    = model
-		-- Pupil
-		local pupil = Instance.new("Part")
-		pupil.Name    = "Pupil"..i
-		pupil.Shape   = Enum.PartType.Ball
-		pupil.Size    = Vector3.new(0.14*size,0.14*size,0.14*size)
-		pupil.Color   = Color3.new(0,0,0)
-		pupil.Material= Enum.Material.SmoothPlastic
-		pupil.Anchored= true; pupil.CanCollide=false; pupil.CastShadow=false
-		pupil.Parent  = model
-	end
-
-	-- Glow point light on body
-	local ptLight = Instance.new("PointLight")
-	ptLight.Color      = rarityInfo.color
-	ptLight.Brightness = 1.5
-	ptLight.Range      = 12
-	ptLight.Parent     = body
-
-	-- Particle aura for Rare+
-	local rarityRank = {Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6}
-	if (rarityRank[petData.rarity] or 1) >= 3 then
-		local att = Instance.new("Attachment"); att.Parent = body
-		local pe = Instance.new("ParticleEmitter"); pe.Parent = att
-		pe.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, rarityInfo.color),
-			ColorSequenceKeypoint.new(1, Color3.new(1,1,1))
-		})
-		pe.LightEmission  = 0.9; pe.LightInfluence = 0.1
-		pe.Size           = NumberSequence.new({NumberSequenceKeypoint.new(0,0.2*size),NumberSequenceKeypoint.new(1,0)})
-		pe.Transparency   = NumberSequence.new({NumberSequenceKeypoint.new(0,0.1),NumberSequenceKeypoint.new(1,1)})
-		pe.Speed          = NumberRange.new(0.5, 2)
-		pe.Lifetime       = NumberRange.new(0.8, 1.5)
-		pe.Rate           = (rarityRank[petData.rarity] or 1) * 6
-		pe.SpreadAngle    = Vector2.new(180,180)
-		pe.RotSpeed       = NumberRange.new(-45,45)
-	end
-
-	-- Name billboard
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size        = UDim2.new(0, 130, 0, 48)
-	billboard.StudsOffset = Vector3.new(0, 1.8 * size, 0)
-	billboard.Adornee     = body
-	billboard.AlwaysOnTop = false
-	billboard.Parent      = model
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size       = UDim2.new(1, 0, 0.6, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text       = petData.name
-	nameLabel.TextColor3 = rarityInfo.color
-	nameLabel.TextScaled = true
-	nameLabel.Font       = Enum.Font.GothamBold
-	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.TextStrokeColor3 = Color3.new(0,0,0)
-	nameLabel.Parent     = billboard
-
-	local rarityLabel = Instance.new("TextLabel")
-	rarityLabel.Size       = UDim2.new(1, 0, 0.4, 0)
-	rarityLabel.Position   = UDim2.new(0, 0, 0.6, 0)
-	rarityLabel.BackgroundTransparency = 1
-	rarityLabel.Text       = rarityInfo.displayName
-	rarityLabel.TextColor3 = rarityInfo.color
-	rarityLabel.TextScaled = true
-	rarityLabel.Font       = Enum.Font.Gotham
-	rarityLabel.Parent     = billboard
-
-	model.PrimaryPart = body
-	return model
-end
+-- The geometric builder that used to live here was never called: every model
+-- comes from PetModels.Build. It was 110 lines of dead code carrying a
+-- PointLight, Neon eyes and a ParticleEmitter per pet — the exact things being
+-- removed from the live builder — so leaving it invited someone to "restore"
+-- it. Deleted.
 
 -- ============================================================
 -- POSITION HELPERS
@@ -164,41 +54,15 @@ function PetService.Init()
 	PetsFolder.Name = "Pets"
 	PetsFolder.Parent = workspace
 
-	-- Follow loop
-	RunService.Heartbeat:Connect(function(dt)
-		for userId, models in pairs(ActiveModels) do
-			local player = Players:GetPlayerByUserId(userId)
-			if not player or not player.Character then continue end
-			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-			if not rootPart then continue end
-
-			local modelList = {}
-			for _, m in pairs(models) do table.insert(modelList, m) end
-			local total = #modelList
-
-			for i, model in ipairs(modelList) do
-				local body = model:FindFirstChild("HumanoidRootPart")
-				if not body then continue end
-
-				local targetPos = rootPart.Position + getFollowOffset(i, total)
-				local bobOffset = math.sin(tick() * 2 + i * 1.2) * 0.3
-				targetPos = targetPos + Vector3.new(0, bobOffset, 0)
-
-				local current = body.CFrame
-				-- Face the same direction the player faces (so pets turn with you)
-				local _, yaw = rootPart.CFrame:ToOrientation()
-				local target  = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
-
-				local speed = GameConfig.Settings.PetFollowSpeed
-				local newCF = current:Lerp(target, math.min(dt * speed, 1))
-
-				local petName = model.Name:match("^(.-)_")
-				local petData = PetLookup[petName]
-				local size = petData and (petData.size or 1) or 1
-				updateModelCFrames(model, newCF, size)
-			end
-		end
-	end)
+	-- No follow loop here. Pets are placed once, when they spawn, and every
+	-- client moves them from then on (PetFollow.client.lua).
+	--
+	-- This used to PivotTo every equipped pet on every Heartbeat. Each pet is
+	-- an anchored model of up to thirty parts and every part's CFrame was
+	-- replicated to every player, sixty times a second — over fifty thousand
+	-- updates a second to each client on a busy server. Roblox throttles that,
+	-- so pets moved late and in steps, and a player's own pets trailed them by
+	-- a full round trip.
 end
 
 function PetService.SpawnPet(player, petEntry, slotIndex, totalSlots)
@@ -219,10 +83,14 @@ function PetService.SpawnPet(player, petEntry, slotIndex, totalSlots)
 	local mut = GameConfig.GetMutation and GameConfig.GetMutation(petEntry.mutation)
 	local model = PetModels.Build(petData, petEntry.uniqueId, rarityInfo, mut)
 
-	-- Start at player position
+	-- Placed once, at its spot behind the player, and never moved by the server
+	-- again; clients take it from here. Placed where it belongs rather than
+	-- inside the player, so the first frame anyone sees of it is already right.
 	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if rootPart then
-		updateModelCFrames(model, rootPart.CFrame, petData.size or 1)
+		local _, yaw = rootPart.CFrame:ToOrientation()
+		local spot = rootPart.Position + getFollowOffset(slotIndex or 1, math.max(totalSlots or 1, 1))
+		updateModelCFrames(model, CFrame.new(spot) * CFrame.Angles(0, yaw, 0), petData.size or 1)
 	end
 
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
@@ -252,9 +120,31 @@ function PetService.DespawnAllPets(player)
 	for uniqueId, model in pairs(ActiveModels[userId]) do
 		model:Destroy()
 	end
-	ActiveModels[userId] = {}
+	-- nil, not an empty table.
+	--
+	-- This runs on PlayerRemoving, and leaving an empty table behind meant the
+	-- entry stayed in ActiveModels for the life of the server. When the server
+	-- still ran the follow loop, that loop walked this table sixty times a
+	-- second and called GetPlayerByUserId on every key, so after a few hundred
+	-- sessions it was doing tens of thousands of lookups a second for players
+	-- who left hours ago. The loop is gone; a table that only grows is still
+	-- a leak.
+	ActiveModels[userId] = nil
 	local folder = PetsFolder:FindFirstChild(tostring(userId))
 	if folder then folder:Destroy() end
+end
+
+-- How many players and models the follow loop is actually working on. Useful
+-- from the admin panel, and it is what makes the leak above testable at all:
+-- ActiveModels is a local, so without this the only way to see it grow is to
+-- watch the server slow down.
+function PetService.ActiveCounts()
+	local players, models = 0, 0
+	for _, set in pairs(ActiveModels) do
+		players = players + 1
+		for _ in pairs(set) do models = models + 1 end
+	end
+	return players, models
 end
 
 -- ============================================================
@@ -391,6 +281,112 @@ function PetService.ToggleLock(player, uid)
 	for _, p in ipairs(data.Pets) do
 		if p.uniqueId == uid then p.locked = not p.locked; return p.locked end
 	end
+end
+
+-- ============================================================
+-- THE ONE WAY A PET ENTERS AN INVENTORY
+-- ============================================================
+-- There were ELEVEN places that did `table.insert(data.Pets, ...)` — eggs,
+-- fusion, codes, events, the merchant, quests, gamepasses, trading and two
+-- admin commands — spread across nine files. Two things went wrong because of
+-- that, and both are the kind of thing a spread-out rule always produces.
+--
+-- ONE: the inventory cap was enforced in exactly ONE of them. EggService
+-- checked MaxPetsInInventory; every other path let a player go straight past
+-- it. A hundred pets is a balance number and also a performance one, since
+-- each equipped pet is a model the server replicates.
+--
+-- TWO: the Pet Index counted what you CURRENTLY OWN. Fuse three pets and the
+-- species vanishes from your collection; trade it away, same; delete it, same.
+-- A collection record that forgets what you collected is not a collection
+-- record — and there was nowhere to write "seen it" even if you wanted to,
+-- because nothing sat between a pet and the inventory.
+--
+-- So: one function. Everything goes through here.
+local function recordDiscovery(data, name)
+	if not name then return end
+	data.Discovered = data.Discovered or {}
+	if data.Discovered[name] == nil then
+		data.Discovered[name] = true
+		return true          -- newly discovered, for the "first time!" banner
+	end
+	return false
+end
+
+PetService.RecordDiscovery = recordDiscovery
+
+-- Grants a pet. Returns pet, isNewSpecies — or nil, reason if it was refused.
+--
+-- `force` skips the cap, and exists for exactly one case: a pet the player has
+-- already paid for or already owns arriving back (a trade the server has
+-- already validated, a gamepass re-grant). Refusing those would destroy the
+-- item rather than protect the player.
+-- Before anything is paid for a pet, or a reward that includes one is marked
+-- as given: is it a real species, and is there room for it? Returns the
+-- species' config, or nil and what to tell the player.
+--
+-- Every shop used to charge first and grant after, ignoring the result. With a
+-- full inventory the player paid and got nothing. Worse, the merchant and the
+-- event shops were selling pets that were no longer in the game at all —
+-- names left over from before the roster was replaced — and GrantPet took
+-- them anyway: up to 12,000 gems for a pet with no model, no earnings and no
+-- place in the Index.
+function PetService.CanReceive(player, name)
+	local data = DataManager.GetData(player)
+	if not data then return nil, "no data" end
+	local species = PetLookup[name]
+	if not species then return nil, "That pet is no longer in the game" end
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	if #(data.Pets or {}) >= cap then return nil, "Make room in your inventory first" end
+	return species
+end
+
+function PetService.Species(name)
+	return PetLookup[name]
+end
+
+function PetService.GrantPet(player, pet, force)
+	local data = DataManager.GetData(player)
+	if not data then return nil, "no data" end
+	if type(pet) ~= "table" or not pet.name then return nil, "bad pet" end
+
+	data.Pets = data.Pets or {}
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	if not force and #data.Pets >= cap then
+		return nil, ("Pet inventory full (max %d)"):format(cap)
+	end
+
+	if not pet.uniqueId then
+		pet.uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+	end
+	local isNew = recordDiscovery(data, pet.name)
+	table.insert(data.Pets, pet)
+	return pet, isNew
+end
+
+-- How many distinct species this player has ever owned. Reads the permanent
+-- record first and falls back to the live inventory for saves made before
+-- Discovered existed, so nobody's collection appears to reset on update.
+function PetService.DiscoveredCount(data)
+	if not data then return 0 end
+	local seen = {}
+	for name in pairs(data.Discovered or {}) do seen[name] = true end
+	for _, p in ipairs(data.Pets or {}) do
+		if p.name then seen[p.name] = true end
+	end
+	local n = 0
+	for _ in pairs(seen) do n = n + 1 end
+	return n
+end
+
+-- Backfill for existing saves: everything currently held counts as discovered.
+function PetService.BackfillDiscovery(data)
+	if not data then return 0 end
+	local added = 0
+	for _, p in ipairs(data.Pets or {}) do
+		if recordDiscovery(data, p.name) then added = added + 1 end
+	end
+	return added
 end
 
 return PetService

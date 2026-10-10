@@ -1,7 +1,6 @@
 -- MysticPets: LeaderboardPanel.lua
 -- Place in: StarterPlayerScripts > Client > UI > LeaderboardPanel (ModuleScript)
 
-local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local PlayerGui    = Players.LocalPlayer.PlayerGui
 
@@ -81,16 +80,15 @@ function LeaderboardPanel.Build(data)
 
 	local panel = Instance.new("Frame")
 	panel.Size=UDim2.new(0,520,0,520)
-	panel.Position=UDim2.new(0.5,-260,0.5,600)
+	panel.Position=UDim2.new(0.5,-260,0.5,-260)
 	panel.BackgroundColor3=Color3.fromRGB(12,9,24)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(255,215,0); stroke.Thickness=2.5
 
-	TweenService:Create(panel,TweenInfo.new(0.35,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-260,0.5,-260)
-	}):Play()
+	-- No slide-in: UIController gives every panel the same entrance, and a
+	-- Position tween here fought the phone fit and dragged the panel off screen.
 
 	-- Header
 	local header=Instance.new("Frame")

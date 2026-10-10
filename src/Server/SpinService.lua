@@ -48,6 +48,10 @@ function SpinService.Spin(player, useFree)
 		data.Gems = data.Gems - c.cost
 	end
 
+	-- Counted after the cost is paid, so a refused spin never counts toward a
+	-- daily quest. Monotonic: nothing decrements it.
+	data.SpinsUsed = (data.SpinsUsed or 0) + 1
+
 	local idx = rollIndex()
 	local prize = c.prizes[idx]
 	if prize.coins then

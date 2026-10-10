@@ -20,6 +20,8 @@ local CachedBoards = {
 	Pets     = {},
 	Rebirths = {},
 }
+local fetchedAt = {}   -- [category] = os.clock() of the last read
+local names = {}       -- [userId] = name; a name almost never changes
 
 -- ============================================================
 -- UPDATE A PLAYER'S SCORE
@@ -30,8 +32,22 @@ function LeaderboardService.UpdatePlayer(player)
 
 	local userId = tostring(player.UserId)
 
+	-- The lifetime total, not the since-last-rebirth one.
+	--
+	-- Rebirth sets TotalCoinsEarned back to 0, and this board was written
+	-- straight from it — so rebirthing wiped your rank. "Most Coins Earned"
+	-- was therefore ranking players by how little they had progressed: anyone
+	-- who had never rebirthed sat above a player with twelve of them. The
+	-- board punished the game's main long-term goal.
+	--
+	-- data.Stats.coins accumulates and no reset takes it back (QuestService
+	-- owns it and banks it immediately before each rebirth). max() covers the
+	-- window between two syncs, so a rank can never go DOWN because of this.
+	local lifetime = math.max(
+		tonumber(data.Stats and data.Stats.coins) or 0,
+		tonumber(data.TotalCoinsEarned) or 0)
 	pcall(function()
-		Stores.Coins:SetAsync(userId, math.floor(data.TotalCoinsEarned or 0))
+		Stores.Coins:SetAsync(userId, math.floor(lifetime))
 	end)
 	pcall(function()
 		Stores.Pets:SetAsync(userId, #(data.Pets or {}))
@@ -59,21 +75,21 @@ local function fetchTop(store, count)
 	for rank, entry in ipairs(data) do
 		local userId  = tonumber(entry.key)
 		local score   = entry.value
-		local name    = "[Unknown]"
-		pcall(function()
-			name = game:GetService("Players"):GetNameFromUserIdAsync(userId)
-		end)
+		-- Each lookup is a web request; ten per board per refresh, forever,
+		-- for names that almost never change. Asked once per user per server.
+		local name = names[userId]
+		if not name then
+			local okName, got = pcall(function()
+				return game:GetService("Players"):GetNameFromUserIdAsync(userId)
+			end)
+			name = okName and got or "[Unknown]"
+			if okName then names[userId] = got end
+		end
 		table.insert(results, { rank=rank, name=name, score=score, userId=userId })
 	end
 	return results
 end
 
-function LeaderboardService.GetTop(category, count)
-	count = count or 10
-	local store = Stores[category]
-	if not store then return {} end
-	return fetchTop(store, count)
-end
 
 -- ============================================================
 -- CACHED BOARDS  (refresh every 60s)
@@ -82,6 +98,7 @@ task.spawn(function()
 	while true do
 		for category, store in pairs(Stores) do
 			local ok, result = pcall(fetchTop, store, 10)
+			fetchedAt[category] = os.clock()
 			if ok then CachedBoards[category] = result end
 			task.wait(1)
 		end
@@ -90,6 +107,25 @@ task.spawn(function()
 end)
 
 function LeaderboardService.GetCached(category)
+	return CachedBoards[category] or {}
+end
+
+-- What the Ranks panel is given.
+--
+-- The panel used to call GetTop, which read the OrderedDataStore AND looked
+-- up ten names, on every open and every tab switch, by every player. Roblox
+-- allows about 5 + 2 per player sorted reads a minute; a busy server would run
+-- through that and get empty boards back, and each open waited on ten web
+-- requests. The boards are refreshed once a minute in the background; this
+-- hands out that copy, reading the store itself only if this server has not
+-- read that board even once yet.
+function LeaderboardService.Get(category)
+	if type(category) ~= "string" or not Stores[category] then return {} end
+	if not fetchedAt[category] then
+		local ok, result = pcall(fetchTop, Stores[category], 10)
+		fetchedAt[category] = os.clock()
+		if ok then CachedBoards[category] = result end
+	end
 	return CachedBoards[category] or {}
 end
 

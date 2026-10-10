@@ -4,14 +4,20 @@
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local FusionService = {}
 
 local FUSE_COUNT = 3      -- pets consumed per fusion
 local FUSE_BONUS = 1.25   -- combined power gets a +25% bonus
 
+-- A GUID, as trading already uses. This was a random six-digit number plus
+-- the last four digits of the clock: an x10 hatch mints ten ids in the same
+-- second, so they differed only by the random part, and about one x10 hatch in
+-- twenty thousand produced two pets with the same id. Equip, delete and trade
+-- all find a pet by its id, so the wrong pet gets moved.
 local function newUniqueId()
-	return tostring(math.random(100000, 999999)) .. tostring(os.time()):sub(-4)
+	return game:GetService("HttpService"):GenerateGUID(false)
 end
 
 local function mutMult(id)
@@ -85,7 +91,13 @@ function FusionService.FuseByName(player, name)
 		fuseMult = sumFuse * FUSE_BONUS,
 		fused    = true,
 	}
-	table.insert(data.Pets, fused)
+	-- Counted here because this is the only place a fusion completes, and the
+	-- daily quests read it. Monotonic: nothing decrements it, not even rebirth.
+	data.PetsFused = (data.PetsFused or 0) + 1
+
+	-- force: the three source pets were just consumed, so refusing the result
+	-- on a full inventory would delete all of them for nothing.
+	PetService.GrantPet(player, fused, true)
 	return true, fused
 end
 

@@ -7,6 +7,37 @@ local Players     = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local DataManager = require(script.Parent.DataManager)
 local PetService  = require(script.Parent.PetService)
+local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
+
+-- EVERYTHING A PET IS, BESIDES ITS NAME.
+--
+-- The swap used to rebuild the received pet as { name, rarity, uniqueId } and
+-- nothing else, which silently threw away every field that gives a pet its
+-- value. EggService rolls a `mutation` (Rainbow x10, Shiny x4, Golden x2);
+-- FusionService gives a `fuseMult` that compounds, since three fused pets sum
+-- their multipliers and take a further x1.25 and a fused pet can be fused
+-- again. PetService scores a pet as coinMult * mutationMult * fuseMult.
+--
+-- Measured: a Rainbow pet three fusions deep went from power 3,516 to 60 —
+-- 98.3% of its value destroyed by trading it, with nothing anywhere to say so.
+--
+-- Listed rather than deep-copied wholesale so that a field which must NOT
+-- survive a trade has to be added here deliberately. `locked` is the example:
+-- it is the receiving player's choice to make, not the sender's.
+local CARRIED = {
+	"name", "rarity", "mutation", "fuseMult", "level", "xp", "stage",
+	"variant", "shiny", "size", "petId", "world", "source",
+}
+
+local function clonePet(pet)
+	local out = {}
+	for _, k in ipairs(CARRIED) do out[k] = pet[k] end
+	-- A fresh id: two players must never hold the same uniqueId, or every
+	-- lookup that matches by id becomes ambiguous.
+	out.uniqueId = HttpService:GenerateGUID(false)
+	out.locked = false
+	return out
+end
 
 local TradeService = {}
 local sessions = {}        -- [userId] -> session (shared by both traders)
@@ -24,7 +55,13 @@ local function offerList(owner, ids)
 	local data = DataManager.GetData(owner); local out = {}
 	for _, uid in ipairs(ids) do
 		local pet = petByUid(data, uid)
-		if pet then table.insert(out, { name=pet.name, rarity=pet.rarity, uniqueId=uid }) end
+		-- Mutation and fuseMult too: they are most of what a pet is worth, and
+		-- the trade window could not show what it was never sent. Both sides
+		-- were trading blind — a Rainbow pet looked exactly like a plain one.
+		if pet then
+			table.insert(out, { name=pet.name, rarity=pet.rarity, uniqueId=uid,
+				mutation=pet.mutation, fuseMult=pet.fuseMult })
+		end
 	end
 	return out
 end
@@ -48,6 +85,7 @@ end
 
 local function resetAccepts(s)
 	s.accept[s.a.UserId] = false; s.accept[s.b.UserId] = false; s.confirmEndsAt = nil
+	s.confirmToken = nil
 end
 
 function TradeService.Request(player, targetName)
@@ -75,7 +113,12 @@ end
 function TradeService.Add(player, uid)
 	local s = sessions[player.UserId]; if not s then return end
 	local data = DataManager.GetData(player)
-	if not petByUid(data, uid) then return end
+	local pet = petByUid(data, uid)
+	if not pet then return end
+	-- Locking is how a player says "this never leaves". If trade ignores it,
+	-- the protection is decorative — and it was ignored: a locked pet could be
+	-- offered and swapped away with no warning.
+	if pet.locked then return end
 	local ids = s.offer[player.UserId]
 	for _, x in ipairs(ids) do if x == uid then return end end
 	if #ids >= 8 then return end
@@ -96,12 +139,35 @@ local function doSwap(s)
 	-- re-validate BOTH still own everything they offered
 	local function collect(data, ids)
 		local pets = {}
-		for _, uid in ipairs(ids) do local p = petByUid(data, uid); if not p then return nil end; table.insert(pets, p) end
+		for _, uid in ipairs(ids) do
+			local p = petByUid(data, uid)
+			if not p then return nil end
+			-- Checked AGAIN here, not only when the pet was added. A pet can be
+			-- locked from the inventory panel during the three-second confirm
+			-- window, and the check that ran on Add is long past by then.
+			if p.locked then return nil end
+			table.insert(pets, p)
+		end
 		return pets
 	end
 	local petsA = da and collect(da, s.offer[s.a.UserId])
 	local petsB = db and collect(db, s.offer[s.b.UserId])
 	if not petsA or not petsB then resetAccepts(s); push(s); return end  -- abort, no dupe
+
+	-- Neither side may be pushed past the inventory cap. Checked BEFORE
+	-- anything is removed, so a refused trade leaves both inventories exactly
+	-- as they were rather than half-applied.
+	local cap = GameConfig.Settings.MaxPetsInInventory or math.huge
+	local afterA = #da.Pets - #petsA + #petsB
+	local afterB = #db.Pets - #petsB + #petsA
+	if afterA > cap or afterB > cap then
+		resetAccepts(s); push(s)
+		if TradeService.onBlocked then
+			TradeService.onBlocked(s.a, "Not enough inventory space for this trade.")
+			TradeService.onBlocked(s.b, "Not enough inventory space for this trade.")
+		end
+		return
+	end
 	local function moveOut(data, ids)
 		for _, uid in ipairs(ids) do
 			for i, p in ipairs(data.Pets) do if p.uniqueId == uid then table.remove(data.Pets, i); break end end
@@ -109,8 +175,10 @@ local function doSwap(s)
 		end
 	end
 	moveOut(da, s.offer[s.a.UserId]); moveOut(db, s.offer[s.b.UserId])
-	for _, p in ipairs(petsA) do table.insert(db.Pets, { name=p.name, rarity=p.rarity, uniqueId=HttpService:GenerateGUID(false) }) end
-	for _, p in ipairs(petsB) do table.insert(da.Pets, { name=p.name, rarity=p.rarity, uniqueId=HttpService:GenerateGUID(false) }) end
+	-- force: the cap was already checked above for BOTH sides, before anything
+	-- was removed. Re-checking here could reject half a completed swap.
+	for _, p in ipairs(petsA) do PetService.GrantPet(s.b, clonePet(p), true) end
+	for _, p in ipairs(petsB) do PetService.GrantPet(s.a, clonePet(p), true) end
 	local a, b = s.a, s.b
 	sessions[a.UserId] = nil; sessions[b.UserId] = nil
 	pcall(PetService.RestoreEquipped, a); pcall(PetService.RestoreEquipped, b)
@@ -122,10 +190,21 @@ function TradeService.Accept(player, val)
 	local s = sessions[player.UserId]; if not s then return end
 	s.accept[player.UserId] = val and true or false
 	if s.accept[s.a.UserId] and s.accept[s.b.UserId] then
+		-- Only the countdown that is running NOW may complete the trade.
+		--
+		-- Every accept used to schedule its own swap and none was ever called
+		-- off. Change the offer (which resets both accepts), both re-accept, and
+		-- the swap still fired on the FIRST timer — a fraction of a second after
+		-- the re-accept, not three. The window that exists so the other player
+		-- can notice a last-moment change could be cut to nothing.
+		local token = {}
+		s.confirmToken = token
 		s.confirmEndsAt = os.time() + 3; push(s)
-		task.delay(3, function() doSwap(s) end)
+		task.delay(3, function()
+			if s.confirmToken == token then doSwap(s) end
+		end)
 	else
-		s.confirmEndsAt = nil; push(s)
+		s.confirmEndsAt = nil; s.confirmToken = nil; push(s)
 	end
 end
 

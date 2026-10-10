@@ -8,62 +8,62 @@ local GameConfig = {}
 -- ============================================================
 GameConfig.Pets = {
 	-- Common
-	{ name = "ant", rarity = "Common", coinMult = 60, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "worm", rarity = "Common", coinMult = 70, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "bee", rarity = "Common", coinMult = 90, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "rat", rarity = "Common", coinMult = 80, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "chicken", rarity = "Common", coinMult = 110, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "fish", rarity = "Common", coinMult = 100, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "cat", rarity = "Common", coinMult = 130, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "dog", rarity = "Common", coinMult = 140, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "rabbit", rarity = "Common", coinMult = 150, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "squirrel", rarity = "Common", coinMult = 120, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "ladybug", rarity = "Common", coinMult = 95, gemMult = 0, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "ant", rarity = "Common", coinMult = 60, gemMult = 0, size = 1.0, color = Color3.fromRGB(70,40,30) },
+	{ name = "worm", rarity = "Common", coinMult = 70, gemMult = 0, size = 1.0, color = Color3.fromRGB(230,140,150) },
+	{ name = "bee", rarity = "Common", coinMult = 90, gemMult = 0, size = 1.0, color = Color3.fromRGB(245,200,40) },
+	{ name = "rat", rarity = "Common", coinMult = 80, gemMult = 0, size = 1.0, color = Color3.fromRGB(140,130,125) },
+	{ name = "chicken", rarity = "Common", coinMult = 110, gemMult = 0, size = 1.0, color = Color3.fromRGB(250,245,235) },
+	{ name = "fish", rarity = "Common", coinMult = 100, gemMult = 0, size = 1.0, color = Color3.fromRGB(90,170,230) },
+	{ name = "cat", rarity = "Common", coinMult = 130, gemMult = 0, size = 1.0, color = Color3.fromRGB(235,150,70) },
+	{ name = "dog", rarity = "Common", coinMult = 140, gemMult = 0, size = 1.0, color = Color3.fromRGB(170,120,80) },
+	{ name = "rabbit", rarity = "Common", coinMult = 150, gemMult = 0, size = 1.0, color = Color3.fromRGB(240,232,224) },
+	{ name = "squirrel", rarity = "Common", coinMult = 120, gemMult = 0, size = 1.0, color = Color3.fromRGB(190,110,60) },
+	{ name = "ladybug", rarity = "Common", coinMult = 95, gemMult = 0, size = 1.0, color = Color3.fromRGB(220,40,40) },
 	-- Uncommon
-	{ name = "fox", rarity = "Uncommon", coinMult = 400, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "owl", rarity = "Uncommon", coinMult = 450, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "koala", rarity = "Uncommon", coinMult = 500, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "monkey", rarity = "Uncommon", coinMult = 520, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "parrot", rarity = "Uncommon", coinMult = 480, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "seal", rarity = "Uncommon", coinMult = 550, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "penguin", rarity = "Uncommon", coinMult = 600, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "raccoon", rarity = "Uncommon", coinMult = 560, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "bat", rarity = "Uncommon", coinMult = 620, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "fox", rarity = "Uncommon", coinMult = 400, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(230,120,40) },
+	{ name = "owl", rarity = "Uncommon", coinMult = 450, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(150,110,75) },
+	{ name = "koala", rarity = "Uncommon", coinMult = 500, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(160,160,165) },
+	{ name = "monkey", rarity = "Uncommon", coinMult = 520, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(130,90,60) },
+	{ name = "parrot", rarity = "Uncommon", coinMult = 480, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(60,190,80) },
+	{ name = "seal", rarity = "Uncommon", coinMult = 550, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(120,130,140) },
+	{ name = "penguin", rarity = "Uncommon", coinMult = 600, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(45,50,60) },
+	{ name = "raccoon", rarity = "Uncommon", coinMult = 560, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(120,115,110) },
+	{ name = "bat", rarity = "Uncommon", coinMult = 620, gemMult = 0.1, size = 1.0, color = Color3.fromRGB(70,55,75) },
 	-- Rare
-	{ name = "panda", rarity = "Rare", coinMult = 1500, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "bear", rarity = "Rare", coinMult = 1800, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "wolf", rarity = "Rare", coinMult = 2000, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "eagle", rarity = "Rare", coinMult = 2200, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "dolphin", rarity = "Rare", coinMult = 2400, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "flamingo", rarity = "Rare", coinMult = 2600, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "camel", rarity = "Rare", coinMult = 2800, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "horse", rarity = "Rare", coinMult = 3000, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "hippo", rarity = "Rare", coinMult = 3200, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "elephant", rarity = "Rare", coinMult = 3500, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "panda", rarity = "Rare", coinMult = 1500, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(245,245,245) },
+	{ name = "bear", rarity = "Rare", coinMult = 1800, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(125,85,55) },
+	{ name = "wolf", rarity = "Rare", coinMult = 2000, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(125,130,140) },
+	{ name = "eagle", rarity = "Rare", coinMult = 2200, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(100,70,45) },
+	{ name = "dolphin", rarity = "Rare", coinMult = 2400, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(120,160,200) },
+	{ name = "flamingo", rarity = "Rare", coinMult = 2600, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(245,140,170) },
+	{ name = "camel", rarity = "Rare", coinMult = 2800, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(205,165,105) },
+	{ name = "horse", rarity = "Rare", coinMult = 3000, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(150,95,55) },
+	{ name = "hippo", rarity = "Rare", coinMult = 3200, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(150,120,140) },
+	{ name = "elephant", rarity = "Rare", coinMult = 3500, gemMult = 0.5, size = 1.0, color = Color3.fromRGB(150,150,160) },
 	-- Epic
-	{ name = "dragon", rarity = "Epic", coinMult = 12000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "crocodile", rarity = "Epic", coinMult = 9000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "shark", rarity = "Epic", coinMult = 11000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "scorpion", rarity = "Epic", coinMult = 10000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "spider", rarity = "Epic", coinMult = 9500, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "buffalo", rarity = "Epic", coinMult = 13000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "bull", rarity = "Epic", coinMult = 13500, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "snake", rarity = "Epic", coinMult = 10500, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "butterfly", rarity = "Epic", coinMult = 8500, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "axolotl", rarity = "Epic", coinMult = 14000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "walrus", rarity = "Epic", coinMult = 15000, gemMult = 2, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "dragon", rarity = "Epic", coinMult = 12000, gemMult = 2, size = 1.0, color = Color3.fromRGB(60,170,90) },
+	{ name = "crocodile", rarity = "Epic", coinMult = 9000, gemMult = 2, size = 1.0, color = Color3.fromRGB(70,120,60) },
+	{ name = "shark", rarity = "Epic", coinMult = 11000, gemMult = 2, size = 1.0, color = Color3.fromRGB(110,130,155) },
+	{ name = "scorpion", rarity = "Epic", coinMult = 10000, gemMult = 2, size = 1.0, color = Color3.fromRGB(60,45,40) },
+	{ name = "spider", rarity = "Epic", coinMult = 9500, gemMult = 2, size = 1.0, color = Color3.fromRGB(40,35,45) },
+	{ name = "buffalo", rarity = "Epic", coinMult = 13000, gemMult = 2, size = 1.0, color = Color3.fromRGB(90,65,50) },
+	{ name = "bull", rarity = "Epic", coinMult = 13500, gemMult = 2, size = 1.0, color = Color3.fromRGB(70,50,40) },
+	{ name = "snake", rarity = "Epic", coinMult = 10500, gemMult = 2, size = 1.0, color = Color3.fromRGB(90,160,70) },
+	{ name = "butterfly", rarity = "Epic", coinMult = 8500, gemMult = 2, size = 1.0, color = Color3.fromRGB(130,90,220) },
+	{ name = "axolotl", rarity = "Epic", coinMult = 14000, gemMult = 2, size = 1.0, color = Color3.fromRGB(250,170,200) },
+	{ name = "walrus", rarity = "Epic", coinMult = 15000, gemMult = 2, size = 1.0, color = Color3.fromRGB(150,110,90) },
 	-- Legendary
-	{ name = "peacock", rarity = "Legendary", coinMult = 45000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "super fox", rarity = "Legendary", coinMult = 60000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "snow ram", rarity = "Legendary", coinMult = 70000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "ray fish", rarity = "Legendary", coinMult = 55000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "fawn", rarity = "Legendary", coinMult = 48000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "snowman", rarity = "Legendary", coinMult = 65000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "desert snake", rarity = "Legendary", coinMult = 52000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "wight bear", rarity = "Legendary", coinMult = 80000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "peacock", rarity = "Legendary", coinMult = 45000, gemMult = 6, size = 1.0, color = Color3.fromRGB(40,110,180) },
+	{ name = "super fox", rarity = "Legendary", coinMult = 60000, gemMult = 6, size = 1.0, color = Color3.fromRGB(255,90,40) },
+	{ name = "snow ram", rarity = "Legendary", coinMult = 70000, gemMult = 6, size = 1.0, color = Color3.fromRGB(240,245,250) },
+	{ name = "ray fish", rarity = "Legendary", coinMult = 55000, gemMult = 6, size = 1.0, color = Color3.fromRGB(60,150,160) },
+	{ name = "fawn", rarity = "Legendary", coinMult = 48000, gemMult = 6, size = 1.0, color = Color3.fromRGB(200,150,100) },
+	{ name = "snowman", rarity = "Legendary", coinMult = 65000, gemMult = 6, size = 1.0, color = Color3.fromRGB(250,252,255) },
+	{ name = "desert snake", rarity = "Legendary", coinMult = 52000, gemMult = 6, size = 1.0, color = Color3.fromRGB(215,180,110) },
+	{ name = "wight bear", rarity = "Legendary", coinMult = 80000, gemMult = 6, size = 1.0, color = Color3.fromRGB(235,240,245) },
 	-- Mythic
-	{ name = "Reindeer", rarity = "Mythic", coinMult = 500000, gemMult = 25, size = 1.0, color = Color3.fromRGB(200,200,200) },
-	{ name = "goldenpeacock", rarity = "Mythic", coinMult = 900000, gemMult = 30, size = 1.0, color = Color3.fromRGB(200,200,200) },
+	{ name = "Reindeer", rarity = "Mythic", coinMult = 500000, gemMult = 25, size = 1.0, color = Color3.fromRGB(140,90,55) },
+	{ name = "goldenpeacock", rarity = "Mythic", coinMult = 900000, gemMult = 30, size = 1.0, color = Color3.fromRGB(240,195,60) },
 	{ name = "Void Serpent", rarity = "Mythic", coinMult = 2000000, gemMult = 50, size = 1.0, color = Color3.fromRGB(180,0,255) },  -- THE BEST
 }
 
@@ -203,6 +203,62 @@ GameConfig.Eggs = {
 		color = Color3.fromRGB(255, 215, 0),
 		description = "The best egg in the game!",
 		rarityWeights = { Common = 0, Uncommon = 500, Rare = 2000, Epic = 3500, Legendary = 3000, Mythic = 1000 },
+	},
+
+	-- ---- WORLD EGGS -----------------------------------------------------
+	-- The coin eggs above stop at 20,000. The worlds cost 250K, 4M, 20M and
+	-- 200M. So after the Forest a player could already afford the best coin
+	-- egg forever, and from then on the only thing coins bought was the next
+	-- world — which gave no new pets, because every egg drew from the same
+	-- pool. Volcano and Space were bigger numbers with nothing to spend them on.
+	--
+	-- One egg per world, then. Each is priced at roughly a twenty-fifth of the
+	-- NEXT world's unlock, so it is a real purchase at the income that world
+	-- pays; each draws only from its own `pool` of animals; and each is refused
+	-- by the server until the world is owned (EggService, not the UI).
+	{
+		id = "ForestEgg", world = "Forest",
+		name = "Forest Egg",
+		cost = 150000,
+		currency = "Coins",
+		color = Color3.fromRGB(70, 140, 60),
+		description = "Woodland animals. Needs the Forest.",
+		rarityWeights = { Common = 3500, Uncommon = 3500, Rare = 2300, Epic = 600, Legendary = 95, Mythic = 5 },
+		pool = { "squirrel", "fox", "owl", "raccoon", "wolf", "bear", "eagle", "horse",
+		         "butterfly", "fawn", "super fox", "Reindeer" },
+	},
+	{
+		id = "DesertEgg", world = "Desert",
+		name = "Desert Egg",
+		cost = 800000,
+		currency = "Coins",
+		color = Color3.fromRGB(214, 176, 100),
+		description = "Sand and heat. Needs the Desert.",
+		rarityWeights = { Common = 2000, Uncommon = 3000, Rare = 3200, Epic = 1500, Legendary = 280, Mythic = 20 },
+		pool = { "rat", "ant", "bat", "camel", "flamingo", "scorpion", "snake", "bull",
+		         "buffalo", "desert snake", "goldenpeacock" },
+	},
+	{
+		id = "VolcanoEgg", world = "Volcano",
+		name = "Volcano Egg",
+		cost = 8000000,
+		currency = "Coins",
+		color = Color3.fromRGB(170, 52, 32),
+		description = "Born in the heat. Needs the Volcano.",
+		rarityWeights = { Common = 1000, Uncommon = 2200, Rare = 3300, Epic = 2800, Legendary = 650, Mythic = 50 },
+		pool = { "worm", "bat", "hippo", "elephant", "dragon", "crocodile", "spider",
+		         "peacock", "goldenpeacock" },
+	},
+	{
+		id = "SpaceEgg", world = "Space",
+		name = "Space Egg",
+		cost = 60000000,
+		currency = "Coins",
+		color = Color3.fromRGB(70, 60, 140),
+		description = "From the cold and the dark. Needs Space.",
+		rarityWeights = { Common = 500, Uncommon = 1500, Rare = 3000, Epic = 3500, Legendary = 1350, Mythic = 150 },
+		pool = { "fish", "seal", "penguin", "dolphin", "axolotl", "shark", "ray fish",
+		         "snow ram", "snowman", "wight bear", "Void Serpent" },
 	},
 }
 
@@ -351,7 +407,20 @@ GameConfig.DefaultData = {
 		CoinBonus  = 0,
 	},
 	FoundSecret = false,
-	Quests = { claimed = {} },
+	-- What this account has EVER owned, by species name. Permanent: nothing
+	-- removes from it. The Pet Index used to be computed from data.Pets, which
+	-- meant fusing, trading or deleting a pet erased it from your collection —
+	-- a collection record that forgets what you collected.
+	Discovered = {},
+	Quests = { claimed = {}, daily = {} },
+	-- Lifetime totals that no reset can take back. Rebirth zeroes Coins,
+	-- TotalCoinsEarned and UnlockedAreas, and quest progress used to be read
+	-- straight off those — so rebirthing silently undid four of the nine
+	-- quests, including "Unlock all worlds", which then could not be finished
+	-- again until every world had been bought back.
+	Stats = {},
+	PetsFused = 0,
+	SpinsUsed = 0,
 	EventTokens = 0,
 	EventClaimed = {},
 	RedeemedCodes = {},
@@ -360,6 +429,9 @@ GameConfig.DefaultData = {
 	ActiveBoosts = {},
 	LastSeen = 0,
 	LastFreeSpin = 0,
+	-- Sound off. Saved with the player so it survives a rejoin; an old save
+	-- has no such field and DataManager fills it from here, as false.
+	Muted = false,
 }
 
 -- ============================================================
@@ -378,6 +450,33 @@ GameConfig.Quests = {
 }
 
 -- ============================================================
+-- DAILY QUESTS  (three a day, rolled per player, reset at UTC midnight)
+-- ============================================================
+-- The nine quests above are lifetime milestones: finish them and there is
+-- nothing left to work towards, which for a steady player is a day or two.
+-- These refill.
+--
+-- They are NOT a login reward. Nothing here arrives for showing up — every one
+-- has to be played for, and the payouts are deliberately smaller than the
+-- milestones above. That is the line the owner drew and it is the right one:
+-- a reason to come back is not the same thing as a gift for coming back.
+--
+-- Only types that count EVENTS belong here. "Equip 3 pets" or "unlock a world"
+-- are states, not things you can do again tomorrow.
+GameConfig.DailyQuestCount = 3
+GameConfig.DailyQuests = {
+	{ id="d_hatch5",   name="Morning Hatch",  desc="Hatch 5 eggs today",        type="hatch", goal=5,       reward={coins=6000} },
+	{ id="d_hatch15",  name="Shell Shocked",  desc="Hatch 15 eggs today",       type="hatch", goal=15,      reward={gems=35} },
+	{ id="d_hatch40",  name="Hatch Marathon", desc="Hatch 40 eggs today",       type="hatch", goal=40,      reward={gems=90} },
+	{ id="d_coins50k", name="Day's Wages",    desc="Earn 50,000 coins today",   type="coins", goal=50000,   reward={gems=25} },
+	{ id="d_coins250k",name="Good Haul",      desc="Earn 250,000 coins today",  type="coins", goal=250000,  reward={gems=60} },
+	{ id="d_coins2m",  name="Big Day",        desc="Earn 2,000,000 coins today",type="coins", goal=2000000, reward={gems=150} },
+	{ id="d_fuse1",    name="Alchemist",      desc="Fuse a pet today",          type="fuse",  goal=1,       reward={coins=9000} },
+	{ id="d_fuse3",    name="Master Fuser",   desc="Fuse 3 pets today",         type="fuse",  goal=3,       reward={gems=55} },
+	{ id="d_spin2",    name="Feeling Lucky",  desc="Spin the wheel twice",      type="spin",  goal=2,       reward={coins=12000} },
+}
+
+-- ============================================================
 -- TRAVELING MERCHANT  (spawns on a cycle, sells rotating stock)
 -- ============================================================
 GameConfig.Merchant = {
@@ -385,13 +484,20 @@ GameConfig.Merchant = {
 	GapTime  = 240,   -- seconds between visits
 	StockSize = 4,    -- items offered per visit
 }
--- Pool the merchant draws its rotating stock from
+-- Pool the merchant draws its rotating stock from.
+--
+-- Every pet name here must be a species in GameConfig.Pets, spelled exactly,
+-- and `rarity` must be that species' rarity (check_pets enforces both). These
+-- used to sell Dragon, Phoenix, Unicorn, Shadow Wolf and Kirin: names from
+-- before the roster was replaced with the imported models, so four of the five
+-- did not exist and the fifth was spelled differently. Each slot keeps its
+-- price and its tier, with a species of that tier from the current roster.
 GameConfig.MerchantPool = {
-	{ kind="pet",   name="Dragon",        rarity="Legendary", cost=4000,   cur="Gems",  label="🐉 Dragon" },
-	{ kind="pet",   name="Phoenix",       rarity="Legendary", cost=6000,   cur="Gems",  label="🔥 Phoenix" },
-	{ kind="pet",   name="Unicorn",       rarity="Legendary", cost=5000,   cur="Gems",  label="🦄 Unicorn" },
-	{ kind="pet",   name="Shadow Wolf",   rarity="Epic",      cost=2500,   cur="Gems",  label="🐺 Shadow Wolf" },
-	{ kind="pet",   name="Kirin",         rarity="Mythic",    cost=12000,  cur="Gems",  label="✨ Kirin" },
+	{ kind="pet",   name="fawn",          rarity="Legendary", cost=4000,   cur="Gems",  label="🦌 Fawn" },
+	{ kind="pet",   name="wight bear",    rarity="Legendary", cost=6000,   cur="Gems",  label="🐻‍❄️ Wight Bear" },
+	{ kind="pet",   name="snow ram",      rarity="Legendary", cost=5000,   cur="Gems",  label="🐏 Snow Ram" },
+	{ kind="pet",   name="dragon",        rarity="Epic",      cost=2500,   cur="Gems",  label="🐉 Dragon" },
+	{ kind="pet",   name="Void Serpent",  rarity="Mythic",    cost=12000,  cur="Gems",  label="🐍 Void Serpent" },
 	{ kind="coins", amount=100000,        cost=300,    cur="Gems",  label="💰 100K Coins" },
 	{ kind="coins", amount=1000000,       cost=2000,   cur="Gems",  label="💰 1M Coins" },
 	{ kind="gems",  amount=500,           cost=200000, cur="Coins", label="💎 500 Gems" },
@@ -408,8 +514,8 @@ GameConfig.Events = {
 		tokenName = "Sun Tokens", tokenIcon = "☀️",
 		shop = {
 			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
-			{ kind="pet", name="Phoenix",      rarity="Legendary", cost=120, label="🔥 Phoenix" },
-			{ kind="pet", name="Star Phoenix", rarity="Mythic",    cost=600, label="🌟 Star Phoenix (EVENT)" },
+			{ kind="pet", name="ray fish",     rarity="Legendary", cost=120, label="🐠 Ray Fish" },
+			{ kind="pet", name="Void Serpent", rarity="Mythic",    cost=600, label="🐍 Void Serpent" },
 		},
 	},
 	winter = {
@@ -417,8 +523,8 @@ GameConfig.Events = {
 		tokenName = "Snowflakes", tokenIcon = "❄️",
 		shop = {
 			{ kind="coins", amount=5000000,  cost=40,  label="💰 5M Coins" },
-			{ kind="pet", name="Snow Leopard", rarity="Rare",   cost=80,  label="🐆 Snow Leopard" },
-			{ kind="pet", name="Celestial Dragon", rarity="Mythic", cost=600, label="🐉 Celestial Dragon (EVENT)" },
+			{ kind="pet", name="wolf",     rarity="Rare",   cost=80,  label="🐺 Wolf" },
+			{ kind="pet", name="Reindeer", rarity="Mythic", cost=600, label="🦌 Reindeer" },
 		},
 	},
 }
@@ -492,5 +598,32 @@ GameConfig.Settings = {
 	LuckyBoostMultiplier  = 1.5,
 	VIPGemMultiplier      = 3.0,
 }
+
+-- What an upgrade is currently worth for this player, or its default if they
+-- have never bought it.
+--
+-- This exists because two upgrades were purely decorative. Nothing anywhere
+-- read data.Upgrades.LuckyCharm or data.Upgrades.CoinBonus — a player could
+-- spend 54,000 coins on Lucky Charm and 126,000 on Coin Bonus and receive
+-- exactly nothing for either. UpgradeService.Buy charged, stored the level and
+-- the panel drew it as owned, so the only way to notice was to measure your
+-- income before and after and find it unchanged.
+--
+-- Reading them through one accessor is what makes "is this upgrade actually
+-- wired up" a question with an answer.
+function GameConfig.UpgradeValue(data, key)
+	for _, upg in ipairs(GameConfig.Upgrades) do
+		if upg.key == key then
+			local level = 0
+			if type(data) == "table" and type(data.Upgrades) == "table" then
+				level = tonumber(data.Upgrades[key]) or 0
+			end
+			local tier = upg.levels[level]
+			if level > 0 and tier then return tier.value end
+			return upg.default
+		end
+	end
+	return nil
+end
 
 return GameConfig
