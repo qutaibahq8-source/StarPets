@@ -55,7 +55,13 @@ local function offerList(owner, ids)
 	local data = DataManager.GetData(owner); local out = {}
 	for _, uid in ipairs(ids) do
 		local pet = petByUid(data, uid)
-		if pet then table.insert(out, { name=pet.name, rarity=pet.rarity, uniqueId=uid }) end
+		-- Mutation and fuseMult too: they are most of what a pet is worth, and
+		-- the trade window could not show what it was never sent. Both sides
+		-- were trading blind — a Rainbow pet looked exactly like a plain one.
+		if pet then
+			table.insert(out, { name=pet.name, rarity=pet.rarity, uniqueId=uid,
+				mutation=pet.mutation, fuseMult=pet.fuseMult })
+		end
 	end
 	return out
 end
@@ -79,6 +85,7 @@ end
 
 local function resetAccepts(s)
 	s.accept[s.a.UserId] = false; s.accept[s.b.UserId] = false; s.confirmEndsAt = nil
+	s.confirmToken = nil
 end
 
 function TradeService.Request(player, targetName)
@@ -183,10 +190,21 @@ function TradeService.Accept(player, val)
 	local s = sessions[player.UserId]; if not s then return end
 	s.accept[player.UserId] = val and true or false
 	if s.accept[s.a.UserId] and s.accept[s.b.UserId] then
+		-- Only the countdown that is running NOW may complete the trade.
+		--
+		-- Every accept used to schedule its own swap and none was ever called
+		-- off. Change the offer (which resets both accepts), both re-accept, and
+		-- the swap still fired on the FIRST timer — a fraction of a second after
+		-- the re-accept, not three. The window that exists so the other player
+		-- can notice a last-moment change could be cut to nothing.
+		local token = {}
+		s.confirmToken = token
 		s.confirmEndsAt = os.time() + 3; push(s)
-		task.delay(3, function() doSwap(s) end)
+		task.delay(3, function()
+			if s.confirmToken == token then doSwap(s) end
+		end)
 	else
-		s.confirmEndsAt = nil; push(s)
+		s.confirmEndsAt = nil; s.confirmToken = nil; push(s)
 	end
 end
 
