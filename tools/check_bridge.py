@@ -104,17 +104,26 @@ def studio(fail_on=None, playing=False):
     # A minimal `plugin` object.
     lua.execute("""
         SETTINGS = {}
-        local function button(n)
-            return { Click = { Connect = function() end },
-                     SetActive = function() end }
+        -- Buttons keep their click handler and label, so a check can press
+        -- one. They used to throw the handler away, so no button in this
+        -- plugin had ever been pressed under test.
+        BUTTONS, WIDGETS = {}, {}
+        local function button(id, tip, icon, text)
+            local b = { id = id, tip = tip, text = text, SetActive = function() end }
+            b.Click = { Connect = function(_, fn) b.fn = fn end }
+            BUTTONS[id] = b
+            return b
         end
         plugin = {
-            CreateToolbar = function() return { CreateButton = function() return button() end } end,
+            CreateToolbar = function()
+                return { CreateButton = function(_, ...) return button(...) end }
+            end,
             GetSetting = function(_, k) return SETTINGS[k] end,
             SetSetting = function(_, k, v) SETTINGS[k] = v end,
             CreateDockWidgetPluginGui = function()
                 local w = Instance.new("DockWidgetPluginGui")
                 w.Enabled = false
+                table.insert(WIDGETS, w)
                 return w
             end,
         }
@@ -526,106 +535,44 @@ def main():
     else:
         print("  ok  catches a duplicate install")
 
-    # ---- 8. THE PLACE CAN SEND ITSELF BACK --------------------------------
-    # The point of this one: seeing the game must not depend on the owner
-    # taking a screenshot. The plugin describes the open place and posts it,
-    # and what arrives has to be enough to DRAW — not a summary, geometry.
-    import json as _json
-    src_send = src.replace("local function sendToClaude()", "function SENDTOCLAUDE()")
-    src_send = src_send.replace("local function buildReport()", "function BUILDREPORT()")
-    src_send = src_send.replace("pcall(buildReport)", "pcall(BUILDREPORT)")
-    src_send = src_send.replace("local report = select(1, buildReport())",
-                                "local report = select(1, BUILDREPORT())")
+    # ---- 8. SNAPSHOT OPENS THE REPORT, AND NOTHING LEAVES THE MACHINE -----
+    # The button used to try to POST the place to a webhook first. That
+    # webhook accepts only deliveries signed by Anthropic's artifact service,
+    # which a plugin cannot produce: tried for real, an unsigned post gets
+    # HTTP 401. The old version of this section stubbed PostAsync to succeed,
+    # so it passed for a path that could never work. What is true and worth
+    # keeping true: pressing Snapshot opens the copyable report, and the
+    # plugin sends nothing anywhere.
+    import re as _re
+    plugin_src = (ROOT / "src/Plugin/StarPetsSync.server.lua").read_text()
+    if _re.search(r"PostAsync|RequestAsync", plugin_src):
+        fails.append("the sync plugin sends something off the machine "
+                     "(PostAsync/RequestAsync); it should only fetch")
+    else:
+        print("  ok  the plugin sends nothing off the machine (fetches only)")
+
     lua8, mock8, G8 = studio()
-
-    posted = {}
-
-    def _from_lua(o):
-        if lupa.lua_type(o) == "table":
-            ks = list(o.keys())
-            if ks and all(isinstance(k, int) for k in ks) and \
-                    sorted(ks) == list(range(1, len(ks) + 1)):
-                return [_from_lua(o[i]) for i in range(1, len(ks) + 1)]
-            return {str(k): _from_lua(o[k]) for k in ks}
-        return o
-
-    G8["PY_POST"] = lambda url, body: posted.update(url=url, body=body)
-    G8["PY_ENCODE"] = lambda t: _json.dumps(_from_lua(t))
-    endpoint_raw = (ROOT / "bridge/endpoint.json").read_text()
-    G8["ENDPOINT_JSON"] = endpoint_raw
-    G8["DECODED_ENDPOINT"] = lua8.table_from(_json.loads(endpoint_raw))
-    lua8.execute("""
-        local hs = game:GetService("HttpService")
-        hs.PostAsync = function(_, url, body) PY_POST(url, body) end
-        hs.JSONEncode = function(_, t) return PY_ENCODE(t) end
-        local realGet, realDecode = hs.GetAsync, hs.JSONDecode
-        hs.GetAsync = function(self, url)
-            if url:find("endpoint.json") then return ENDPOINT_JSON end
-            return realGet(self, url)
-        end
-        hs.JSONDecode = function(self, s)
-            if s == ENDPOINT_JSON then return DECODED_ENDPOINT end
-            return realDecode(self, s)
-        end
-    """)
-    lua8.eval("function(s,n) return assert(load(s,n)) end")(src_send, "@StarPetsSync")()
-    lua8.execute("""
-        local map = Instance.new("Folder"); map.Name = "StarPetsMap"; map.Parent = workspace
-        local g = Instance.new("Part"); g.Name = "Ground"
-        g.Position = Vector3.new(0, -1, 0); g.Size = Vector3.new(200, 2, 160)
-        g.Color = Color3.fromRGB(94, 168, 74); g.Parent = map
-        local b = Instance.new("Part"); b.Name = "Biome_Meadow"
-        b.Position = Vector3.new(0, 0, 0); b.Size = Vector3.new(4, 1, 4)
-        b.Color = Color3.fromRGB(94, 168, 74); b.Parent = map
-        local ball = Instance.new("Part"); ball.Name = "TreeLeaf1"
-        ball.Shape = Enum.PartType.Ball
-        ball.Position = Vector3.new(20, 8, 10); ball.Size = Vector3.new(8, 7, 8)
-        ball.Color = Color3.fromRGB(58, 130, 58); ball.Parent = map
-    """)
-    sent = lua8.globals().SENDTOCLAUDE()
-
-    if not sent or "body" not in posted:
-        fails.append("the place could not send itself — seeing the game still "
-                     "depends on someone taking a screenshot")
+    load_plugin(lua8)
+    snap = lua8.eval("BUTTONS")["StarPetsSnapshot"]
+    if snap is None or snap.fn is None:
+        fails.append("the Snapshot button is not wired to anything")
     else:
-        doc = _json.loads(posted["body"])
-        if "webhook-triggers" not in posted["url"]:
-            fails.append("posted somewhere unexpected: %s" % posted["url"][:60])
-        elif not doc.get("parts"):
-            fails.append("the payload carried no geometry, so nothing can be drawn")
-        elif len(doc["parts"][0]) != 12:
-            fails.append("a part row has %d fields, not the 12 the renderer "
-                         "reads" % len(doc["parts"][0]))
-        elif not doc.get("text"):
-            fails.append("the payload carried no snapshot text")
+        snap.fn()
+        widgets = list(lua8.eval("WIDGETS").values())
+        shown = [w for w in widgets if w._p.Enabled]
+        text = ""
+        for w in shown:
+            for d in w["GetDescendants"](w).values():
+                if str(d._p.ClassName) == "TextBox":
+                    text = str(d._p.Text or "")
+        if "STARPETS SNAPSHOT" not in text:
+            fails.append("pressing Snapshot did not open the report")
+        elif str(snap.text) != "Snapshot":
+            fails.append("the button is labelled %r — it should say what it does"
+                         % str(snap.text))
         else:
-            # And it has to actually DRAW. A payload that parses but renders
-            # nothing is the same as no payload.
-            sys.path.insert(0, str(ROOT / "tools"))
-            import render_place  # noqa: E402
-            boxes = render_place.boxes_from(doc)
-            shapes = {s for *_, s in [(b[-1],) for b in boxes]} if boxes else set()
-            if len(boxes) < 3:
-                fails.append("only %d of %d parts survived into the renderer"
-                             % (len(boxes), len(doc["parts"])))
-            elif "ball" not in {b[7] for b in boxes}:
-                fails.append("round parts came through as boxes — every tree "
-                             "crown in the place would render square")
-            else:
-                _ = shapes
-                print("  ok  the place sends itself: %d parts, %d KB, and it draws"
-                      % (len(doc["parts"]), len(posted["body"]) // 1024))
-
-    # No endpoint published must fall back, not fail silently.
-    lua8.execute('ENDPOINT_JSON = "{}"')
-    lua8.execute("DECODED_ENDPOINT = {}")
-    posted.clear()
-    fell_back = lua8.globals().SENDTOCLAUDE()
-    if fell_back or posted:
-        fails.append("with no endpoint published it still claimed to send")
-    else:
-        print("  ok  and falls back to copy-and-paste when there is nowhere "
-              "to send")
+            print("  ok  pressing Snapshot opens the report to copy (%d lines)"
+                  % len(text.splitlines()))
 
     if fails:
         print("\nbridge: %d problems" % len(fails))
