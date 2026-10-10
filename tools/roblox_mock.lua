@@ -15,6 +15,11 @@
 -- ============================================================
 -- Vector3
 -- ============================================================
+-- How often the expensive calls are made: Roblox budgets sorted reads (about
+-- 5 + 2 per player a minute) and every name lookup is a web request. Declared
+-- first, so every table below that counts refers to THIS, not a global.
+local CALLS = { sorted = 0, names = 0 }
+
 local V3MT = {}
 local function v3(x, y, z)
 	return setmetatable({ X = x or 0, Y = y or 0, Z = z or 0 }, V3MT)
@@ -576,7 +581,10 @@ local Players = {
 		end
 		return nil
 	end,
-	GetNameFromUserIdAsync = function(_, id) return "User" .. tostring(id) end,
+	GetNameFromUserIdAsync = function(_, id)
+		CALLS.names = CALLS.names + 1
+		return "User" .. tostring(id)
+	end,
 	GetUserThumbnailAsync = function() return "", true end,
 	PlayerAdded = signal(),
 	PlayerRemoving = signal(),
@@ -649,8 +657,19 @@ local function makeStore(name)
 		RemoveAsync = function(_, k) local v = data[k]; data[k] = nil; return v end,
 		IncrementAsync = function(_, k, d) data[k] = (data[k] or 0) + (d or 1); return data[k] end,
 		SetAsync_Ordered = function() end,
-		GetSortedAsync = function()
-			return { GetCurrentPage = function() return {} end, IsFinished = true,
+		-- Real entries, sorted, one page — it used to be an empty page, so no
+		-- leaderboard ever had anything on it under test.
+		GetSortedAsync = function(_, ascending, pageSize)
+			CALLS.sorted = CALLS.sorted + 1
+			local rows = {}
+			for k, v in pairs(data) do rows[#rows + 1] = { key = k, value = v } end
+			table.sort(rows, function(a, b)
+				if ascending then return a.value < b.value end
+				return a.value > b.value
+			end)
+			local page = {}
+			for i = 1, math.min(pageSize or 50, #rows) do page[i] = rows[i] end
+			return { GetCurrentPage = function() return page end, IsFinished = true,
 			         AdvanceToNextPageAsync = function() end }
 		end,
 	}
@@ -838,4 +857,5 @@ return {
 	BOUND_TO_CLOSE = BOUND_TO_CLOSE, STORE = STORE,
 	PLAYED = PLAYED,
 	FLUSH_TWEENS = flushTweens,
+	CALLS = CALLS,
 }

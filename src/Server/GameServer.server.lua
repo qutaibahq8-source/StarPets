@@ -1402,7 +1402,7 @@ RE_BuyGamepass.OnServerEvent:Connect(function(player,gpKey)
 end)
 
 RF_GetLeaderboard.OnServerInvoke = function(player, category)
-	return LeaderboardService.GetTop(category or "Coins", 10)
+	return LeaderboardService.Get(category or "Coins")
 end
 
 RE_BuyUpgrade.OnServerEvent:Connect(function(player,upgradeKey)

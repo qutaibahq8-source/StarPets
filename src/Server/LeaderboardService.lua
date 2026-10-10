@@ -20,6 +20,8 @@ local CachedBoards = {
 	Pets     = {},
 	Rebirths = {},
 }
+local fetchedAt = {}   -- [category] = os.clock() of the last read
+local names = {}       -- [userId] = name; a name almost never changes
 
 -- ============================================================
 -- UPDATE A PLAYER'S SCORE
@@ -73,21 +75,21 @@ local function fetchTop(store, count)
 	for rank, entry in ipairs(data) do
 		local userId  = tonumber(entry.key)
 		local score   = entry.value
-		local name    = "[Unknown]"
-		pcall(function()
-			name = game:GetService("Players"):GetNameFromUserIdAsync(userId)
-		end)
+		-- Each lookup is a web request; ten per board per refresh, forever,
+		-- for names that almost never change. Asked once per user per server.
+		local name = names[userId]
+		if not name then
+			local okName, got = pcall(function()
+				return game:GetService("Players"):GetNameFromUserIdAsync(userId)
+			end)
+			name = okName and got or "[Unknown]"
+			if okName then names[userId] = got end
+		end
 		table.insert(results, { rank=rank, name=name, score=score, userId=userId })
 	end
 	return results
 end
 
-function LeaderboardService.GetTop(category, count)
-	count = count or 10
-	local store = Stores[category]
-	if not store then return {} end
-	return fetchTop(store, count)
-end
 
 -- ============================================================
 -- CACHED BOARDS  (refresh every 60s)
@@ -96,6 +98,7 @@ task.spawn(function()
 	while true do
 		for category, store in pairs(Stores) do
 			local ok, result = pcall(fetchTop, store, 10)
+			fetchedAt[category] = os.clock()
 			if ok then CachedBoards[category] = result end
 			task.wait(1)
 		end
@@ -104,6 +107,25 @@ task.spawn(function()
 end)
 
 function LeaderboardService.GetCached(category)
+	return CachedBoards[category] or {}
+end
+
+-- What the Ranks panel is given.
+--
+-- The panel used to call GetTop, which read the OrderedDataStore AND looked
+-- up ten names, on every open and every tab switch, by every player. Roblox
+-- allows about 5 + 2 per player sorted reads a minute; a busy server would run
+-- through that and get empty boards back, and each open waited on ten web
+-- requests. The boards are refreshed once a minute in the background; this
+-- hands out that copy, reading the store itself only if this server has not
+-- read that board even once yet.
+function LeaderboardService.Get(category)
+	if type(category) ~= "string" or not Stores[category] then return {} end
+	if not fetchedAt[category] then
+		local ok, result = pcall(fetchTop, Stores[category], 10)
+		fetchedAt[category] = os.clock()
+		if ok then CachedBoards[category] = result end
+	end
 	return CachedBoards[category] or {}
 end
 

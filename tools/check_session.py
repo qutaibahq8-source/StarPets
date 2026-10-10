@@ -287,6 +287,49 @@ def main():
 
     check("mute survives a rejoin", t_mute_survives_rejoin_and_refuses_junk)
 
+    # ---- the Ranks board -------------------------------------------------
+    print("\nthe Ranks board:")
+
+    def t_ranks_board():
+        srv6 = Server()
+        LB = srv6.mod("LeaderboardService")
+        scores = {9701: ("Ada", 900), 9702: ("Bo", 50000), 9703: ("Cy", 7000)}
+        players = {}
+        for uid, (name, coins) in scores.items():
+            p, d = srv6.join(uid, name)
+            d.Stats["coins"] = coins
+            LB.UpdatePlayer(p)
+            players[uid] = p
+        calls = srv6.mock["CALLS"]
+        sorted0, names0 = int(calls.sorted), int(calls.names)
+
+        rf = srv6.lua.eval("game.ReplicatedStorage.Remotes.GetLeaderboard")
+        ask = srv6.lua.eval("function(rf, p, c) return rf.OnServerInvoke(p, c) end")
+        RL = srv6.mod("RateLimit")
+        boards = {}
+        # Every player opening Ranks and flicking through the tabs, repeatedly.
+        for _ in range(10):
+            for p in players.values():
+                RL.Reset(p)
+                for cat in ("Coins", "Pets", "Rebirths"):
+                    boards[cat] = ask(rf, p, cat)
+        junk = [ask(rf, players[9701], bad) for bad in
+                ("Nope", srv6.lua.eval("{}"), 12)]
+
+        coins = [(str(e.name), int(e.score)) for e in boards["Coins"].values()]
+        assert coins == [("User9702", 50000), ("User9703", 7000), ("User9701", 900)], \
+            "the coins board reads %s" % coins
+        assert all(len(list(j.values())) == 0 for j in junk), "a junk category returned rows"
+        sorted_n = int(calls.sorted) - sorted0
+        names_n = int(calls.names) - names0
+        assert sorted_n <= 3, ("90 opens of Ranks made %d sorted DataStore reads — "
+                               "Roblox allows about 5 + 2 per player a minute" % sorted_n)
+        assert names_n <= 3, "%d name lookups for 3 distinct players" % names_n
+        return "right order; 90 opens cost %d sorted reads and %d name lookups" % (
+            sorted_n, names_n)
+
+    check("served from cache, in order", t_ranks_board)
+
     print()
     check("no script wrote a global", lambda: check_map.no_global_writes(srv.lua, srv2.lua))
 
