@@ -44,9 +44,15 @@ def runtime(fail_reads=False, fail_writes=False):
         G[k] = mock[k]
     lua.execute("""
         WAITED = 0
+        -- ON_WAIT: something to happen "meanwhile", the first time anything
+        -- waits — another server's save landing, say.
         task = { spawn=function() end, defer=function() end,
                  delay=function() end,
-                 wait=function(t) WAITED = WAITED + (t or 0); return t or 0 end }
+                 wait=function(t)
+                     WAITED = WAITED + (t or 0)
+                     if ON_WAIT then local f = ON_WAIT; ON_WAIT = nil; f() end
+                     return t or 0
+                 end }
         wait = task.wait
         warn = function() end
     """)
@@ -57,23 +63,32 @@ def runtime(fail_reads=False, fail_writes=False):
         WRITES = 0
         FAIL_READ = false
         FAIL_WRITE = false
+        -- Stored as copies, as a real DataStore serializes them.
+        local function copy(v)
+          if type(v) ~= "table" then return v end
+          local o = {}
+          for k, x in pairs(v) do o[k] = copy(x) end
+          return o
+        end
         local function store(name)
           return {
             GetAsync = function(_, k)
               if FAIL_READ then error("DataStore is unavailable", 0) end
-              return STORE_DATA[k]
+              return copy(STORE_DATA[k])
             end,
             SetAsync = function(_, k, v)
               WRITES = WRITES + 1
               if FAIL_WRITE then error("DataStore is unavailable", 0) end
-              STORE_DATA[k] = v
+              STORE_DATA[k] = copy(v)
             end,
+            -- A read AND a write: an outage of either fails it. Loads go
+            -- through here now, so an outage test that only failed GetAsync
+            -- would test nothing.
             UpdateAsync = function(_, k, fn)
-              WRITES = WRITES + 1
-              if FAIL_WRITE then error("DataStore is unavailable", 0) end
-              local nv = fn(STORE_DATA[k])
-              if nv ~= nil then STORE_DATA[k] = nv end
-              return nv
+              if FAIL_READ or FAIL_WRITE then error("DataStore is unavailable", 0) end
+              local nv = fn(copy(STORE_DATA[k]))
+              if nv ~= nil then WRITES = WRITES + 1; STORE_DATA[k] = copy(nv) end
+              return copy(nv)
             end,
             RemoveAsync = function(_, k) STORE_DATA[k] = nil end,
           }
@@ -110,6 +125,14 @@ def runtime(fail_reads=False, fail_writes=False):
     G["script"] = m
     DM = load(ROOT / "src/Server/DataManager.lua", "DataManager")
     mock["MODULES"][m] = DM
+
+    def another_server(job):
+        """A second DataManager on the SAME DataStore, as another server."""
+        lua.execute('game.JobId = "%s"' % job)
+        G["script"] = m
+        other = load(ROOT / "src/Server/DataManager.lua", "DataManager")
+        return other
+    lua.globals()["ANOTHER_SERVER"] = another_server
     return lua, mock, DM
 
 
@@ -199,8 +222,13 @@ def main():
     # Saves are spawned in parallel by the handler; run them inline here so the
     # total wait is measurable.
     lua3.execute("task.spawn = function(f, ...) f(...) end")
+    # Loaded while the DataStore works; it fails from shutdown on. A load is
+    # a write now (it claims the record), so loading with writes already
+    # failing would leave nothing to save and the budget untested.
+    G3["FAIL_WRITE"] = False
     for uid in (881, 882, 883):
         first(DM3.LoadPlayer(player(mock3, uid)))
+    G3["FAIL_WRITE"] = True
     G3["WAITED"] = 0
     handlers = mock3["BOUND_TO_CLOSE"]
     n = 0
@@ -220,6 +248,141 @@ def main():
                      "so the last players in the loop lose their data" % waited)
     else:
         print("  ok  shutdown fits inside the budget Roblox gives it")
+
+    # ---- 4. ONE SERVER AT A TIME PER SAVE ----------------------------------
+    # A player who leaves one server and joins another before the first one's
+    # last save lands used to be loaded from the older record: progress lost,
+    # and — with trading — pets duplicated.
+    import time as _time
+
+    def two_servers():
+        lua4, mock4, _ = runtime()
+        G4 = lua4.globals()
+        a = G4.ANOTHER_SERVER("server-A")
+        b = G4.ANOTHER_SERVER("server-B")
+        return lua4, mock4, G4, a, b
+
+    def stored(G4, uid):
+        return G4.STORE_DATA[str(uid)]
+
+    # 4a. The hop waits for the old server's last save — which is also the
+    #     trade-and-hop duplication.
+    lua4, mock4, G4, A, B = two_servers()
+    p = player(mock4, 5150, "Hopper")
+    d = first(A.LoadPlayer(p))
+    d.Coins = 100
+    d.Pets[1] = lua4.table_from({"name": "dragon", "rarity": "Epic", "uniqueId": "D1"})
+    A.SavePlayer(p)                                    # autosave: has the dragon
+    d.Coins = 500
+    d.Pets[1] = None                                   # traded the dragon away
+    # The player is on server B now; A's last save is still on its way and
+    # lands while B waits.
+    G4["ON_WAIT"] = lua4.eval("function(dm, p) return function() dm.RemovePlayer(p) end end")(A, p)
+    G4["WAITED"] = 0
+    d_b = first(B.LoadPlayer(p))
+    if float(G4.WAITED) > 10:
+        fails.append("server B waited %.0fs although server A's last save had given "
+                     "the record up — the claim was never released" % float(G4.WAITED))
+    if d_b is None:
+        fails.append("server B gave up instead of waiting for server A's last save")
+    elif int(d_b.Coins) != 500 or d_b.Pets[1] is not None:
+        fails.append("server B loaded the record from BEFORE server A's last save "
+                     "(coins %s, dragon %s) — progress lost, and a traded pet "
+                     "duplicated" % (d_b.Coins, "still there" if d_b.Pets[1] is not None else "gone"))
+    else:
+        print("  ok  a hop waits for the old server's last save: no rollback, no dupe")
+
+    def claim_of(rec):
+        s_ = rec["_session"] if rec is not None else None
+        return s_["job"] if s_ is not None else None
+
+    # 4b. After the hop the record belongs to the server the player is on.
+    if d_b is not None:
+        d_b.Coins = 800
+        B.SavePlayer(p)
+    rec = stored(G4, 5150)
+    holder = claim_of(rec)
+    if d_b is None:
+        pass  # already reported above
+    elif str(holder) != "server-B" or int(rec.Coins) != 800:
+        fails.append("after the hop the record is claimed by %s with %s coins, not "
+                     "server-B with 800" % (holder, rec and rec.Coins))
+    else:
+        print("  ok  the record is claimed by the server the player is on")
+
+    # 4b'. A player who gives up while their load waits stops the wait,
+    #      rather than a server claiming a record for nobody.
+    lua7, mock7, G7, A7, B7 = two_servers()
+    p7 = player(mock7, 8180, "Impatient")
+    first(A7.LoadPlayer(p7))
+    A7.SavePlayer(p7)                                  # A holds a live claim
+    G7["ON_WAIT"] = lua7.eval("function(dm, p) return function() dm.RemovePlayer(p) end end")(B7, p7)
+    G7["WAITED"] = 0
+    gave_up = first(B7.LoadPlayer(p7))
+    held = claim_of(G7.STORE_DATA["8180"])
+    if gave_up is not None or str(held) != "server-A":
+        fails.append("a player who left during the wait still had their record "
+                     "claimed (by %s)" % held)
+    elif float(G7.WAITED) > 10:
+        fails.append("after the player left, the server kept waiting %.0fs for a "
+                     "record nobody will use" % float(G7.WAITED))
+    else:
+        print("  ok  leaving during the wait stops it; the record is left alone")
+
+    # 4c. A dead server's claim is taken over, and its late save is refused.
+    lua5, mock5, G5, A, B = two_servers()
+    p5 = player(mock5, 6160, "Orphan")
+    d5 = first(A.LoadPlayer(p5))
+    d5.Coins = 300
+    A.SavePlayer(p5)                                   # A then dies: never releases
+    aged = lua5.eval("""function(STORE_DATA)
+        local rec = STORE_DATA["6160"]
+        if not (rec and rec._session) then return false end
+        rec._session.at = os.time() - 10000
+        return true
+    end""")(G5.STORE_DATA)
+    G5["WAITED"] = 0
+    d5b = first(B.LoadPlayer(p5)) if aged else None
+    if not aged:
+        fails.append("a saved record carries no claim at all, so nothing stops two "
+                     "servers holding the same player")
+    elif d5b is None or int(d5b.Coins) != 300:
+        fails.append("a claim from a server that died was never taken over — the "
+                     "player could not load (got %s)" % (d5b and d5b.Coins))
+    elif float(G5.WAITED) > 0:
+        fails.append("B waited %.0fs on a claim from a server long dead" % float(G5.WAITED))
+    else:
+        d5b.Coins = 900
+        B.SavePlayer(p5)
+        d5.Coins = 1                                   # A wakes up with its old copy
+        ok_a = A.SavePlayer(p5)
+        now = int(G5.STORE_DATA["6160"].Coins)
+        if now != 900 or ok_a:
+            fails.append("a late save from the old server overwrote the newer record "
+                         "(%d coins, expected 900)" % now)
+        else:
+            print("  ok  a dead server's claim is taken over, and its late save refused")
+
+    # 4d. The claim is bookkeeping: it never reaches player data.
+    if d5b is not None and d5b["_session"] is not None:
+        fails.append("the claim leaked into the player's data (and so to their client)")
+    else:
+        print("  ok  the claim never appears in the player's data")
+
+    # 4e. One server (Studio, or a normal session) never waits on itself.
+    lua6, mock6, DM6 = runtime()
+    G6 = lua6.globals()
+    p6 = player(mock6, 7170, "Solo")
+    first(DM6.LoadPlayer(p6))
+    DM6.SavePlayer(p6)
+    DM6.RemovePlayer(p6)
+    G6["WAITED"] = 0
+    again = first(DM6.LoadPlayer(p6))
+    if again is None or float(G6.WAITED) > 0:
+        fails.append("rejoining the same server waited %.0fs on its own claim"
+                     % float(G6.WAITED))
+    else:
+        print("  ok  leaving gives the claim up: rejoining is immediate")
 
     if fails:
         print("\ndata: %d problems" % len(fails))

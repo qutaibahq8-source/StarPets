@@ -68,6 +68,11 @@ code under test. `check_syntax` now proves the rewrite on a probe first.
 - **Never save a session whose load failed.** `DataManager.LoadPlayer` returns
   `(data, err)`; a failed read caches nothing and `saveWithRetry` refuses it.
   Removing this reintroduces a bug that wiped 10,000,000 coins permanently.
+- **One server holds a save at a time.** `DataManager` claims a record as it
+  loads it (`_session`), renews the claim with every save, gives it up on the
+  last one, and refuses to save once another server holds it. Without it a
+  quick server hop rolls progress back, and trade-then-hop duplicates pets.
+  Saves go through `UpdateAsync`, never `SetAsync`. `check_data` section 4.
 - **`PetService.GrantPet` is the only way a pet enters an inventory.** It
   enforces the 100-pet cap and stamps the permanent `Discovered` record the Pet
   Index reads. Direct `table.insert(data.Pets, ...)` bypasses both; `check_pets`

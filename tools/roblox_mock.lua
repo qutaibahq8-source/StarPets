@@ -647,13 +647,28 @@ local HttpService = {
 HttpService.GenerateGUID = HttpService.GenerateGUID()
 
 local STORE = {}
+-- A DataStore keeps a serialized COPY. Stored by reference, a record "saved"
+-- a minute ago silently changes whenever the game edits its own table, and a
+-- check comparing the two compares a thing with itself.
+local function snapshotValue(v)
+	if type(v) ~= "table" then return v end
+	local out = {}
+	for k, x in pairs(v) do out[k] = snapshotValue(x) end
+	return out
+end
 local function makeStore(name)
 	STORE[name] = STORE[name] or {}
 	local data = STORE[name]
 	return {
-		GetAsync = function(_, k) return data[k] end,
-		SetAsync = function(_, k, v) data[k] = v end,
-		UpdateAsync = function(_, k, fn) local nv = fn(data[k]); data[k] = nv; return nv end,
+		GetAsync = function(_, k) return snapshotValue(data[k]) end,
+		SetAsync = function(_, k, v) data[k] = snapshotValue(v) end,
+		-- Returning nil from the transform CANCELS the write, as in Roblox. It
+		-- used to store the nil, which deleted the record.
+		UpdateAsync = function(_, k, fn)
+			local nv = fn(snapshotValue(data[k]))
+			if nv ~= nil then data[k] = snapshotValue(nv) end
+			return snapshotValue(nv)
+		end,
 		RemoveAsync = function(_, k) local v = data[k]; data[k] = nil; return v end,
 		IncrementAsync = function(_, k, d) data[k] = (data[k] or 0) + (d or 1); return data[k] end,
 		SetAsync_Ordered = function() end,

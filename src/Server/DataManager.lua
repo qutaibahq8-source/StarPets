@@ -30,6 +30,8 @@ local Cache       = {}   -- userId -> data table
 local Saving      = {}   -- userId -> true while a save is in flight
 local Failed      = {}   -- userId -> true if the load failed; never save these
 local Loaded      = {}   -- userId -> true once a load has completed cleanly
+local Leaving     = {}   -- userId -> true for the last save, which gives up the claim
+local Abandoned   = {}   -- userId -> true if they left while their load was waiting
 
 -- Shutdown gets about 30 seconds in total. Five attempts with doubling backoff
 -- is 2+4+8+16+32 = 62 seconds for ONE player, and the loop is serial, so a
@@ -38,6 +40,29 @@ local Loaded      = {}   -- userId -> true once a load has completed cleanly
 local NORMAL_ATTEMPTS, NORMAL_BACKOFF = 5, 2
 local CLOSING_ATTEMPTS, CLOSING_BACKOFF = 3, 1
 local closing = false
+
+-- ============================================================
+-- ONE SERVER AT A TIME PER SAVE
+-- ============================================================
+-- A player who leaves one server and joins another quickly used to be loaded
+-- by the new server BEFORE the old one's last save had landed. Two things
+-- followed. Progress since the last autosave was lost, overwritten by the new
+-- server's next save. And in a game with trading it was a duplication: trade
+-- a pet away, leave at once, and the new server loaded the old record with
+-- the pet still in it, while the other player had it too.
+--
+-- So each record carries a claim — which server holds it and when it last
+-- said so. A server claims a record as it loads it, renews the claim with
+-- every save, and gives it up with the player's last save. A server that
+-- finds a live claim from another WAITS for it to be given up; a claim that
+-- has not been renewed for LOCK_TTL belongs to a server that died, and is
+-- taken over. A save from a server that no longer holds the claim is refused,
+-- so a late save can never overwrite newer data. Studio's JobId is "", so
+-- every Studio session counts as the same server, which is what it is.
+local JOB = game.JobId
+local LOCK_TTL = (GameConfig.Settings.DataSaveInterval or 60) * 2
+local LOCK_RETRY = 3
+local SESSION_KEY = "_session"
 
 local function deepCopy(t)
 	local copy = {}
@@ -84,18 +109,52 @@ local function coerce(data, default, path, report)
 	return data
 end
 
+-- Read the record and claim it, in one UpdateAsync so no other server can
+-- slip in between. Returns ok, data (nil for a brand-new player), err.
 local function loadWithRetry(userId)
-	local data, ok, err
-	for attempt = 1, 5 do
-		ok, err = pcall(function()
-			data = PlayerStore:GetAsync(tostring(userId))
+	local failures, waited = 0, 0
+	local err
+	while true do
+		local raw, heldBy
+		local ok, e = pcall(function()
+			PlayerStore:UpdateAsync(tostring(userId), function(old)
+				raw, heldBy = nil, nil
+				local claim = type(old) == "table" and old[SESSION_KEY] or nil
+				if type(claim) == "table" and claim.job ~= JOB
+					and type(claim.at) == "number" and os.time() - claim.at < LOCK_TTL then
+					heldBy = claim.job
+					return nil   -- another live server holds it: change nothing
+				end
+				raw = old
+				local out = type(old) == "table" and old or {}
+				out[SESSION_KEY] = { job = JOB, at = os.time() }
+				return out
+			end)
 		end)
-		if ok then return true, data end
-		warn(("[DataManager] load attempt %d failed for %s: %s")
-			:format(attempt, userId, tostring(err)))
-		task.wait(2 ^ attempt)
+		if not ok then
+			failures = failures + 1
+			err = e
+			warn(("[DataManager] load attempt %d failed for %s: %s")
+				:format(failures, userId, tostring(e)))
+			if failures >= 5 then return false, nil, err end
+			task.wait(2 ^ failures)
+		elseif heldBy then
+			-- Its last save is still on the way. Wait for it rather than load a
+			-- record that is about to be out of date.
+			if Abandoned[userId] then return false, nil, "left while waiting" end
+			if waited >= LOCK_TTL + LOCK_RETRY then
+				return false, nil, "save still held by server " .. tostring(heldBy)
+			end
+			task.wait(LOCK_RETRY)
+			waited = waited + LOCK_RETRY
+		else
+			if type(raw) == "table" then
+				raw[SESSION_KEY] = nil   -- server bookkeeping, not player data
+				if next(raw) == nil then raw = nil end   -- only ever claimed: new
+			end
+			return true, raw
+		end
 	end
-	return false, nil, err
 end
 
 local function saveWithRetry(userId, data)
@@ -127,10 +186,30 @@ local function saveWithRetry(userId, data)
 	Saving[userId] = true
 	local attempts = closing and CLOSING_ATTEMPTS or NORMAL_ATTEMPTS
 	local backoff = closing and CLOSING_BACKOFF or NORMAL_BACKOFF
+	local release = closing or Leaving[userId] == true
 	for attempt = 1, attempts do
+		local lost = false
 		local ok, err = pcall(function()
-			PlayerStore:SetAsync(tostring(userId), data)
+			PlayerStore:UpdateAsync(tostring(userId), function(old)
+				lost = false
+				local claim = type(old) == "table" and old[SESSION_KEY] or nil
+				if type(claim) == "table" and claim.job ~= JOB then
+					lost = true
+					return nil   -- another server has it now; never overwrite
+				end
+				local out = {}
+				for k, v in pairs(data) do out[k] = v end
+				out[SESSION_KEY] = (not release) and { job = JOB, at = os.time() } or nil
+				return out
+			end)
 		end)
+		if ok and lost then
+			Saving[userId] = false
+			Failed[userId] = true   -- this server's copy is no longer the record
+			warn(("[DataManager] not saving %s: another server holds their save "
+				.. "now, and this copy would overwrite newer data."):format(userId))
+			return false
+		end
 		if ok then
 			Saving[userId] = false
 			return true
@@ -154,6 +233,7 @@ function DataManager.LoadPlayer(player)
 	local uid = player.UserId
 	Failed[uid] = nil
 	Loaded[uid] = nil
+	Abandoned[uid] = nil
 
 	local ok, raw, err = loadWithRetry(uid)
 	if not ok then
@@ -213,11 +293,17 @@ end
 function DataManager.RemovePlayer(player)
 	local uid = player.UserId
 	local data = Cache[uid]
+	-- Gone before their load finished: a load still waiting on another
+	-- server's claim stops, rather than claiming a record for nobody.
+	if not data then Abandoned[uid] = true end
+	-- The last save gives the claim up, so the next server need not wait.
+	Leaving[uid] = true
 	if data then saveWithRetry(uid, data) end
 	Cache[uid] = nil
 	Saving[uid] = nil
 	Failed[uid] = nil
 	Loaded[uid] = nil
+	Leaving[uid] = nil
 end
 
 -- Autosave. Staggered rather than all-at-once: firing every player's save on
