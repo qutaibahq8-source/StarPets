@@ -165,6 +165,51 @@ def main():
     check("the services read them", t_upgrades_are_actually_read)
     check("Coin Bonus changes income", t_coin_bonus_changes_income)
 
+    # ---- codes -------------------------------------------------------------
+    print("\ncodes:")
+    import check_session  # noqa: E402
+    srv = check_session.Server()
+    CS, PS = srv.mod("CodeService"), srv.mod("PetService")
+    shared = srv.lua.eval("game.ReplicatedStorage.Shared.GameConfig")
+    gc = srv.mock["MODULES"][shared]
+    p, d = srv.join(9900, "Coder")
+    redeem = lambda code: CS.Redeem(p, code)  # noqa: E731
+
+    def first_two(r):
+        return (r[0], str(r[1])) if isinstance(r, tuple) else (r, "")
+
+    def t_normal_code_once():
+        before = int(d.Coins)
+        ok, msg = first_two(redeem("  welcome "))
+        assert ok, "a valid code in lower case with spaces was refused (%s)" % msg
+        assert int(d.Coins) > before, "the code paid nothing"
+        ok2, msg2 = first_two(redeem("WELCOME"))
+        assert not ok2 and "already" in msg2.lower(), "the same code paid twice"
+        return "paid once (+%d), refused the second time" % (int(d.Coins) - before)
+
+    def t_pet_code_waits_for_room():
+        gc.Codes["TESTPET"] = srv.lua.eval('{ pet = "dragon", coins = 10 }')
+        cap = int(gc.Settings.MaxPetsInInventory)
+        for i in range(cap - int(len(list(d.Pets.values())))):
+            PS.GrantPet(p, srv.lua.eval('{name="cat", rarity="Common", uniqueId="fill-%d"}' % i))
+        coins = int(d.Coins)
+        ok, msg = first_two(redeem("testpet"))
+        assert not ok, "a pet code was accepted with a full inventory"
+        assert int(d.Coins) == coins, "the code's coins were paid although the pet could not be"
+        assert d.RedeemedCodes["TESTPET"] is None, "the code was spent although the pet was never given"
+        d.Pets[len(list(d.Pets.values()))] = None          # make room
+        ok, msg = first_two(redeem("testpet"))
+        assert ok, "with room made, the pet code was refused (%s)" % msg
+        pet = d.Pets[len(list(d.Pets.values()))]
+        want = [str(x.rarity) for x in gc.Pets.values() if str(x.name) == "dragon"][0]
+        assert str(pet.name) == "dragon", "the code gave a %s" % pet.name
+        assert str(pet.rarity) == want, "the dragon came as %s, not %s" % (pet.rarity, want)
+        assert pet.uniqueId is not None, "the code's pet has no id"
+        return "full: refused, nothing spent; with room: a %s dragon" % want
+
+    check("a code pays once", t_normal_code_once)
+    check("a pet code waits for room", t_pet_code_waits_for_room)
+
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1
