@@ -18,6 +18,7 @@ pet simulator either hooks someone or loses them:
   11. the Forest egg can be hatched           -> the next world's pets
   12. the rebirth machine                     -> asked, reborn, reset cleanly
   13. the secret spot                         -> found, rewarded
+  14-17. every world in order                -> its gate, then its own egg
 
 A break anywhere in that chain is a new player who quits in the first minute,
 and no other check would notice.
@@ -330,6 +331,48 @@ def main():
         return "found: %s gems, popup %s" % (int(data.Gems or 0) - gems,
             "shown" if gui["FindFirstChild"](gui, "SecretFoundGui") is not None else "not shown")
 
+    eggs_all = list(lua.eval("_G.MysticPets.GameConfig.Eggs").values())
+
+    def world_step(area):
+        def run():
+            egg = [e for e in eggs_all if str(e.world or "") == str(area.id)][0]
+            price, ecost = int(area.unlockCost), int(egg.cost)
+            data.Coins = price + ecost + 3
+            s = click_gate(str(area.id))
+            assert s is not None, "clicking the %s gate asked nothing" % area.id
+            yes = s["FindFirstChild"](s, "Unlock", True)
+            assert yes._p.Active is not False, "the %s Unlock button is dead" % area.id
+            press(yes)
+            no_errors()
+            assert owns(str(area.id)), "pressed Unlock and %s is still locked" % area.id
+            assert gate(str(area.id))._p.CanCollide is False, "%s's gate still blocks" % area.id
+            assert int(data.Coins) == ecost + 3, "the gate charged %d, not %d" % (
+                price + ecost + 3 - int(data.Coins), price)
+
+            ui = lua.eval('game:GetService("StarterPlayer").StarterPlayerScripts.Client.UI')
+            ctrl = mock["MODULES"][ui["FindFirstChild"](ui, "UIController")]
+            ctrl.CloseAll()
+            lua.eval("function(cd, p) cd.MouseClick:Fire(p) end")(
+                ws["FindFirstChild"](ws, "Egg_" + str(egg.id), True)["FindFirstChildOfClass"](
+                    ws["FindFirstChild"](ws, "Egg_" + str(egg.id), True), "ClickDetector"), me)
+            tick(3)
+            panel = gui["FindFirstChild"](gui, "HatchPanel")
+            card = panel["FindFirstChild"](panel, "EggCard_" + str(egg.id), True)
+            btn = [b for b in card["GetChildren"](card).values()
+                   if str(b._p.ClassName) == "TextButton" and str(b._p.Text).startswith("Hatch")][0]
+            before = count(data.Pets)
+            press(btn)
+            no_errors()
+            assert count(data.Pets) == before + 1, "the %s gave no pet" % egg.name
+            got = str(data.Pets[count(data.Pets)].name)
+            pool = [str(n) for n in egg.pool.values()] if egg.pool is not None else []
+            assert not pool or got in pool, "the %s gave a %s, which is not in its pool" % (egg.name, got)
+            assert int(data.Coins) == 3, "the %s charged %d, not %d" % (
+                egg.name, ecost + 3 - int(data.Coins), ecost)
+            return "unlocked for %s, then a %s from the %s" % (
+                lua.eval("_G.MysticPets.formatNum")(price), got, egg.name)
+        return run
+
     print("a new player's first minutes:")
     for label, fn in (
             ("1 the banner says hatch", t_banner_says_hatch),
@@ -346,7 +389,11 @@ def main():
             ("10 unlock the Forest", t_unlock_forest),
             ("11 the Forest egg opens", t_forest_egg_opens),
             ("12 the rebirth machine", t_rebirth_machine),
-            ("13 the secret spot", t_secret)):
+            ("13 the secret spot", t_secret),
+            ("14 the Forest, again", world_step(areas[1])),
+            ("15 the Desert", world_step(areas[2])),
+            ("16 the Volcano", world_step(areas[3])),
+            ("17 Space", world_step(areas[4]))):
         check(label, fn)
         if FAILURES:
             print("\n   (stopping: every later step depends on this one)")
@@ -357,7 +404,7 @@ def main():
     if FAILURES:
         print("\n%d check(s) failed: %s" % (len(FAILURES), ", ".join(FAILURES)))
         return 1
-    print("\nfirst play: from the banner to the second world, unbroken")
+    print("\nfirst play: from the banner to Space, unbroken")
     return 0
 
 
