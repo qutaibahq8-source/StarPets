@@ -40,11 +40,17 @@ local function makePetIcon(petName, rarityColor, mutation)
 	return holder
 end
 
--- Signature of what the panel actually shows (pets + equipped). Used so the
--- panel only rebuilds when these change — NOT on every per-second coin tick.
+-- Signature of what the panel actually shows (pets, equipped, locked). Used so
+-- the panel only rebuilds when these change — NOT on every per-second coin
+-- tick. Locks are in it so a lock press shows up.
 local lastSig
 local function sigOf(data)
+	local locked = {}
+	for _, p in ipairs((data or {}).Pets or {}) do
+		if p.locked then locked[#locked + 1] = tostring(p.uniqueId) end
+	end
 	return tostring(#((data or {}).Pets or {})) .. "|" .. table.concat((data or {}).EquippedPets or {}, ",")
+		.. "|" .. table.concat(locked, ",")
 end
 
 local function sortPets(pets)
@@ -192,12 +198,51 @@ function PetsPanel.Build(data)
 		local b = Instance.new("TextButton"); b.Size = UDim2.new(0,w,1,0); b.BackgroundColor3 = color
 		b.Text=text; b.TextColor3=Color3.new(1,1,1); b.TextScaled=true; b.Font=Enum.Font.GothamBold
 		b.BorderSizePixel=0; b.Parent=actionBar
-		Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); b.MouseButton1Click:Connect(fn)
+		Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); b.MouseButton1Click:Connect(function() fn(b) end)
+		return b
 	end
 	actBtn("⭐ Equip Best", 110, Color3.fromRGB(50,150,90), function() G().RE_PetCmd:FireServer("equipBest") end)
-	actBtn("🗑 Common", 92, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Common") end)
-	actBtn("🗑 Uncommon", 112, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Uncommon") end)
-	actBtn("🗑 Rare", 70, Color3.fromRGB(120,55,55), function() G().RE_PetCmd:FireServer("deleteRarity","Rare") end)
+
+	-- Bulk delete asks first. One press used to delete every pet of the rarity
+	-- at once, permanently, with nothing in between — a misclick on "🗑 Rare"
+	-- was every Rare pet gone. Now the first press says how many would go, and
+	-- only a second press within three seconds deletes them.
+	local function wouldGo(rarity)
+		local eq, n = {}, 0
+		for _, uid in ipairs(data.EquippedPets or {}) do eq[uid] = true end
+		for _, p in ipairs(data.Pets or {}) do
+			if p.rarity == rarity and not eq[p.uniqueId]
+				and not G().GameConfig.KeptFromBulkDelete(p) then n = n + 1 end
+		end
+		return n
+	end
+	local function bulkDelete(label, rarity, w)
+		local armed = false
+		actBtn(label, w, Color3.fromRGB(120,55,55), function(b)
+			local n = wouldGo(rarity)
+			if n == 0 then
+				b.Text = "None to delete"
+				task.delay(2, function() if b.Parent then b.Text = label end end)
+				return
+			end
+			if not armed then
+				armed = true
+				b.Text = "Sure? " .. n
+				b.BackgroundColor3 = Color3.fromRGB(200,60,60)
+				task.delay(3, function()
+					if armed and b.Parent then
+						armed = false; b.Text = label; b.BackgroundColor3 = Color3.fromRGB(120,55,55)
+					end
+				end)
+				return
+			end
+			armed = false
+			G().RE_PetCmd:FireServer("deleteRarity", rarity)
+		end).Name = "Delete" .. rarity
+	end
+	bulkDelete("🗑 Common", "Common", 92)
+	bulkDelete("🗑 Uncommon", "Uncommon", 112)
+	bulkDelete("🗑 Rare", "Rare", 70)
 
 	-- Pet grid scroll
 	local scroll = Instance.new("ScrollingFrame")
@@ -221,6 +266,7 @@ function PetsPanel.Build(data)
 		local equipped    = isEquipped(data, pet.uniqueId)
 
 		local cell = Instance.new("Frame")
+		cell.Name             = "Pet_" .. tostring(pet.uniqueId)
 		cell.BackgroundColor3 = equipped and Color3.fromRGB(30, 60, 100) or Color3.fromRGB(28, 22, 50)
 		cell.BorderSizePixel  = 0
 		cell.Parent           = scroll
@@ -275,6 +321,24 @@ function PetsPanel.Build(data)
 		Instance.new("UICorner", equipBtn).CornerRadius = UDim.new(0, 5)
 
 		local uid = pet.uniqueId
+
+		-- Lock: a locked pet is never bulk-deleted, deleted or traded. The
+		-- server has always supported it; there was no button for it.
+		local lockBtn = Instance.new("TextButton")
+		lockBtn.Name             = "Lock"
+		lockBtn.Size             = UDim2.new(0, 22, 0, 22)
+		lockBtn.Position         = UDim2.new(1, -25, 0, 8)
+		lockBtn.BackgroundTransparency = pet.locked and 0.1 or 0.6
+		lockBtn.BackgroundColor3 = pet.locked and Color3.fromRGB(200, 160, 40) or Color3.fromRGB(40, 40, 60)
+		lockBtn.Text             = pet.locked and "🔒" or "🔓"
+		lockBtn.TextScaled       = true
+		lockBtn.BorderSizePixel  = 0
+		lockBtn.Parent           = cell
+		Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(1, 0)
+		lockBtn.MouseButton1Click:Connect(function()
+			G().RE_PetCmd:FireServer("lock", uid)
+		end)
+
 		equipBtn.MouseButton1Click:Connect(function()
 			if isEquipped(ActiveData, uid) then
 				G().RE_UnequipPet:FireServer(uid)

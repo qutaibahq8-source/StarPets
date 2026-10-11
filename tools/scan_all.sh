@@ -32,6 +32,7 @@ run "panels"     python3 tools/check_panels.py
 run "buttons"    python3 tools/check_buttons.py
 run "first play" python3 tools/check_firstplay.py
 run "trade play" python3 tools/check_tradeplay.py
+run "pets play"  python3 tools/check_petsplay.py
 run "installer"  python3 tools/check_install.py
 run "remotes"    python3 tools/check_remotes.py
 run "client boot" python3 tools/check_client.py

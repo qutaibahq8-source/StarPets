@@ -82,6 +82,16 @@ function GameConfig.GetMutation(id)
 	return nil
 end
 
+-- What a bulk delete ("🗑 Common") never takes: a pet the player locked, and
+-- any pet that is worth more than its species — a mutation, or a fusion. Bulk
+-- delete used to take everything of the rarity but locked and equipped pets,
+-- and the Pets panel had no way to lock anything, so a Rainbow Common (a 0.4%
+-- roll, worth ten plain ones) went in the same sweep as the rest. Shared, so
+-- the count the button shows and what the server deletes always agree.
+function GameConfig.KeptFromBulkDelete(pet)
+	return pet.locked == true or pet.mutation ~= nil or (tonumber(pet.fuseMult) or 1) > 1
+end
+
 -- ============================================================
 -- CODES  (redeemable for rewards; add more any time)
 -- ============================================================

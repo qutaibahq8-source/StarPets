@@ -269,7 +269,8 @@ function PetService.DeleteByRarity(player, rarity)
 	local removed = 0
 	for i = #data.Pets, 1, -1 do
 		local p = data.Pets[i]
-		if p.rarity == rarity and not p.locked and not equipped[p.uniqueId] then
+		if p.rarity == rarity and not equipped[p.uniqueId]
+			and not GameConfig.KeptFromBulkDelete(p) then
 			table.remove(data.Pets, i); removed = removed + 1
 		end
 	end

@@ -1401,6 +1401,14 @@ end)
 RE_DeletePet.OnServerEvent:Connect(function(player,uniqueId)
 	local data = DataManager.GetData(player)
 	if not data then return end
+	-- A locked pet is never deleted: the lock is how a player says "this never
+	-- leaves", and trading already honours it. This deleted it anyway.
+	for _,pet in ipairs(data.Pets) do
+		if pet.uniqueId==uniqueId and pet.locked then
+			RE_Notification:FireClient(player,"error","That pet is locked — unlock it first")
+			return
+		end
+	end
 	PetService.UnequipPet(player,uniqueId)
 	for i,pet in ipairs(data.Pets) do
 		if pet.uniqueId==uniqueId then table.remove(data.Pets,i); break end
