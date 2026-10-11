@@ -350,6 +350,57 @@ def main():
 
     check("'give all pets' goes to the target", t_admin_gives_to_target)
 
+    # ---- offline earnings ----------------------------------------------------
+    print("\noffline earnings:")
+    srv8 = Server()
+    PS8, DM8 = srv8.mod("PetService"), srv8.mod("DataManager")
+    store8 = srv8.mock["STORE"]["MysticPets_v1"]
+
+    def earner(uid, name):
+        p, d = srv8.join(uid, name)
+        PS8.GrantPet(p, srv8.lua.eval('{name="dragon", rarity="Epic", uniqueId="e-%d"}' % uid))
+        PS8.EquipPet(p, "e-%d" % uid)
+        inc = PS8.GetPlayerIncome(p)
+        rate = float(inc[0] if isinstance(inc, tuple) else inc)   # coins, gems
+        assert rate > 0, "an equipped dragon earns nothing"
+        return p, d, rate
+
+    def t_away_pays():
+        p, d, rate = earner(9901, "Away")
+        srv8.leave(p)                                    # a normal leave
+        rec = store8[str(9901)]
+        rec.LastSeen = int(rec.LastSeen) - 3600          # ...an hour ago
+        _, d2 = srv8.join(9901, "Away")
+        gained = int(d2.Coins)
+        want = int(rate * 3600 * 0.5)
+        assert abs(gained - want) <= rate * 5, (
+            "an hour away paid %d, expected about %d" % (gained, want))
+        return "an hour away paid %d (half the hourly rate)" % gained
+
+    def t_crash_does_not_pay_for_online_time():
+        p, d, rate = earner(9902, "Crashed")
+        # They have been online for two hours: that is what the join left in
+        # LastSeen, and the session has been syncing them since.
+        d.LastSeen = int(srv8.lua.eval("os.time()")) - 7200
+        ev = srv8.lua.eval("game.ReplicatedStorage.Remotes.UnequipPet")
+        srv8.lua.eval("function(e, p) e.OnServerEvent:Fire(p, 'nothing') end")(ev, p)
+        coins = int(d.Coins)
+        # The server dies: its last autosave lands, and PlayerRemoving never
+        # runs for them.
+        DM8.RemovePlayer(p)
+        for i in range(1, srv8.seat + 1):
+            if srv8.mock["PlayerList"][i] is p:
+                srv8.mock["PlayerList"][i] = None
+        _, d2 = srv8.join(9902, "Crashed")
+        paid = int(d2.Coins) - coins
+        assert paid <= rate * 10, (
+            "rejoining after a crash paid %d coins of 'offline' earnings for "
+            "time the player was online" % paid)
+        return "a crash after 2h online paid %d (the seconds since the last sync)" % paid
+
+    check("time away still pays", t_away_pays)
+    check("a crash pays nothing for online time", t_crash_does_not_pay_for_online_time)
+
     print()
     check("no script wrote a global", lambda: check_map.no_global_writes(srv.lua, srv2.lua))
 

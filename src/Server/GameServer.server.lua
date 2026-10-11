@@ -1098,7 +1098,15 @@ end
 -- ============================================================
 local function syncData(player)
 	local data = DataManager.GetData(player)
-	if data then RE_DataUpdated:FireClient(player,data) end
+	if data then
+		-- Online as of now. LastSeen used to be written only on join and on
+		-- leave, so a server that died mid-session left the JOIN time in the
+		-- save — and the next join paid offline earnings for the whole session
+		-- the player had been online and earning. This runs every two seconds
+		-- and after every action, so a crash costs at most a few seconds.
+		data.LastSeen = os.time()
+		RE_DataUpdated:FireClient(player,data)
+	end
 end
 
 -- ============================================================
@@ -1178,6 +1186,10 @@ local function onPlayerAdded(player)
 			.. "SAFE and untouched. Please rejoin in a minute.")
 		return
 	end
+	-- When they were last online, as saved — taken now, before anything on the
+	-- join path can sync them and move it to "now", which would zero the
+	-- offline payout below.
+	local lastSeen = tonumber(data0.LastSeen) or 0
 	-- Saves made before the Pet Index had a permanent record: everything they
 	-- currently hold counts as discovered, so nobody's collection appears to
 	-- reset on the update that introduced it.
@@ -1186,8 +1198,8 @@ local function onPlayerAdded(player)
 	-- OFFLINE EARNINGS: pay out coins earned while the player was away (50% rate, 8h cap)
 	do
 		local data = DataManager.GetData(player)
-		if data and (data.LastSeen or 0) > 0 then
-			local away = math.clamp(os.time() - data.LastSeen, 0, 8*3600)
+		if data and lastSeen > 0 then
+			local away = math.clamp(os.time() - lastSeen, 0, 8*3600)
 			local rate = PetService.GetPlayerIncome(player)   -- coins/sec
 			local earned = math.floor((rate or 0) * away * 0.5)
 			if earned > 0 then
