@@ -398,6 +398,23 @@ def main():
             "time the player was online" % paid)
         return "a crash after 2h online paid %d (the seconds since the last sync)" % paid
 
+    def t_speed_upgrade_on_join():
+        srv9 = Server()
+        p, d = srv9.join(9911, "Swift")
+        d.Upgrades["SpeedBoost"] = 1
+        srv9.leave(p)
+        p2, _ = srv9.join(9911, "Swift")              # character already spawned
+        hum = p2.Character["FindFirstChildOfClass"](p2.Character, "Humanoid")
+        speed = hum._p.WalkSpeed
+        want = [u for u in srv9.cfg.Upgrades.values()
+                if str(u.key) == "SpeedBoost"][0].levels[1].value
+        assert speed is not None and float(speed) == float(want), (
+            "a returning player with Speed Boost bought walks at %s, not %s" % (speed, want))
+        return "rejoined at WalkSpeed %s" % speed
+
+    print("\nupgrades:")
+    check("Speed Boost applies on join", t_speed_upgrade_on_join)
+    print()
     check("time away still pays", t_away_pays)
     check("a crash pays nothing for online time", t_crash_does_not_pay_for_online_time)
 

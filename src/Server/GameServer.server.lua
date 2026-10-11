@@ -1282,6 +1282,12 @@ local function onPlayerAdded(player)
 	if player.Character then
 		task.wait(0.5)
 		PetService.RestoreEquipped(player)
+		-- The character usually spawns while the save is still loading, so it
+		-- is already here and the CharacterAdded hook above never sees it.
+		-- Speed and jump upgrades were applied only by that hook: a returning
+		-- player with Speed Boost maxed walked at the default speed until
+		-- their first respawn.
+		UpgradeService.ApplyToCharacter(player)
 		local d = DataManager.GetData(player)
 		if d then applyTitle(player.Character, d) end
 	end
