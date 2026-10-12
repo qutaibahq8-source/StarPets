@@ -61,7 +61,8 @@ GROUPS = {"TopPills", "TopRight", "LeftColumn", "BottomGroup", "RightColumn"}
 # cannot be pressed.
 ROBLOX_ICONS = (0, 0, 100, 52)
 MIN_TEXT = 9
-HUD_PANELS = ["PetsPanel", "ShopPanel", "UpgradePanel", "QuestPanel", "PetIndexPanel",
+HUD_PANELS = ["PetsPanel", "HatchPanel", "MapsPanel", "AchievementsPanel",
+              "ShopPanel", "UpgradePanel", "QuestPanel", "PetIndexPanel",
               "LeaderboardPanel", "DailyPanel", "TradePanel", "CodesPanel",
               "MerchantPanel", "EventPanel", "BoostsPanel", "FusionPanel",
               "PlaytimePanel", "SpinWheelPanel"]
@@ -74,7 +75,7 @@ MOCKUP = {
     "Profile": (15, 84, 358, 124),
     "Nav": (15, 218, 265, 430),
     "MyPets": (296, 637, 354, 328),
-    "HUD_AutoCollect": (708, 847, 118, 118),
+    "HUD_AutoHatch": (708, 847, 118, 118),
     "Quests": (1163, 85, 357, 260),
     "Featured": (1163, 365, 357, 162),
     "Detail": (1163, 556, 357, 382),
@@ -195,6 +196,12 @@ def main():
         return boxes, shown, "full" if any(c["name"] == "LeftColumn" for c in roots[0]["kids"]) else "compact"
 
     # ---- geometry, at every size ------------------------------------------
+    # Measured with long numbers in the counters: a pill that reads "0" fits
+    # anything, and the one that matters is the one that reads 123,456,789.
+    data.Coins = 123456789
+    data.Gems = 9876543
+    sync_fn(me, data)
+    tick(2)
     print("the HUD at %d screen sizes:" % len(SIZES))
 
     def measure(label, W, H):
@@ -228,7 +235,7 @@ def main():
                          if str(b.node["cls"]) == "TextButton" and (b.w < 44 or b.h < 44)]
                 assert not small, "under the 44-point touch target: %s" % small
             names = {n for n, _ in shown}
-            assert "HUD_Mute" in names, "no sound switch on screen"
+            assert "HUD_Settings" in names, "no settings button on screen"
             # Every label fits its box and can be read.
             bad = []
             for b in boxes:
@@ -329,6 +336,25 @@ def main():
 
     check("Home", t_home_closes)
 
+    def t_settings():
+        out = []
+        for W, H in ((1536, 1024), (390, 844)):
+            screen(W, H)
+            press(need("HUD_Settings")); tick(1)
+            boxes, _, _ = screen(W, H)
+            at = {str(b.node["name"]): b for b in boxes}
+            mute = at.get("HUD_Mute")
+            assert mute is not None, "at %dx%d the gear did not show the sound switch" % (W, H)
+            assert 0 <= mute.x and mute.x + mute.w <= W and 0 <= mute.y and mute.y + mute.h <= H, \
+                "at %dx%d the sound switch is off screen" % (W, H)
+            if W < 700:
+                assert mute.w >= 44 and mute.h >= 44, "the sound switch is under 44 points on a phone"
+            press(need("SettingsMenuClose")); tick(1)
+            out.append("%dx%d" % (W, H))
+        return "the gear opens Sound, on screen, at " + " and ".join(out)
+
+    check("Settings has the sound switch", t_settings)
+
     def t_open_is_marked():
         screen(1536, 1024)
         ctrl.CloseAll()
@@ -394,7 +420,7 @@ def main():
         assert float(st._p.Thickness) == 3, "the picked card is not marked"
         press(need("HUD_Pet_1")); tick(1)
         got = str(need("DetailName")._p.Text)
-        assert got == "Dragon", "picked the dragon, the card shows %r" % got
+        assert got == "✨ Dragon", "picked the Shiny dragon, the card shows %r" % got
         return "pick a card, the detail shows it"
 
     check("selecting a pet", t_select)
@@ -404,18 +430,24 @@ def main():
         data.EquippedPets = lua.eval('{"h-dragon"}')
         data.RebirthMultiplier = 2
         data.GP_2xCoins = True
+        dragon = [p for p in data.Pets.values() if str(p.uniqueId) == "h-dragon"][0]
+        dragon.level = 11                      # +20% from its level
+        GC = mock["MODULES"][lua.eval("game.ReplicatedStorage.Shared.GameConfig")]
+        data.XP = sum(int(GC.XPForLevel(L)) for L in range(1, 5))   # player level 5: +4%
         sync()
         coins = PS.GetPlayerIncome(me)
         coins = coins[0] if isinstance(coins, tuple) else coins
         fmt = lua.globals()._G.MysticPets.fmt
         shown = str(need("Value1")._p.Text)
-        assert shown == "%s/s" % fmt(coins), \
+        assert shown == "+%s/s" % fmt(coins), \
             "the card says %s, the server pays %s a second" % (shown, fmt(coins))
         bonus = str(need("Value3")._p.Text)
-        assert bonus == "×4", "a Shiny pet's bonus shows %r" % bonus
+        assert bonus == "+380%", "a Shiny (x4) level-11 (x1.2) pet's bonus shows %r" % bonus
         data.RebirthMultiplier = 1
         data.GP_2xCoins = False
-        return "%s, exactly what the server pays (Shiny x4, 2x pass, rebirth x2)" % shown
+        dragon.level = None
+        data.XP = 0
+        return "%s, what the server pays (Shiny, pet level, player level, 2x, rebirth)" % shown
 
     check("the income shown is the income paid", t_income_is_paid)
 
@@ -457,30 +489,25 @@ def main():
 
     check("Delete asks first", t_delete_asks)
 
-    def t_equip_best():
-        data.EquippedPets = lua.eval("{}")
-        sync()
-        press(need("HUD_EquipBest")); tick(3)
-        eq = [str(u) for u in data.EquippedPets.values()]
-        assert eq and eq[0] == "h-ram", "Equip Best put out %s, not the Snow Ram first" % eq
-        return "the best pets go out (%s)" % ", ".join(eq)
-
-    check("Equip Best", t_equip_best)
-
     # ---- the rest of the cards ---------------------------------------------
     print("\nthe cards:")
 
-    def t_rebirth_bar():
-        data.TotalCoinsEarned = 25000
-        data.Rebirths = 0
+    def t_xp_bar():
+        GC = mock["MODULES"][lua.eval("game.ReplicatedStorage.Shared.GameConfig")]
+        # Level 3, a quarter of the way to 4.
+        need3 = int(GC.XPForLevel(3))
+        data.XP = int(GC.XPForLevel(1)) + int(GC.XPForLevel(2)) + need3 // 4
         sync()
         got = str(need("Progress")._p.Text)
-        assert "25.0K / 50.0K" in got, "25K earned of 50K, the bar says %r" % got
+        want = "%s / %s XP" % ("{:,}".format(need3 // 4), "{:,}".format(need3))
+        assert got == want, "a quarter into level 3, the bar says %r, not %r" % (got, want)
+        lvl = str(need("Level")._p.Text)
+        assert lvl.startswith("Level 3"), "the profile says %r" % lvl
         fill = need("Progress").Parent["FindFirstChild"](need("Progress").Parent, "Fill")
-        assert abs(float(fill._p.Size["X"]["Scale"]) - 0.5) < 1e-6, "the bar is not half full"
-        return "%r, half full" % got
+        assert abs(float(fill._p.Size["X"]["Scale"]) - (need3 // 4) / need3) < 1e-6, "the bar is not a quarter full"
+        return "%r, %r" % (lvl, got)
 
-    check("the rebirth bar", t_rebirth_bar)
+    check("the level and XP bar", t_xp_bar)
 
     def t_quests():
         heartbeat = lua.eval("function(dt) game:GetService('RunService').Heartbeat:Fire(dt) end")
@@ -519,6 +546,8 @@ def main():
 
     def t_featured():
         title = need("FeatureTitle")
+        banner = need("Featured")
+        tag = str(banner["FindFirstChild"](banner, "Tag")._p.Text)
         first = str(title._p.Text)
         press(need("HUD_FeatureNext")); tick(1)
         second = str(title._p.Text)
@@ -527,9 +556,15 @@ def main():
         assert str(title._p.Text) == first, "the back arrow did not go back"
         press(need("HUD_FeatureView")); tick(2)
         got = [p for p in HUD_PANELS if gui["FindFirstChild"](gui, p) is not None]
-        want = FEATURED.get(first)
+        # An egg you can hatch opens on that egg; one you cannot yet, the map.
+        want = {"NEW!": "HatchPanel", "COMING UP": "MapsPanel"}.get(tag) or FEATURED.get(first)
         assert want, "the banner shows %r, which is not a feature in the game" % first
         assert got == [want], "View on %r opened %s, not %s" % (first, got, want)
+        if want == "HatchPanel":
+            hp = gui["FindFirstChild"](gui, "HatchPanel")
+            heads = [str(d._p.Text) for d in hp["GetDescendants"](hp).values()
+                     if str(d._p.ClassName) == "TextLabel"]
+            assert any(first in h for h in heads), "View on %r did not open on that egg" % first
         ctrl.CloseAll()
         return "%r -> %r -> back; View opens %s" % (first, second, got[0])
 
@@ -592,15 +627,114 @@ def main():
 
     check("Auto Collect, owned", t_autocollect_owned)
 
-    def t_autocollect_guard():
+    def t_switch_guard():
         data.AutoCollectOff = False
-        fire = lua.eval("function(p, v) game.ReplicatedStorage.Remotes.SetAutoCollect.OnServerEvent:Fire(p, v) end")
-        for junk in ("off", 0, None):
-            fire(me, junk)
-        assert data.AutoCollectOff is False, "a non-boolean changed the save"
-        return "anything but true or false is ignored"
+        data.FastHatch = False
+        coins = float(data.Coins)
+        fire = lua.eval("function(p, ...) game.ReplicatedStorage.Remotes.SetSwitch.OnServerEvent:Fire(p, ...) end")
+        for args in (("AutoCollect", "off"), ("AutoCollect", 0), ("FastHatch", None),
+                     (12, True), ("Coins", True), ("AutoCollectOff", True)):
+            fire(me, *args)
+        assert data.AutoCollectOff is False and data.FastHatch is False, \
+            "something that was not a known switch and a boolean changed the save"
+        assert float(data.Coins) == coins, "the switch remote touched coins"
+        return "only a known switch with true or false gets through"
 
-    check("its remote takes only a boolean", t_autocollect_guard)
+    check("the switch remote takes only what it should", t_switch_guard)
+
+    def t_fast_hatch():
+        data.FastHatch = False
+        sync()
+        assert state("HUD_FastHatch") == "OFF", "Fast Hatch starts %s" % state("HUD_FastHatch")
+        press(need("HUD_FastHatch")); tick(3)
+        assert data.FastHatch is True, "switched on; the server's save says otherwise"
+        assert state("HUD_FastHatch") == "ON", "the switch did not show it"
+        # A reveal with it on: no dimmed screen to wait through, no Continue.
+        data.Coins = 10 ** 9
+        # Delays of a second or more are held back while the reveal is looked
+        # at: here every short delay runs at once, and the reveal's own
+        # close-after-1.6s would remove it before anyone could see it.
+        lua.execute("""
+            __REAL_DELAY = task.delay
+            task.delay = function(t, f, ...) if (t or 0) < 1 then return __REAL_DELAY(t, f, ...) end end
+        """)
+        hatch = lua.eval("function(p) game.ReplicatedStorage.Remotes.HatchEgg.OnServerEvent:Fire(p, 'CoolEgg', 1) end")
+        hatch(me); tick(4)
+        lua.execute("task.delay = __REAL_DELAY")
+        rv = gui["FindFirstChild"](gui, "HatchResultGui")
+        assert rv is not None, "no reveal came up"
+        full = [c for c in rv["GetChildren"](rv).values()
+                if str(c._p.ClassName) == "Frame" and c._p.Size is not None
+                and float(c._p.Size["X"]["Scale"] or 0) >= 1 and float(c._p.Size["Y"]["Scale"] or 0) >= 1]
+        assert not full, "Fast Hatch still dims the whole screen"
+        assert rv["FindFirstChild"](rv, "Continue", True) is None, "Fast Hatch still waits for Continue"
+        rv["Destroy"](rv)
+        press(need("HUD_FastHatch")); tick(3)
+        assert data.FastHatch is False, "switched off again; still on"
+        return "saved, and the reveal neither dims the screen nor waits"
+
+    check("Fast Hatch", t_fast_hatch)
+
+    def t_auto_hatch():
+        GC = mock["MODULES"][lua.eval("game.ReplicatedStorage.Shared.GameConfig")]
+        need_level = int(GC.AutoHatch.level)
+        data.XP = 0
+        data.AutoHatch = False
+        sync()
+        assert state("HUD_AutoHatch") == "LV %d" % need_level, \
+            "below level %d the switch says %s" % (need_level, state("HUD_AutoHatch"))
+        press(need("HUD_AutoHatch")); tick(3)
+        assert not data.AutoHatch, "a player below the level switched Auto Hatch on"
+        # The server refuses it too, not only the button.
+        lua.eval("function(p) game.ReplicatedStorage.Remotes.SetSwitch.OnServerEvent:Fire(p, 'AutoHatch', true) end")(me)
+        tick(2)
+        assert not data.AutoHatch, "the server let a player below the level switch it on"
+
+        xp = sum(int(GC.XPForLevel(L)) for L in range(1, need_level))
+        data.XP = xp
+        sync()
+        assert state("HUD_AutoHatch") == "OFF", "at level %d it says %s" % (need_level, state("HUD_AutoHatch"))
+        press(need("HUD_AutoHatch")); tick(3)
+        assert data.AutoHatch is True, "switched on at level %d; the save says otherwise" % need_level
+
+        ws = mock["workspace"]
+        egg = ws["FindFirstChild"](ws, "Egg_CoolEgg", True)
+        assert egg is not None, "no Cool Egg in the world to stand at"
+        root = me.Character["FindFirstChild"](me.Character, "HumanoidRootPart")
+        far = lua.eval("CFrame.new(5000, 5, 5000)")
+        root.CFrame = far
+        hb = lua.eval("function(dt) game:GetService('RunService').Heartbeat:Fire(dt) end")
+        data.Coins = 10 ** 9
+        before = int(data.EggsHatched or 0)
+        hb(0.6); tick(2)
+        assert int(data.EggsHatched or 0) == before, "Auto Hatch hatched with no egg anywhere near"
+        root.CFrame = egg._p.CFrame
+        hb(0.6); tick(2)
+        assert int(data.EggsHatched or 0) == before + 1, "standing at the egg, nothing hatched"
+        hb(0.6); tick(2)
+        assert int(data.EggsHatched or 0) == before + 1, "it hatched again before its cooldown"
+        # Let the cooldown pass (the clock is moved, not waited for).
+        lua.execute("""
+            __SHIFT = (__SHIFT or 0) + 5
+            if not __REAL_CLOCK then
+                __REAL_CLOCK = os.clock
+                os.clock = function() return __REAL_CLOCK() + __SHIFT end
+            end
+        """)
+        hb(0.6); tick(2)
+        assert int(data.EggsHatched or 0) == before + 2, "after its cooldown it did not hatch again"
+        # Out of coins: it stops, says so, and the switch shows it stopped.
+        data.Coins = 0
+        lua.execute("__SHIFT = __SHIFT + 5")
+        hb(0.6); tick(3)
+        assert data.AutoHatch is False, "out of coins, and Auto Hatch kept going"
+        assert state("HUD_AutoHatch") == "OFF", "it stopped, but the switch still says %s" % state("HUD_AutoHatch")
+        root.CFrame = far
+        data.AutoHatch = False
+        sync()
+        return "locked below level %d, hatches at an egg in turn, stops when coins run out" % need_level
+
+    check("Auto Hatch", t_auto_hatch)
 
     # ---- layout switches, and what drops in from the top --------------------
     print("\nmoving between screens:")

@@ -358,8 +358,10 @@ def _lay(node, tx, ty, k, pw, ph, clip, gui, depth, out, forced=None):
         child_clip = r if clip is None else (max(r[0], clip[0]), max(r[1], clip[1]),
                                              min(r[2], clip[2]), min(r[3], clip[3]))
     if node["cls"] == "ScrollingFrame":
+        # The canvas is never smaller than the window it scrolls in: a list
+        # with CanvasSize 0 wide still lays its rows out across the frame.
         csx, cox, csy, coy = u2(p, "CanvasSize", (0, 0, 2, 0))
-        cw, ch = csx * w + cox, csy * h + coy
+        cw, ch = max(cw, csx * w + cox), max(ch, csy * h + coy)
         cpx, cpy = v2(p, "CanvasPosition", (0, 0))
         ctx, cty = ctx - kk * cpx, cty - kk * cpy
 
@@ -925,14 +927,22 @@ function(dm, ps, player)
     d.Coins = 1250000; d.Gems = 8450; d.TotalCoinsEarned = 3200000
     d.GP_VIP = true; d.GP_PetSlots = true; d.GP_AutoCollect = true
     d.Rebirths = 2; d.RebirthMultiplier = 2
+    -- Level 42 and about half way to 43, as the mockup shows.
+    local cfg = game.ReplicatedStorage.Shared.GameConfig
+    local GC = require(cfg)
+    local xp = 0
+    for L = 1, 41 do xp = xp + GC.XPForLevel(L) end
+    d.XP = xp + math.floor(GC.XPForLevel(42) / 2)
+    d.GP_AutoCollect = true; d.AutoCollectOff = false
     local list = {
-        { "Void Serpent", "Mythic" }, { "snow ram", "Legendary" }, { "dragon", "Epic", "Shiny" },
-        { "panda", "Rare" }, { "fox", "Uncommon", "Golden" }, { "cat", "Common" },
+        { "Void Serpent", "Mythic", nil, 50 }, { "snow ram", "Legendary", nil, 47 },
+        { "dragon", "Epic", "Shiny", 45 }, { "panda", "Rare", nil, 42 },
+        { "fox", "Uncommon", "Golden", 38 }, { "cat", "Common", nil, 12 },
     }
     d.EquippedPets = {}
     for i, e in ipairs(list) do
-        ps.GrantPet(player, { name = e[1], rarity = e[2], mutation = e[3],
-            uniqueId = "demo" .. i, locked = (i == 2) }, true)
+        ps.GrantPet(player, { name = e[1], rarity = e[2], mutation = e[3], level = e[4], xp = 0,
+            uniqueId = "demo" .. i, locked = (i <= 5) }, true)
         table.insert(d.EquippedPets, "demo" .. i)
     end
     game.ReplicatedStorage.Remotes.DataUpdated.OnClientEvent:Fire(d)

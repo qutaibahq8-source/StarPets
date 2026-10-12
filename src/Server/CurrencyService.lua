@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local LevelService = require(script.Parent.LevelService)
 
 local CurrencyService = {}
 
@@ -140,6 +141,7 @@ local function collectOrb(player, orb)
 		DataManager.IncrementData(player, "Coins", earned)
 		DataManager.IncrementData(player, "TotalCoinsEarned", earned)
 	end
+	LevelService.Add(player, orbInfo.isGem and GameConfig.XPRewards.gemOrb or GameConfig.XPRewards.orb)
 
 	-- Respawn
 	task.delay(GameConfig.Settings.CoinOrbRespawnTime, function()
@@ -192,6 +194,8 @@ function CurrencyService.StartPassiveIncome(PetService)
 		while true do
 			task.wait(GameConfig.Settings.PetIncomeInterval)
 			for _, player in ipairs(Players:GetPlayers()) do
+				-- Pets out earn experience as well as coins.
+				PetService.TickPetXP(player, GameConfig.Settings.PetIncomeInterval)
 				local coins, gems = PetService.GetPlayerIncome(player)
 				if coins > 0 then
 					DataManager.IncrementData(player, "Coins", coins)

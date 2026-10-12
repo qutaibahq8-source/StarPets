@@ -83,13 +83,15 @@ function GameConfig.GetMutation(id)
 end
 
 -- What a bulk delete ("🗑 Common") never takes: a pet the player locked, and
--- any pet that is worth more than its species — a mutation, or a fusion. Bulk
+-- any pet that is worth more than its species — a mutation, a fusion, or the
+-- levels it earned in hours of being equipped. Bulk
 -- delete used to take everything of the rarity but locked and equipped pets,
 -- and the Pets panel had no way to lock anything, so a Rainbow Common (a 0.4%
 -- roll, worth ten plain ones) went in the same sweep as the rest. Shared, so
 -- the count the button shows and what the server deletes always agree.
 function GameConfig.KeptFromBulkDelete(pet)
 	return pet.locked == true or pet.mutation ~= nil or (tonumber(pet.fuseMult) or 1) > 1
+		or (tonumber(pet.level) or 1) > 1
 end
 
 -- ============================================================
@@ -445,6 +447,15 @@ GameConfig.DefaultData = {
 	-- The Auto Collect pass, switched off from the HUD. Off means paused, not
 	-- refunded: the pass stays owned and one press turns it back on.
 	AutoCollectOff = false,
+	-- Player experience, lifetime. Rebirth does not touch it: a level is what
+	-- a player has done in the game, not what they currently own.
+	XP = 0,
+	-- Egg reveals that close on their own, for a player hatching a lot.
+	FastHatch = false,
+	-- Hatch the egg you stand at, every few seconds (once Auto Hatch is open).
+	AutoHatch = false,
+	-- How many pets this player has made Shiny (an achievement reads it).
+	ShinyMade = 0,
 }
 
 -- ============================================================
@@ -638,5 +649,98 @@ function GameConfig.UpgradeValue(data, key)
 	end
 	return nil
 end
+
+-- ============================================================
+-- PLAYER LEVEL
+-- ============================================================
+-- XP comes only from playing: every source below is something the player did.
+-- Each level adds a little to what pets earn, so a level is worth having, but
+-- slowly: level 42 (the mockup's) is +41%, which is less than one rebirth.
+GameConfig.Levels = {
+	base = 60, growth = 1.4,   -- XP from level L to L+1: base * L^growth
+	max = 100,
+	coinBonus = 0.01,          -- +1% pet coins per level above 1
+}
+GameConfig.XPRewards = {
+	orb = 1, gemOrb = 3,
+	hatchBase = 4, hatchPerTier = 2,   -- an egg further down the list is worth more
+	questDaily = 30, questMilestone = 120,
+	worldPerTier = 150,                -- the Forest 150, the Desert 300, ...
+	rebirthPerLevel = 400,
+	fuse = 25,
+}
+
+function GameConfig.XPForLevel(level)
+	local L = GameConfig.Levels
+	return math.floor(L.base * level ^ L.growth)
+end
+
+-- level, XP into this level, XP this level needs (nil at the cap).
+function GameConfig.LevelFromXP(xp)
+	xp = math.max(0, tonumber(xp) or 0)
+	local level = 1
+	while level < GameConfig.Levels.max do
+		local need = GameConfig.XPForLevel(level)
+		if xp < need then return level, xp, need end
+		xp = xp - need
+		level = level + 1
+	end
+	return level, 0, nil
+end
+
+-- What a player's level adds to pet coins, as a multiplier.
+function GameConfig.LevelMult(data)
+	local level = GameConfig.LevelFromXP(type(data) == "table" and data.XP or 0)
+	return 1 + GameConfig.Levels.coinBonus * (level - 1)
+end
+
+-- ============================================================
+-- PET LEVELS
+-- ============================================================
+-- An equipped pet gains one XP a second. Level 5 takes about a quarter of an
+-- hour, level 50 well over a hundred hours equipped.
+GameConfig.PetLevels = {
+	max = 50,
+	base = 60, growth = 1.5,   -- XP from level L to L+1: base * L^growth
+	coinBonus = 0.02,          -- +2% of that pet's earnings per level above 1
+	xpPerSecond = 1,
+}
+
+function GameConfig.PetXPForLevel(level)
+	local P = GameConfig.PetLevels
+	return math.floor(P.base * level ^ P.growth)
+end
+
+function GameConfig.PetLevelMult(pet)
+	local level = type(pet) == "table" and tonumber(pet.level) or 1
+	return 1 + GameConfig.PetLevels.coinBonus * (math.max(1, level or 1) - 1)
+end
+
+-- Everything that multiplies one pet's earnings: its mutation, its fusion and
+-- its level. One function, so the server's income, Equip Best and the HUD can
+-- never count a pet differently.
+function GameConfig.PetPower(pet)
+	local mut = GameConfig.GetMutation(pet and pet.mutation)
+	return ((mut and mut.mult) or 1) * (tonumber(pet and pet.fuseMult) or 1) * GameConfig.PetLevelMult(pet)
+end
+
+-- ============================================================
+-- MAKE SHINY  (gems, by rarity; a plain or Golden pet becomes Shiny, x4)
+-- ============================================================
+GameConfig.ShinyCost = {
+	Common = 60, Uncommon = 150, Rare = 400, Epic = 1000, Legendary = 2500, Mythic = 6000,
+}
+
+-- ============================================================
+-- AUTO HATCH
+-- ============================================================
+-- Earned, not bought: it opens at a player level, so it is something to work
+-- towards rather than a purchase.
+GameConfig.AutoHatch = {
+	level = 10,
+	range = 14,          -- studs from the egg
+	every = 4,           -- seconds between hatches
+	everyFast = 2.2,     -- with Fast Hatch on, the reveal is short too
+}
 
 return GameConfig

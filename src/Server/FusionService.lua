@@ -69,11 +69,17 @@ function FusionService.FuseByName(player, name)
 	for i = 1, FUSE_COUNT do inputs[i] = pool[i] end
 
 	local sumFuse, bestMut, bestMutScore, rarity = 0, nil, 0, name
+	-- The fused pet keeps the highest level among the three, with that pet's
+	-- progress: levels are hours of being equipped, and fusing is meant to
+	-- make a pet stronger, not to throw those hours away.
+	local bestLevel, bestXp = 1, 0
 	for _, p in ipairs(inputs) do
 		sumFuse = sumFuse + (p.fuseMult or 1)
 		rarity = p.rarity
 		local ms = mutMult(p.mutation)
 		if ms > bestMutScore then bestMutScore = ms; bestMut = p.mutation end
+		local lv = tonumber(p.level) or 1
+		if lv > bestLevel then bestLevel = lv; bestXp = tonumber(p.xp) or 0 end
 	end
 
 	-- remove consumed pets from inventory
@@ -90,6 +96,8 @@ function FusionService.FuseByName(player, name)
 		mutation = bestMut,
 		fuseMult = sumFuse * FUSE_BONUS,
 		fused    = true,
+		level    = bestLevel > 1 and bestLevel or nil,
+		xp       = bestLevel > 1 and bestXp or nil,
 	}
 	-- Counted here because this is the only place a fusion completes, and the
 	-- daily quests read it. Monotonic: nothing decrements it, not even rebirth.

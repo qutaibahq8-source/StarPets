@@ -207,11 +207,11 @@ function PetService.GetPlayerIncome(player)
 			if pet.uniqueId == uniqueId then
 				local petData = PetLookup[pet.name]
 				if petData then
-					local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-					local mm = (mut and mut.mult) or 1
-					local fm = pet.fuseMult or 1
-					totalCoinMult = totalCoinMult + petData.coinMult * mm * fm
-					totalGemMult  = totalGemMult  + petData.gemMult * mm * fm
+					-- Mutation, fusion and the pet's own level, counted in one
+					-- place (GameConfig.PetPower) that the HUD reads too.
+					local power = GameConfig.PetPower(pet)
+					totalCoinMult = totalCoinMult + petData.coinMult * power
+					totalGemMult  = totalGemMult  + petData.gemMult * power
 				end
 				break
 			end
@@ -222,7 +222,8 @@ function PetService.GetPlayerIncome(player)
 	local coinBoost   = (data.GP_2xCoins and 2 or 1)
 	local gemBoost    = (data.GP_VIP and GameConfig.Settings.VIPGemMultiplier or 1)
 
-	local coins = math.floor(totalCoinMult * rebirthMult * coinBoost * BoostService.GetCoinMult(data))
+	local coins = math.floor(totalCoinMult * rebirthMult * coinBoost * BoostService.GetCoinMult(data)
+		* GameConfig.LevelMult(data))
 	local gems  = math.floor(totalGemMult  * rebirthMult * gemBoost  * 0.01) -- gems are rare
 
 	return coins, gems
@@ -251,8 +252,7 @@ function PetService.EquipBest(player)
 	local scored = {}
 	for _, pet in ipairs(data.Pets) do
 		local pd = PetLookup[pet.name]
-		local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-		local score = (pd and pd.coinMult or 0) * ((mut and mut.mult) or 1) * (pet.fuseMult or 1)
+		local score = (pd and pd.coinMult or 0) * GameConfig.PetPower(pet)
 		table.insert(scored, { uid = pet.uniqueId, score = score })
 	end
 	table.sort(scored, function(a, b) return a.score > b.score end)
@@ -260,6 +260,83 @@ function PetService.EquipBest(player)
 	data.EquippedPets = {}
 	for i = 1, math.min(slots, #scored) do table.insert(data.EquippedPets, scored[i].uid) end
 	PetService.RestoreEquipped(player)
+end
+
+-- ============================================================
+-- PET LEVELS
+-- ============================================================
+local petNotify = nil
+function PetService.SetNotifier(fn)
+	petNotify = fn
+end
+
+local function niceName(name)
+	return (string.gsub(tostring(name), "(%a)([%w']*)", function(a, b) return string.upper(a) .. b end))
+end
+
+-- Every equipped pet gains XP for the time it spent out. Called from the
+-- income loop, once a second, with the seconds that passed.
+function PetService.TickPetXP(player, seconds)
+	local data = DataManager.GetData(player)
+	if not data then return end
+	local P = GameConfig.PetLevels
+	local gain = (tonumber(seconds) or 0) * P.xpPerSecond
+	if gain <= 0 then return end
+	local byId = {}
+	for _, pet in ipairs(data.Pets or {}) do byId[pet.uniqueId] = pet end
+	for _, uid in ipairs(data.EquippedPets or {}) do
+		local pet = byId[uid]
+		local level = pet and (tonumber(pet.level) or 1) or P.max
+		if pet and level < P.max then
+			local xp = (tonumber(pet.xp) or 0) + gain
+			local was = level
+			while level < P.max do
+				local need = GameConfig.PetXPForLevel(level)
+				if xp < need then break end
+				xp = xp - need
+				level = level + 1
+			end
+			if level >= P.max then xp = 0 end
+			pet.level, pet.xp = level, xp
+			if level > was and petNotify then
+				petNotify(player, "success", ("🐾 %s reached Level %d! (+%d%% coins)"):format(
+					niceName(pet.name), level, math.floor((level - 1) * P.coinBonus * 100 + 0.5)))
+			end
+		end
+	end
+end
+
+-- ============================================================
+-- MAKE SHINY
+-- ============================================================
+-- A plain or Golden pet becomes Shiny (x4), for gems by rarity. Rainbow is
+-- already better than Shiny, so it is refused rather than downgraded.
+function PetService.MakeShiny(player, uid)
+	local data = DataManager.GetData(player)
+	if not data then return false, "No data" end
+	local pet
+	for _, p in ipairs(data.Pets or {}) do
+		if p.uniqueId == uid then pet = p break end
+	end
+	if not pet then return false, "Pet not found" end
+	if pet.mutation == "Shiny" then return false, "That pet is already Shiny" end
+	if pet.mutation == "Rainbow" then return false, "Rainbow is already better than Shiny" end
+	local cost = GameConfig.ShinyCost[pet.rarity]
+	if not cost then return false, "That pet cannot be made Shiny" end
+	if (data.Gems or 0) < cost then
+		return false, ("Need %d more gems"):format(cost - (data.Gems or 0))
+	end
+	data.Gems = data.Gems - cost
+	pet.mutation = "Shiny"
+	data.ShinyMade = (tonumber(data.ShinyMade) or 0) + 1
+	-- The pet out in the world is rebuilt, so it shines there too.
+	for i, id in ipairs(data.EquippedPets or {}) do
+		if id == uid then
+			PetService.DespawnPet(player, uid)
+			PetService.SpawnPet(player, pet, i, #data.EquippedPets)
+		end
+	end
+	return true, pet, cost
 end
 
 function PetService.DeleteByRarity(player, rarity)

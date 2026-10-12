@@ -46,11 +46,13 @@ end
 local lastSig
 local function sigOf(data)
 	local locked = {}
+	local levels = 0
 	for _, p in ipairs((data or {}).Pets or {}) do
 		if p.locked then locked[#locked + 1] = tostring(p.uniqueId) end
+		levels = levels + (tonumber(p.level) or 1)
 	end
 	return tostring(#((data or {}).Pets or {})) .. "|" .. table.concat((data or {}).EquippedPets or {}, ",")
-		.. "|" .. table.concat(locked, ",")
+		.. "|" .. table.concat(locked, ",") .. "|" .. levels
 end
 
 local function sortPets(pets)
@@ -301,7 +303,9 @@ function PetsPanel.Build(data)
 		rarityLbl.Size           = UDim2.new(1, -4, 0, 15)
 		rarityLbl.Position       = UDim2.new(0, 2, 0, 94)
 		rarityLbl.BackgroundTransparency = 1
-		rarityLbl.Text           = pet.rarity
+		-- With its level, once it has one: the hours it spent equipped.
+		local lv = tonumber(pet.level) or 1
+		rarityLbl.Text           = lv > 1 and (pet.rarity .. " · Lv " .. lv) or pet.rarity
 		rarityLbl.TextColor3     = rarityColor
 		rarityLbl.TextScaled     = true
 		rarityLbl.Font           = Enum.Font.Gotham

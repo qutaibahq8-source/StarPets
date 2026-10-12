@@ -27,6 +27,7 @@ local SpinService          = require(script.Parent.SpinService)
 local MapPersist           = require(script.Parent.MapPersist)
 local RateLimit            = require(script.Parent.RateLimit)
 local MapProps             = require(script.Parent.MapProps)
+local LevelService         = require(script.Parent.LevelService)
 local GameConfig           = require(game.ReplicatedStorage.Shared.GameConfig)
 
 -- ============================================================
@@ -139,7 +140,9 @@ local RE_PetCmd       = makeEvent("PetCmd")
 local RF_GetDaily     = makeFunction("GetDaily")
 local RE_ClaimDaily   = makeEvent("ClaimDaily")
 local RE_SetMuted     = makeEvent("SetMuted")
-local RE_SetAutoCollect = makeEvent("SetAutoCollect")
+local RE_SetSwitch    = makeEvent("SetSwitch")       -- the HUD's switches
+local RE_Teleport     = makeEvent("Teleport")        -- the Maps panel
+local RF_GetAchievements = makeFunction("GetAchievements")
 local RF_GetBoosts    = makeFunction("GetBoosts")
 local RE_BuyBoost     = makeEvent("BuyBoost")
 local RF_GetFusion    = makeFunction("GetFusion")
@@ -152,6 +155,11 @@ local RF_Spin         = makeFunction("Spin")
 local RE_Trade        = makeEvent("Trade")        -- client -> server commands
 local RE_TradeState   = makeEvent("TradeState")   -- server -> client live state
 local RE_TradeReq     = makeEvent("TradeReq")     -- server -> client incoming request
+
+-- Level-ups are told to the player the same way as everything else.
+local function tell(player, kind, msg) RE_Notification:FireClient(player, kind, msg) end
+LevelService.SetNotifier(tell)
+PetService.SetNotifier(tell)
 
 -- ============================================================
 -- LIGHTING & ATMOSPHERE
@@ -1322,10 +1330,13 @@ RF_GetData.OnServerInvoke = function(player)
 	return DataManager.GetData(player)
 end
 
-RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
+-- Hatch `count` of an egg for a player: a click, a x10, or Auto Hatch.
+-- Returns whether anything hatched and, if not, why.
+local function hatchFor(player, eggId, count)
 	count = type(count)=="number" and math.clamp(count,1,10) or 1
 	local results,errors = EggService.HatchMultiple(player,eggId,count)
 	if #results>0 then
+		LevelService.Add(player, LevelService.ForHatch(eggId, #results))
 		-- A hatched pet goes straight into a FREE slot.
 		--
 		-- Nothing equipped a hatched pet before. PetService.EquipBest existed
@@ -1349,9 +1360,14 @@ RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
 		end
 		syncData(player)
 		BadgeService.CheckAll(player)
-	else
-		RE_Notification:FireClient(player,"error",errors[1] or "Hatch failed")
+		return true
 	end
+	return false, errors[1] or "Hatch failed"
+end
+
+RE_HatchEgg.OnServerEvent:Connect(function(player,eggId,count)
+	local ok, why = hatchFor(player, eggId, count)
+	if not ok then RE_Notification:FireClient(player,"error",why) end
 end)
 
 RE_EquipPet.OnServerEvent:Connect(function(player,uniqueId)
@@ -1398,6 +1414,7 @@ RE_BuyArea.OnServerEvent:Connect(function(player,areaId)
 	end
 	table.insert(data.UnlockedAreas,areaId)
 	RE_Notification:FireClient(player,"success","🎉 Unlocked "..areaConfig.name.."!")
+	LevelService.Add(player, LevelService.ForWorld(areaId))
 	syncData(player)
 	BadgeService.CheckAll(player)
 end)
@@ -1410,6 +1427,7 @@ RE_RebirthConfirm.OnServerEvent:Connect(function(player)
 	local ok,result = RebirthService.DoRebirth(player)
 	if ok then
 		RE_Notification:FireClient(player,"success","♻️ Reborn as "..result.title.."! "..result.multiplier.."x earnings!")
+		LevelService.Add(player, GameConfig.XPRewards.rebirthPerLevel * (tonumber(result.level) or 1))
 		syncData(player)
 		BadgeService.CheckAll(player)
 	else RE_Notification:FireClient(player,"error",result) end
@@ -1467,21 +1485,43 @@ RE_SetMuted.OnServerEvent:Connect(function(player, muted)
 	if data then data.Muted = muted end
 end)
 
--- The HUD's Auto Collect switch. Only a boolean is accepted, for the same
--- reason as SetMuted: it goes straight into the save.
-RE_SetAutoCollect.OnServerEvent:Connect(function(player, on)
-	if type(on) ~= "boolean" then return end
+-- The HUD's switches. A known name and a boolean, and nothing else: each
+-- value goes straight into the save.
+--   AutoCollect  pauses or resumes the Auto Collect pass (owners only)
+--   FastHatch    egg reveals that close on their own
+--   AutoHatch    hatch the egg you stand at, on a timer; opens at a level
+RE_SetSwitch.OnServerEvent:Connect(function(player, name, on)
+	if type(name) ~= "string" or type(on) ~= "boolean" then return end
 	local data = DataManager.GetData(player)
-	if data then
+	if not data then return end
+	if name == "AutoCollect" then
 		data.AutoCollectOff = not on
-		syncData(player)
+	elseif name == "FastHatch" then
+		data.FastHatch = on
+	elseif name == "AutoHatch" then
+		local need = GameConfig.AutoHatch.level
+		if on and GameConfig.LevelFromXP(data.XP) < need then
+			RE_Notification:FireClient(player, "error", ("Auto Hatch opens at Level %d"):format(need))
+			syncData(player)
+			return
+		end
+		data.AutoHatch = on
+	else
+		return
 	end
+	syncData(player)
 end)
 
 RE_ClaimQuest.OnServerEvent:Connect(function(player, id)
 	local ok, res = QuestService.Claim(player, id)
 	if ok then
 		RE_Notification:FireClient(player, "success", "🎉 Quest complete: " .. res.name .. "!")
+		local daily = false
+		for _, q in ipairs(GameConfig.DailyQuests or {}) do
+			if q.id == res.id then daily = true end
+		end
+		LevelService.Add(player, daily and GameConfig.XPRewards.questDaily
+			or GameConfig.XPRewards.questMilestone)
 		syncData(player)
 		pcall(BadgeService.CheckAll, player)
 	else
@@ -1544,6 +1584,7 @@ RE_Fuse.OnServerEvent:Connect(function(player, name)
 	local ok, res = FusionService.FuseByName(player, name)
 	if ok then
 		RE_Notification:FireClient(player, "success", "\u{1F9EC} Fused into a stronger "..name.."!")
+		LevelService.Add(player, GameConfig.XPRewards.fuse)
 		syncData(player)
 	else
 		RE_Notification:FireClient(player, "error", typeof(res)=="string" and res or "Cannot fuse")
@@ -1592,8 +1633,139 @@ RE_PetCmd.OnServerEvent:Connect(function(player, cmd, arg)
 		syncData(player)
 	elseif cmd == "lock" and arg then
 		PetService.ToggleLock(player, arg); syncData(player)
+	elseif cmd == "makeShiny" and type(arg) == "string" then
+		local ok, res, cost = PetService.MakeShiny(player, arg)
+		if ok then
+			local nm = string.gsub(tostring(res.name), "(%a)([%w']*)", function(a, b) return string.upper(a) .. b end)
+			RE_Notification:FireClient(player, "success",
+				("✨ %s is Shiny now: x4 coins! (-%d 💎)"):format(nm, cost))
+			syncData(player)
+			pcall(BadgeService.CheckAll, player)
+		else
+			RE_Notification:FireClient(player, "error", tostring(res))
+		end
 	end
 end)
+
+-- ============================================================
+-- MAPS: teleport to a world you own, or to the gate of the next one
+-- ============================================================
+-- The worlds' centres along x, as the map builder lays them out (the coin
+-- seeding's ORIGINS, further down, use the same numbers). A gate sits 65
+-- studs before its world's centre; the walking path runs along z = 0 through
+-- every gate, and nothing is planted on it.
+local WORLD_X = { Forest = 145, Desert = 275, Volcano = 405, Space = 535 }
+
+local function groundAt(x, z)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local skip = {}
+	for _, n in ipairs({ "Pets", "Orbs" }) do
+		local f = workspace:FindFirstChild(n)
+		if f then table.insert(skip, f) end
+	end
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character then table.insert(skip, p.Character) end
+	end
+	params.FilterDescendantsInstances = skip
+	local hit = workspace:Raycast(Vector3.new(x, 120, z), Vector3.new(0, -240, 0), params)
+	return hit and hit.Position.Y or 1
+end
+
+RE_Teleport.OnServerEvent:Connect(function(player, areaId, toGate)
+	if type(areaId) ~= "string" then return end
+	local data = DataManager.GetData(player)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not data or not root then return end
+	local index
+	for i, a in ipairs(GameConfig.Areas) do if a.id == areaId then index = i end end
+	if not index then return end
+	local owned = {}
+	for _, id in ipairs(data.UnlockedAreas or {}) do owned[id] = true end
+	local x
+	if toGate == true then
+		-- The gate of the next world: only if the world before it is yours,
+		-- so this goes nowhere a player could not already walk.
+		local prev = GameConfig.Areas[index - 1]
+		if owned[areaId] or not prev or not owned[prev.id] or not WORLD_X[areaId] then return end
+		x = WORLD_X[areaId] - 65 - 12
+	else
+		if not owned[areaId] then
+			RE_Notification:FireClient(player, "error", "Unlock that world at its gate first")
+			return
+		end
+		x = WORLD_X[areaId] and (WORLD_X[areaId] - 65 + 14) or 0
+	end
+	local z = WORLD_X[areaId] and 0 or 10
+	root.CFrame = CFrame.new(x, groundAt(x, z) + 4, z)
+end)
+
+-- ============================================================
+-- ACHIEVEMENTS
+-- ============================================================
+RF_GetAchievements.OnServerInvoke = function(player)
+	pcall(BadgeService.CheckAll, player)
+	return BadgeService.List(player)
+end
+
+-- ============================================================
+-- AUTO HATCH
+-- ============================================================
+-- A player who switched it on and stands by an egg hatches one every few
+-- seconds, through exactly the path a click takes. Twice a second is plenty
+-- to notice someone arriving at an egg; nothing here moves anything.
+do
+	local eggs = nil
+	local function eggList()
+		if eggs then
+			local fresh = true
+			for _, e in ipairs(eggs) do if not e.part.Parent then fresh = false end end
+			if fresh and #eggs > 0 then return eggs end
+		end
+		eggs = {}
+		for _, d in ipairs(workspace:GetDescendants()) do
+			if d:IsA("ClickDetector") and d:GetAttribute("SPAction") == "HatchEgg"
+				and d.Parent and d.Parent:IsA("BasePart") then
+				table.insert(eggs, { part = d.Parent, id = d:GetAttribute("SPArg") })
+			end
+		end
+		return eggs
+	end
+
+	local nextAt = {}
+	local acc = 0
+	RunService.Heartbeat:Connect(function(dt)
+		acc = acc + (tonumber(dt) or 0)
+		if acc < 0.5 then return end
+		acc = 0
+		local cfg = GameConfig.AutoHatch
+		local now = os.clock()
+		for _, player in ipairs(Players:GetPlayers()) do
+			local data = DataManager.GetData(player)
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			if data and data.AutoHatch and root and (nextAt[player] or 0) <= now
+				and GameConfig.LevelFromXP(data.XP) >= cfg.level then
+				local best, bestD
+				for _, e in ipairs(eggList()) do
+					local d = (e.part.Position - root.Position).Magnitude
+					if d <= cfg.range and (not bestD or d < bestD) then best, bestD = e, d end
+				end
+				if best then
+					nextAt[player] = now + (data.FastHatch and cfg.everyFast or cfg.every)
+					local ok, why = hatchFor(player, best.id, 1)
+					if not ok then
+						-- Out of coins, or the inventory is full: stop, and say why,
+						-- rather than failing quietly every few seconds.
+						data.AutoHatch = false
+						RE_Notification:FireClient(player, "error", "Auto Hatch stopped: " .. tostring(why))
+						syncData(player)
+					end
+				end
+			end
+		end
+	end)
+	Players.PlayerRemoving:Connect(function(p) nextAt[p] = nil end)
+end
 
 -- ============================================================
 -- CODES

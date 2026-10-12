@@ -7,7 +7,7 @@ way. Read it before changing anything; it is short on purpose.
 ## Run this first
 
 ```bash
-bash tools/scan_all.sh        # 32 checks, a few minutes, no Studio needed
+bash tools/scan_all.sh        # 33 checks, a few minutes, no Studio needed
 ```
 
 They boot the real server and the real client against a Roblox mock (`lupa`),
@@ -131,10 +131,30 @@ screen, sooner) it switches to the compact layout: side rails of 52-point
 buttons, clear of the thumbstick and jump button. Every button has a fixed
 name (`Dock_Pets`, `HUD_Mute`, ...) the checks press.
 
-There is no "Eggs" button on purpose: hatching happens at the eggs in the
-world. The mockup's player level, pet levels, Auto Hatch, Fast Click and Shiny
-button are mechanics the game does not have; the HUD shows real ones in their
-places (rebirth progress, rarity and mutation, Auto Collect, Equip Best).
+The menu is the mockup's: Home, Pets, Eggs, Shop, Maps, Quests, Leaderboard,
+More (the rest of the panels). The gear holds Sound. The owner asked for the
+Eggs button, so the hatch screen opens from anywhere; the server still refuses
+an egg whose world the player does not own (EggService).
+
+## Progression added with the HUD (check_progress)
+
+- **Player level.** `data.XP`, lifetime, never reset by rebirth. Every source
+  is in `GameConfig.XPRewards` and is granted on the server through
+  `LevelService.Add`. Each level is +1% pet coins (`GameConfig.LevelMult`).
+- **Pet levels.** Equipped pets gain 1 XP a second in the income loop
+  (`PetService.TickPetXP`), cap 50, +2% per level. `GameConfig.PetPower` is
+  the one place a pet's mutation, fusion and level are multiplied: server
+  income, Equip Best and the HUD all read it, so they cannot disagree.
+  Levels survive trading (`CARRIED`), fusion (best of the three) and bulk
+  delete (a levelled pet is kept).
+- **Make Shiny.** `PetCmd "makeShiny"`, gems by rarity (`GameConfig.ShinyCost`),
+  plain or Golden only. The button asks first.
+- **Auto Hatch / Fast Hatch / Auto Collect** are `SetSwitch` (a known name and
+  a boolean, nothing else). Auto Hatch opens at Level 10, hatches the egg you
+  stand at through the same `hatchFor` a click uses, and stops itself when
+  coins or room run out.
+- **Maps** teleports only to an owned world, or to the gate of the next one
+  from the world before it: nowhere a player could not already walk.
 
 **The loopback copies tables across remotes**, as Roblox does. The client's
 data is never the server's table; a check that changes server data must send

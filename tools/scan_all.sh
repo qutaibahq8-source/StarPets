@@ -39,6 +39,7 @@ run "client boot" python3 tools/check_client.py
 run "game loop"  python3 tools/check_loop.py
 run "ui panels"  python3 tools/check_ui.py
 run "hud"        python3 tools/check_hud.py
+run "progress"   python3 tools/check_progress.py
 run "sound"      python3 tools/check_sound.py
 run "session"    python3 tools/check_session.py
 run "economy"    python3 tools/check_economy.py

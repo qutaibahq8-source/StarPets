@@ -38,7 +38,8 @@ PANELS = [
     "PetsPanel", "HatchPanel", "ShopPanel", "RebirthPanel", "UpgradePanel",
     "LeaderboardPanel", "QuestPanel", "MerchantPanel", "EventPanel",
     "TradePanel", "PetIndexPanel", "CodesPanel", "DailyPanel", "BoostsPanel",
-    "FusionPanel", "PlaytimePanel", "SpinWheelPanel",
+    "FusionPanel", "PlaytimePanel", "SpinWheelPanel", "MapsPanel",
+    "AchievementsPanel",
 ]
 
 

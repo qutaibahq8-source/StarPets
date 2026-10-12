@@ -22,6 +22,9 @@
 --
 -- Every button has a fixed name (Dock_Pets, HUD_Mute, ...), the same in both
 -- layouts where it exists in both, so the checks can find and press it.
+--
+-- Nothing here decides anything. Levels, prices and what a switch is allowed
+-- to do are the server's; this shows them, and asks.
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -65,33 +68,36 @@ local REF_W = 1536
 -- mouse does, so a touch screen switches to the rails sooner.
 local MIN_FULL, MIN_FULL_TOUCH = 0.7, 0.8
 
--- What each button opens. Hatching is not here on purpose: it happens at the
--- eggs in the world.
+-- The menu, as the mockup draws it: eight rows. Eggs opens the hatch screen
+-- from anywhere (the owner's call); the world's eggs still work as before.
 local NAV = {
-	{ name = "Home",    icon = "🏠", label = "Home" },
-	{ name = "Pets",    icon = "🐾", label = "Pets",    panel = "PetsPanel" },
-	{ name = "Shop",    icon = "🛒", label = "Shop",    panel = "ShopPanel" },
-	{ name = "Upgrade", icon = "⚡", label = "Upgrades", short = "Upgrade", panel = "UpgradePanel" },
-	{ name = "Quests",  icon = "📜", label = "Quests",  panel = "QuestPanel" },
-	{ name = "Index",   icon = "📖", label = "Pet Index", short = "Index", panel = "PetIndexPanel" },
-	{ name = "Ranks",   icon = "🏆", label = "Ranks",   panel = "LeaderboardPanel" },
-	{ name = "More",    icon = "☰",  label = "More" },
+	{ name = "Home",        icon = "🏠", label = "Home" },
+	{ name = "Pets",        icon = "🐾", label = "Pets",        panel = "PetsPanel" },
+	{ name = "Eggs",        icon = "🥚", label = "Eggs",        panel = "HatchPanel" },
+	{ name = "Shop",        icon = "🛒", label = "Shop",        panel = "ShopPanel" },
+	{ name = "Maps",        icon = "🗺️", label = "Maps",        panel = "MapsPanel" },
+	{ name = "Quests",      icon = "📜", label = "Quests",      panel = "QuestPanel" },
+	{ name = "Leaderboard", icon = "🏆", label = "Leaderboard", short = "Ranks", panel = "LeaderboardPanel" },
+	{ name = "More",        icon = "☰",  label = "More" },
 }
 local CORNER_BUTTONS = {
 	{ name = "Daily", icon = "📅", label = "Daily", panel = "DailyPanel" },
-	{ name = "Trade", icon = "🤝", label = "Trade", panel = "TradePanel" },
-	{ name = "Codes", icon = "🎁", label = "Codes", panel = "CodesPanel" },
+	{ name = "Trade", icon = "👥", label = "Trade", panel = "TradePanel" },
 }
 local MORE = {
-	{ name = "Merchant", icon = "🪙", label = "Merchant", panel = "MerchantPanel" },
-	{ name = "Event",    icon = "🎉", label = "Event",    panel = "EventPanel" },
-	{ name = "Boosts",   icon = "🚀", label = "Boosts",   panel = "BoostsPanel" },
-	{ name = "Fusion",   icon = "🧬", label = "Fusion",   panel = "FusionPanel" },
-	{ name = "Playtime", icon = "⏱️", label = "Playtime", panel = "PlaytimePanel" },
-	{ name = "Spin",     icon = "🎡", label = "Spin",     panel = "SpinWheelPanel" },
+	{ name = "Upgrade",      icon = "⚡", label = "Upgrades",     panel = "UpgradePanel" },
+	{ name = "Index",        icon = "📖", label = "Pet Index",    panel = "PetIndexPanel" },
+	{ name = "Achievements", icon = "🏅", label = "Achievements", panel = "AchievementsPanel" },
+	{ name = "Codes",        icon = "🎁", label = "Codes",        panel = "CodesPanel" },
+	{ name = "Merchant",     icon = "🪙", label = "Merchant",     panel = "MerchantPanel" },
+	{ name = "Event",        icon = "🎉", label = "Event",        panel = "EventPanel" },
+	{ name = "Boosts",       icon = "🚀", label = "Boosts",       panel = "BoostsPanel" },
+	{ name = "Fusion",       icon = "🧬", label = "Fusion",       panel = "FusionPanel" },
+	{ name = "Playtime",     icon = "⏱️", label = "Playtime",     panel = "PlaytimePanel" },
+	{ name = "Spin",         icon = "🎡", label = "Spin",         panel = "SpinWheelPanel" },
 }
--- The featured banner. Each slide is a real feature with a real panel behind
--- its button; the words say only what that feature actually does.
+-- The featured banner, after the egg slides (see slides()). Each is a real
+-- feature with a real panel behind its button, described only by what it does.
 local FEATURED = {
 	{ tag = "LIMITED", icon = "🪙", title = "Traveling Merchant",
 	  sub = "Rare pets for coins. Stock changes every visit.", panel = "MerchantPanel" },
@@ -101,14 +107,20 @@ local FEATURED = {
 	  sub = "The longer you play, the better the prizes.", panel = "PlaytimePanel" },
 	{ tag = "BOOST", icon = "🚀", title = "Coin Boosts",
 	  sub = "Up to 5x coins for ten minutes, for gems.", panel = "BoostsPanel" },
-	{ tag = "NEW!", icon = "🧬", title = "Pet Fusion",
+	{ tag = "FUSE", icon = "🧬", title = "Pet Fusion",
 	  sub = "Fuse three of a kind into one stronger pet.", panel = "FusionPanel" },
+}
+-- The three switches under the mockup's pets.
+local SWITCHES = {
+	{ kind = "AutoHatch",   name = "HUD_AutoHatch",   icon = "🎯", label = "Auto Hatch",   short = "Hatch" },
+	{ kind = "AutoCollect", name = "HUD_AutoCollect", icon = "🧲", label = "Auto Collect", short = "Collect" },
+	{ kind = "FastHatch",   name = "HUD_FastHatch",   icon = "👆", label = "Fast Hatch",   short = "Fast" },
 }
 
 -- ============================================================
 -- STATE
 -- ============================================================
-local ctx = {}           -- from GameClient: fmt, getData, onMute, onAutoCollect, isMuted
+local ctx = {}           -- from GameClient: fmt, getData, isMuted, onMute, onSwitch
 local gui                -- MysticPetsHUD
 local root               -- everything built here; replaced on a layout switch
 local mode               -- "full" or "compact"
@@ -118,7 +130,8 @@ local selectedUid = nil
 local slide = 1
 local questsCache, eventCache = nil, nil
 local petSig, questSig = nil, nil
-local deleteArmed = nil
+local deleteArmed, shinyArmed = nil, nil
+local cardsHidden = false
 
 local PET = {}
 for _, p in ipairs(GameConfig.Pets) do PET[p.name] = p end
@@ -126,6 +139,17 @@ for _, p in ipairs(GameConfig.Pets) do PET[p.name] = p end
 local function fmt(n)
 	if ctx.fmt then return ctx.fmt(n) end
 	return tostring(math.floor(n or 0))
+end
+
+-- 1,245,678: the counters show the whole number, as the mockup does, until
+-- it is too long to be read at a glance.
+local function commas(n)
+	n = math.floor(tonumber(n) or 0)
+	if n >= 1e9 then return fmt(n) end
+	local str = tostring(n)
+	local out = string.reverse((string.gsub(string.reverse(str), "(%d%d%d)", "%1,")))
+	if string.sub(out, 1, 1) == "," then out = string.sub(out, 2) end
+	return out
 end
 
 local function data()
@@ -136,9 +160,14 @@ local function controller()
 	return require(script.Parent.UIController)
 end
 
-local function open(panel)
+local function closePopovers()
 	if refs.more then refs.more.Visible = false end
-	controller().TogglePanel(panel, data())
+	if refs.settings then refs.settings.Visible = false end
+end
+
+local function open(panel, ...)
+	closePopovers()
+	controller().TogglePanel(panel, data(), ...)
 end
 
 local function remote(name)
@@ -168,7 +197,7 @@ end
 
 local function edge(inst, color, thickness)
 	return new("UIStroke", {
-		Color = color or C.edge, Thickness = thickness or 2, Transparency = 0,
+		Name = "Edge", Color = color or C.edge, Thickness = thickness or 2, Transparency = 0,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 	}, inst)
 end
@@ -183,9 +212,9 @@ local function text(parent, name, str, x, y, w, h, size, color, font, xa)
 end
 
 -- A label whose text can grow ("1.2T") shrinks to fit instead of spilling.
-local function shrink(label, max)
+local function shrink(label, max, min)
 	label.TextScaled = true
-	new("UITextSizeConstraint", { MaxTextSize = max, MinTextSize = 8 }, label)
+	new("UITextSizeConstraint", { MaxTextSize = max, MinTextSize = min or 8 }, label)
 	return label
 end
 
@@ -218,6 +247,26 @@ local function gradient(inst, a, b, rotation)
 	}, inst)
 end
 
+local function bar(parent, name, x, y, w, h, a, b)
+	local track = new("Frame", {
+		Name = name, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h),
+		BackgroundColor3 = C.track, BorderSizePixel = 0,
+	}, parent)
+	round(track)
+	local fill = new("Frame", {
+		Name = "Fill", Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.text, BorderSizePixel = 0,
+	}, track)
+	round(fill)
+	gradient(fill, a or C.blue, b or C.cyan)
+	return track, fill
+end
+
+local function setFill(fill, f)
+	f = math.clamp(tonumber(f) or 0, 0, 1)
+	fill.Size = UDim2.new(f, 0, 1, 0)
+	fill.Visible = f > 0.001
+end
+
 -- One corner of the screen: a transparent frame of fixed design size, zoomed
 -- by its UIScale about its anchor, which is the corner it is pinned to.
 local function group(name, w, h, anchor)
@@ -232,6 +281,149 @@ end
 local function setScale(f, k)
 	local u = f and f:FindFirstChild("Fit")
 	if u then u.Scale = k end
+end
+
+local function blend(a, b, t)
+	return Color3.new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t)
+end
+
+-- ============================================================
+-- WHAT THE NUMBERS ARE
+-- ============================================================
+local function slotsFor(d)
+	return (d.GP_PetSlots and GameConfig.Settings.VIPPetSlots) or GameConfig.Settings.DefaultPetSlots
+end
+
+local function equippedPets(d)
+	local byId = {}
+	for _, p in ipairs(d.Pets or {}) do byId[p.uniqueId] = p end
+	local out = {}
+	for _, uid in ipairs(d.EquippedPets or {}) do
+		if byId[uid] then table.insert(out, byId[uid]) end
+	end
+	return out
+end
+
+local function boostMult(d)
+	local m, now = 1, os.time()
+	for id, expire in pairs(d.ActiveBoosts or {}) do
+		if type(expire) == "number" and expire > now then
+			for _, b in ipairs(GameConfig.Boosts) do
+				if b.id == id then m = m * b.mult end
+			end
+		end
+	end
+	return m
+end
+
+-- What one pet earns a second, counted the way PetService.GetPlayerIncome
+-- counts it: the same GameConfig.PetPower and LevelMult, so the card and the
+-- coins that arrive can never disagree.
+local function income(pet, d)
+	local pd = PET[pet.name]
+	if not pd then return 0, 0, 1 end
+	local power = GameConfig.PetPower(pet)
+	local reb = d.RebirthMultiplier or 1
+	local coins = pd.coinMult * power * reb * (d.GP_2xCoins and 2 or 1) * boostMult(d)
+		* GameConfig.LevelMult(d)
+	local gems = (pd.gemMult or 0) * power * reb
+		* (d.GP_VIP and GameConfig.Settings.VIPGemMultiplier or 1) * 0.01
+	return coins, gems, power
+end
+
+local function rarityColor(r)
+	local info = GameConfig.Rarities[r or ""]
+	return info and info.color or C.grey
+end
+
+local function playerLevel(d)
+	return GameConfig.LevelFromXP(d and d.XP or 0)
+end
+
+local function owns(d, areaId)
+	for _, id in ipairs(d.UnlockedAreas or {}) do
+		if id == areaId then return true end
+	end
+	return false
+end
+
+local function areaName(id)
+	for _, a in ipairs(GameConfig.Areas) do
+		if a.id == id then return a.name end
+	end
+	return id
+end
+
+-- The banner's slides: the best egg you can hatch, the next one you cannot
+-- yet, then the features.
+local function slides()
+	local d = data() or {}
+	local best, nextEgg
+	for _, egg in ipairs(GameConfig.Eggs) do
+		if not egg.world or owns(d, egg.world) then
+			if egg.currency == "Coins" then best = egg end
+		elseif not nextEgg then
+			nextEgg = egg
+		end
+	end
+	local out = {}
+	if best then
+		table.insert(out, { tag = "NEW!", egg = best, title = best.name, sub = best.description,
+			eggId = best.id })
+	end
+	if nextEgg then
+		table.insert(out, { tag = "COMING UP", egg = nextEgg, title = nextEgg.name,
+			sub = "Unlock " .. areaName(nextEgg.world) .. " to hatch it.", panel = "MapsPanel" })
+	end
+	for _, f in ipairs(FEATURED) do table.insert(out, f) end
+	return out
+end
+
+-- What each switch shows: "on", "off", "get" (a pass to buy), or "locked".
+local function switchState(kind)
+	local d = data() or {}
+	if kind == "Mute" then
+		local muted = ctx.isMuted and ctx.isMuted() or false
+		return muted and "off" or "on"
+	elseif kind == "AutoCollect" then
+		if not d.GP_AutoCollect then return "get" end
+		return d.AutoCollectOff and "off" or "on"
+	elseif kind == "AutoHatch" then
+		if playerLevel(d) < GameConfig.AutoHatch.level then return "locked" end
+		return d.AutoHatch and "on" or "off"
+	elseif kind == "FastHatch" then
+		return d.FastHatch and "on" or "off"
+	elseif kind == "Cards" then
+		return cardsHidden and "off" or "on"
+	end
+	return "off"
+end
+
+local function pillLook(kind, st)
+	if st == "on" then return "ON", C.green end
+	if st == "get" then return "GET", C.gold end
+	if st == "locked" then return "LV " .. GameConfig.AutoHatch.level, C.gold end
+	return "OFF", C.grey
+end
+
+local function pressSwitch(kind)
+	local st = switchState(kind)
+	if kind == "Mute" then
+		if ctx.onMute then ctx.onMute() end
+	elseif kind == "Cards" then
+		cardsHidden = not cardsHidden
+		if refs.groups and refs.groups.right then refs.groups.right.Visible = not cardsHidden end
+	elseif st == "get" then
+		open("ShopPanel")
+	elseif st == "locked" then
+		local G = _G.MysticPets
+		if G and G.showToast then
+			G.showToast("info", ("Auto Hatch opens at Level %d"):format(GameConfig.AutoHatch.level))
+		end
+	elseif ctx.onSwitch then
+		ctx.onSwitch(kind, st ~= "on")
+	end
+	HUD.RefreshSwitches()
 end
 
 -- ============================================================
@@ -250,7 +442,7 @@ local function pill(parent, name, icon, w, h, plus, plusColor)
 	-- the value and the + button still sit inside it.
 	local right = plus and (h * 0.69 + 12) or 8
 	local value = shrink(text(p, "Value", "0", h * 0.92, 4, 0, h - 8,
-		math.floor(h * 0.48), C.text, HEAD), math.floor(h * 0.48))
+		math.floor(h * 0.46), C.text, HEAD), math.floor(h * 0.46))
 	value.Size = UDim2.new(1, -(h * 0.92 + right), 0, h - 8)
 	local b
 	if plus then
@@ -262,106 +454,68 @@ local function pill(parent, name, icon, w, h, plus, plusColor)
 	return p, value, b
 end
 
-local function moreMenu()
+local function popover(name, w, h, title)
 	local m = new("Frame", {
-		Name = "MoreMenu", Size = UDim2.fromOffset(300, 238), AnchorPoint = Vector2.new(0.5, 0.5),
+		Name = name, Size = UDim2.fromOffset(w, h), AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = C.card,
 		BackgroundTransparency = 0.02, BorderSizePixel = 0, Visible = false, ZIndex = 5,
 	}, root)
 	round(m, 18); edge(m, C.violet, 2)
 	new("UIScale", { Name = "Fit", Scale = 1 }, m)
-	text(m, "Title", "More", 18, 8, 200, 36, 24, C.text, HEAD)
-	local close = button(m, "MoreClose", 300 - 50, 4, 44, 44, C.raised)
+	text(m, "Title", title, 18, 8, 200, 36, 24, C.text, HEAD)
+	local close = button(m, name .. "Close", w - 50, 4, 44, 44, C.raised)
 	round(close, 10)
 	close.Text = "✕"; close.Font = BODY; close.TextSize = 18; close.TextColor3 = C.soft
 	close.MouseButton1Click:Connect(function() m.Visible = false end)
-	for i, item in ipairs(MORE) do
-		local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
-		local b = button(m, "Dock_" .. item.name, 10 + col * 96, 52 + row * 90, 88, 82, C.raised)
-		round(b, 14); edge(b, C.edge, 2)
-		text(b, "Icon", item.icon, 0, 8, 88, 38, 30, nil, BODY, CENTER)
-		text(b, "Label", item.label, 2, 50, 84, 24, 15, C.soft, BODY, CENTER)
-		b.MouseButton1Click:Connect(function() open(item.panel) end)
-	end
-	refs.more = m
 	return m
 end
 
-local function toggleMore()
-	if not refs.more then return end
-	local show = not refs.more.Visible
+local function moreMenu()
+	local cols = 4
+	local rows = math.ceil(#MORE / cols)
+	local m = popover("MoreMenu", 20 + cols * 96 - 8, 56 + rows * 90, "More")
+	for i, item in ipairs(MORE) do
+		local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+		local b = button(m, "Dock_" .. item.name, 10 + col * 96, 52 + row * 90, 88, 82, C.raised)
+		round(b, 14); edge(b, C.edge, 2)
+		text(b, "Icon", item.icon, 0, 8, 88, 38, 30, nil, BODY, CENTER)
+		shrink(text(b, "Label", item.label, 3, 50, 82, 24, 14, C.soft, BODY, CENTER), 14, 9)
+		b.MouseButton1Click:Connect(function() open(item.panel) end)
+	end
+	refs.more = m
+end
+
+local function settingsMenu()
+	local m = popover("SettingsMenu", 320, 196, "Settings")
+	local rowsDef = {
+		{ kind = "Mute", name = "HUD_Mute", icon = "🔊", label = "Sound" },
+		{ kind = "Cards", name = "HUD_HideCards", icon = "📋", label = "Quest & pet cards" },
+	}
+	refs.settingRows = {}
+	for i, r in ipairs(rowsDef) do
+		local y = 56 + (i - 1) * 64
+		local rowIcon = text(m, "Icon" .. i, r.icon, 16, y + 8, 36, 40, 24, nil, BODY, CENTER)
+		local rowLabel = shrink(text(m, "Label" .. i, r.label, 60, y + 8, 150, 40, 18, C.text, HEAD), 18, 10)
+		local b = button(m, r.name, 214, y + 6, 92, 44, C.grey)
+		round(b)
+		b.Text = "ON"; b.Font = HEAD; b.TextSize = 18; b.TextColor3 = C.text
+		b.MouseButton1Click:Connect(function() pressSwitch(r.kind) end)
+		refs.settingRows[r.kind] = { button = b, icon = rowIcon, label = rowLabel }
+	end
+	refs.settings = m
+end
+
+local function togglePopover(m)
+	if not m then return end
+	local show = not m.Visible
+	closePopovers()
 	if show then controller().CloseAll() end
-	refs.more.Visible = show
+	m.Visible = show
 end
-
--- What each switch shows. `state` is "on", "off", "get" or "go".
-local function switchState(kind)
-	local d = data() or {}
-	if kind == "Mute" then
-		local muted = ctx.isMuted and ctx.isMuted() or false
-		return muted and "off" or "on"
-	elseif kind == "AutoCollect" then
-		if not d.GP_AutoCollect then return "get" end
-		return d.AutoCollectOff and "off" or "on"
-	end
-	return "go"
-end
-
-local PILL_LOOK = {
-	on  = { "ON",  C.green },
-	off = { "OFF", C.grey },
-	get = { "GET", C.gold },
-	go  = { "EQUIP", C.blue },
-}
-
-local function pressSwitch(kind)
-	if kind == "Mute" then
-		if ctx.onMute then ctx.onMute() end
-	elseif kind == "AutoCollect" then
-		local st = switchState("AutoCollect")
-		if st == "get" then
-			open("ShopPanel")
-		elseif ctx.onAutoCollect then
-			ctx.onAutoCollect(st == "off")
-		end
-	elseif kind == "EquipBest" then
-		local rf = remote("PetCmd")
-		if rf then rf:FireServer("equipBest") end
-	end
-	HUD.RefreshSwitches()
-end
-
-local SWITCHES = {
-	{ kind = "AutoCollect", name = "HUD_AutoCollect", icon = "🧲", label = "Auto Collect", short = "Collect" },
-	{ kind = "EquipBest",   name = "HUD_EquipBest",   icon = "⭐", label = "Equip Best", short = "Best" },
-	{ kind = "Mute",        name = "HUD_Mute",        icon = "🔊", label = "Sound", short = "Sound" },
-}
 
 -- ============================================================
 -- FULL LAYOUT
 -- ============================================================
-local function buildNav(parent)
-	local nav = card(parent, "Nav", 0, 134, 265, 430)
-	refs.nav = {}
-	for i, item in ipairs(NAV) do
-		local b = button(nav, "Dock_" .. item.name, 8, 7 + (i - 1) * 52, 249, 49, C.blue, 1)
-		round(b, 12)
-		text(b, "Icon", item.icon, 10, 8, 34, 34, 24, nil, BODY, CENTER)
-		text(b, "Label", item.label, 56, 0, 180, 49, 21, C.text, HEAD)
-		b.MouseButton1Click:Connect(function()
-			if item.name == "Home" then
-				if refs.more then refs.more.Visible = false end
-				controller().CloseAll()
-			elseif item.name == "More" then
-				toggleMore()
-			else
-				open(item.panel)
-			end
-		end)
-		refs.nav[item.name] = b
-	end
-end
-
 local function buildProfile(parent)
 	local prof = card(parent, "Profile", 0, 0, 358, 124)
 	local av = new("Frame", {
@@ -377,36 +531,52 @@ local function buildProfile(parent)
 	}, av)
 	round(face)
 	refs.playerName = shrink(text(prof, "PlayerName", Player.DisplayName or Player.Name,
-		122, 14, 222, 32, 26, C.text, HEAD), 26)
-	local vip = new("TextLabel", {
-		Name = "VIP", Text = "👑 VIP", Position = UDim2.fromOffset(266, 18), Size = UDim2.fromOffset(78, 24),
-		BackgroundColor3 = Color3.fromRGB(72, 54, 12), BackgroundTransparency = 0.1, BorderSizePixel = 0,
-		TextColor3 = C.gold, Font = HEAD, TextSize = 16, Visible = false,
-	}, prof)
-	round(vip, 8)
-	refs.vip = vip
-	refs.rank = shrink(text(prof, "Rank", "", 122, 50, 222, 24, 17, C.soft, BODY), 17)
-	local bar = new("Frame", {
-		Name = "RebirthBar", Position = UDim2.fromOffset(122, 84), Size = UDim2.fromOffset(222, 24),
-		BackgroundColor3 = C.track, BorderSizePixel = 0,
-	}, prof)
-	round(bar, 12)
-	refs.barFill = new("Frame", {
-		Name = "Fill", Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.text, BorderSizePixel = 0,
-	}, bar)
-	round(refs.barFill, 12)
-	gradient(refs.barFill, C.blue, C.cyan)
-	refs.barText = text(bar, "Progress", "", 6, 0, 210, 24, 13, C.text, BODY, CENTER)
+		122, 10, 222, 32, 26, C.text, HEAD), 26)
+	refs.vip = text(prof, "VIP", "👑 VIP", 122, 42, 100, 22, 17, C.gold, HEAD)
+	refs.level = text(prof, "Level", "Level 1", 122, 64, 222, 22, 16, C.soft, HEAD)
+	local _, fill = bar(prof, "XPBar", 122, 90, 222, 22)
+	refs.barFill = fill
+	refs.barText = text(prof.XPBar, "Progress", "", 6, 0, 210, 22, 13, C.text, BODY, CENTER)
 	refs.barText.TextStrokeTransparency = 0.55
+end
+
+local function buildNav(parent)
+	local nav = card(parent, "Nav", 0, 134, 265, 430)
+	refs.nav = {}
+	for i, item in ipairs(NAV) do
+		local y = 7 + (i - 1) * 52
+		if i > 1 then
+			new("Frame", {
+				Name = "Rule" .. i, Position = UDim2.fromOffset(18, y - 2), Size = UDim2.fromOffset(229, 1),
+				BackgroundColor3 = C.edge, BackgroundTransparency = 0.2, BorderSizePixel = 0,
+			}, nav)
+		end
+		local b = button(nav, "Dock_" .. item.name, 8, y, 249, 49, C.blue, 1)
+		round(b, 12)
+		text(b, "Icon", item.icon, 10, 8, 34, 34, 24, nil, BODY, CENTER)
+		text(b, "Label", item.label, 56, 0, 180, 49, 21, C.text, HEAD)
+		b.MouseButton1Click:Connect(function()
+			if item.name == "Home" then
+				closePopovers()
+				controller().CloseAll()
+			elseif item.name == "More" then
+				togglePopover(refs.more)
+			else
+				open(item.panel)
+			end
+		end)
+		refs.nav[item.name] = b
+	end
 end
 
 local function buildEvent(parent)
 	local ev = button(parent, "HUD_Event", 0, 576, 265, 105, C.text)
 	round(ev, 18); edge(ev, C.violet, 2)
 	gradient(ev, Color3.fromRGB(140, 70, 255), Color3.fromRGB(70, 28, 160), 20)
-	text(ev, "Tag", "LIMITED EVENT", 16, 10, 230, 20, 13, C.gold, BODY)
-	refs.eventName = shrink(text(ev, "EventName", "", 16, 32, 233, 32, 22, C.text, HEAD), 22)
-	refs.eventInfo = shrink(text(ev, "EventInfo", "", 16, 68, 233, 24, 15, C.soft, BODY), 15)
+	refs.eventIcon = text(ev, "EventIcon", "🎉", 8, 20, 66, 66, 44, nil, BODY, CENTER)
+	text(ev, "Tag", "LIMITED EVENT", 82, 12, 170, 20, 13, C.gold, BODY)
+	refs.eventName = shrink(text(ev, "EventName", "", 82, 32, 170, 32, 22, C.text, HEAD), 22, 12)
+	refs.eventInfo = shrink(text(ev, "EventInfo", "", 82, 68, 170, 24, 15, C.soft, BODY), 15, 11)
 	ev.Visible = false
 	ev.MouseButton1Click:Connect(function() open("EventPanel") end)
 	refs.event = ev
@@ -429,8 +599,7 @@ end
 local function buildSwitchTile(parent, sw, x, y)
 	local t = button(parent, sw.name, x, y, 118, 118, C.card, 0.06)
 	round(t, 18)
-	local st = edge(t, C.edge, 2)
-	st.Name = "Edge"
+	edge(t, C.edge, 2)
 	text(t, "Icon", sw.icon, 0, 10, 118, 44, 34, nil, BODY, CENTER)
 	text(t, "Label", sw.label, 4, 56, 110, 24, 16, C.text, HEAD, CENTER)
 	local p = new("TextLabel", {
@@ -439,21 +608,28 @@ local function buildSwitchTile(parent, sw, x, y)
 		Font = BODY, TextSize = 13,
 	}, t)
 	round(p)
+	t:SetAttribute("HomeX", x); t:SetAttribute("HomeY", y)
 	t.MouseButton1Click:Connect(function() pressSwitch(sw.kind) end)
 	return t
 end
 
 local function buildQuests(parent)
 	local q = card(parent, "Quests", 0, 0, 357, 260)
-	text(q, "Title", "📜 Active Quests", 16, 12, 230, 34, 22, C.text, HEAD)
-	local all = button(q, "HUD_AllQuests", 262, 14, 80, 30, C.raised)
-	round(all, 10)
-	all.Text = "View all"; all.Font = BODY; all.TextSize = 13; all.TextColor3 = C.soft
-	all.MouseButton1Click:Connect(function() open("QuestPanel") end)
+	local head = button(q, "HUD_AllQuests", 8, 8, 341, 40, C.card, 1)
+	round(head, 10)
+	text(head, "Title", "📋 Active Quests", 8, 2, 240, 36, 22, C.text, HEAD)
+	refs.questCount = text(head, "Count", "", 250, 2, 84, 36, 18, C.soft, HEAD, RIGHT)
+	head.MouseButton1Click:Connect(function() open("QuestPanel") end)
 	refs.questRows = {}
 	for i = 1, 3 do
 		local row = button(q, "HUD_Quest_" .. i, 10, 52 + (i - 1) * 66, 337, 60, C.raised, 1)
 		round(row, 12)
+		if i > 1 then
+			new("Frame", {
+				Name = "Rule", Position = UDim2.fromOffset(8, -4), Size = UDim2.fromOffset(321, 1),
+				BackgroundColor3 = C.edge, BackgroundTransparency = 0.2, BorderSizePixel = 0,
+			}, row)
+		end
 		local ring = new("Frame", {
 			Name = "Check", Position = UDim2.fromOffset(8, 17), Size = UDim2.fromOffset(26, 26),
 			BackgroundColor3 = C.green, BackgroundTransparency = 1, BorderSizePixel = 0,
@@ -461,17 +637,9 @@ local function buildQuests(parent)
 		round(ring)
 		local ringEdge = edge(ring, C.dim, 2)
 		local tick = text(ring, "Tick", "✓", 0, 0, 26, 26, 16, C.text, BODY, CENTER)
-		local name = shrink(text(row, "QuestName", "", 44, 6, 200, 22, 16, C.text, BODY), 16)
-		local amount = text(row, "Amount", "", 244, 6, 86, 22, 14, C.soft, BODY, RIGHT)
-		local track = new("Frame", {
-			Name = "Track", Position = UDim2.fromOffset(44, 36), Size = UDim2.fromOffset(286, 12),
-			BackgroundColor3 = C.track, BorderSizePixel = 0,
-		}, row)
-		round(track)
-		local fill = new("Frame", {
-			Name = "Fill", Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = C.blue, BorderSizePixel = 0,
-		}, track)
-		round(fill)
+		local name = shrink(text(row, "QuestName", "", 44, 6, 190, 22, 16, C.text, BODY), 16, 10)
+		local amount = shrink(text(row, "Amount", "", 236, 6, 94, 22, 14, C.soft, BODY, RIGHT), 14, 10)
+		local _, fill = bar(row, "Track", 44, 36, 286, 12)
 		row.MouseButton1Click:Connect(function() open("QuestPanel") end)
 		refs.questRows[i] = { row = row, ring = ring, ringEdge = ringEdge, tick = tick,
 			name = name, amount = amount, fill = fill }
@@ -486,30 +654,36 @@ local function buildFeatured(parent)
 		BackgroundColor3 = C.text, BorderSizePixel = 0,
 	}, parent)
 	round(f, 18); edge(f, C.violet, 2)
-	gradient(f, Color3.fromRGB(150, 70, 255), Color3.fromRGB(60, 26, 150), 25)
-	local tag = new("TextLabel", {
-		Name = "Tag", Position = UDim2.fromOffset(14, 12), Size = UDim2.fromOffset(92, 22),
-		BackgroundColor3 = C.gold, BorderSizePixel = 0, Text = "", TextColor3 = Color3.fromRGB(60, 30, 0),
-		Font = BODY, TextSize = 13,
+	gradient(f, Color3.fromRGB(150, 70, 255), Color3.fromRGB(46, 20, 120), 25)
+	local orb = new("Frame", {
+		Name = "Art", Position = UDim2.fromOffset(34, 31), Size = UDim2.fromOffset(100, 100),
+		BackgroundColor3 = C.violet, BackgroundTransparency = 0.35, BorderSizePixel = 0,
 	}, f)
-	round(tag, 8)
-	local icon = text(f, "Icon", "", 14, 46, 92, 92, 64, nil, BODY, CENTER)
-	local title = shrink(text(f, "FeatureTitle", "", 116, 40, 228, 30, 22, C.text, HEAD), 22)
-	local sub = text(f, "FeatureSub", "", 116, 70, 228, 40, 13, Color3.fromRGB(225, 215, 255), BODY)
+	round(orb)
+	local orbEdge = edge(orb, C.text, 2)
+	orbEdge.Transparency = 0.6
+	local icon = text(orb, "Icon", "", 0, 0, 100, 100, 60, nil, BODY, CENTER)
+	local tag = text(f, "Tag", "", 146, 18, 200, 20, 14, C.gold, Enum.Font.GothamBlack)
+	local title = shrink(text(f, "FeatureTitle", "", 146, 38, 176, 32, 24, C.text, HEAD), 24, 12)
+	local sub = text(f, "FeatureSub", "", 146, 70, 178, 36, 13, Color3.fromRGB(225, 215, 255), BODY)
 	sub.TextWrapped = true; sub.TextYAlignment = Enum.TextYAlignment.Top
-	local view = button(f, "HUD_FeatureView", 116, 116, 112, 34, Color3.fromRGB(255, 255, 255))
-	round(view, 10)
-	view.Text = "View"; view.Font = HEAD; view.TextSize = 18; view.TextColor3 = C.purple
-	local prev = button(f, "HUD_FeaturePrev", 270, 118, 30, 30, Color3.fromRGB(40, 16, 100), 0.2)
-	round(prev)
-	prev.Text = "‹"; prev.Font = HEAD; prev.TextSize = 24; prev.TextColor3 = C.text
-	local nxt = button(f, "HUD_FeatureNext", 310, 118, 30, 30, Color3.fromRGB(40, 16, 100), 0.2)
-	round(nxt)
-	nxt.Text = "›"; nxt.Font = HEAD; nxt.TextSize = 24; nxt.TextColor3 = C.text
-	refs.feature = { tag = tag, icon = icon, title = title, sub = sub }
+	local view = button(f, "HUD_FeatureView", 146, 112, 176, 38, C.purple)
+	round(view, 12); edge(view, C.violet, 2)
+	view.Text = "View"; view.Font = HEAD; view.TextSize = 20; view.TextColor3 = C.text
+	local prev = button(f, "HUD_FeaturePrev", 4, 58, 26, 46, C.card, 1)
+	prev.Text = "‹"; prev.Font = HEAD; prev.TextSize = 34; prev.TextColor3 = C.text
+	local nxt = button(f, "HUD_FeatureNext", 327, 58, 26, 46, C.card, 1)
+	nxt.Text = "›"; nxt.Font = HEAD; nxt.TextSize = 34; nxt.TextColor3 = C.text
+	refs.feature = { tag = tag, icon = icon, orb = orb, title = title, sub = sub }
 	view.MouseButton1Click:Connect(function()
-		local item = FEATURED[slide]
-		if item then open(item.panel) end
+		local item = slides()[slide]
+		if not item then return end
+		if item.eggId then
+			closePopovers()
+			controller().Open("HatchPanel", data(), item.eggId)
+		else
+			open(item.panel)
+		end
 	end)
 	prev.MouseButton1Click:Connect(function() HUD.ShowSlide(slide - 1) end)
 	nxt.MouseButton1Click:Connect(function() HUD.ShowSlide(slide + 1) end)
@@ -518,30 +692,31 @@ end
 local function buildDetail(parent)
 	local d = card(parent, "Detail", 0, 471, 357, 382)
 	local portrait = new("Frame", {
-		Name = "Portrait", Position = UDim2.fromOffset(16, 16), Size = UDim2.fromOffset(120, 120),
+		Name = "Portrait", Position = UDim2.fromOffset(16, 16), Size = UDim2.fromOffset(104, 104),
 		BackgroundColor3 = C.raised, BorderSizePixel = 0,
 	}, d)
 	round(portrait, 16)
-	local pe = edge(portrait, C.edge, 2)
-	local name = shrink(text(d, "DetailName", "", 148, 16, 150, 34, 24, C.text, HEAD), 24)
-	local lock = button(d, "HUD_Lock", 305, 16, 36, 36, C.raised)
+	edge(portrait, C.edge, 2)
+	local name = shrink(text(d, "DetailName", "", 132, 16, 166, 32, 24, C.text, HEAD), 24, 12)
+	local lock = button(d, "HUD_Lock", 305, 14, 36, 36, C.raised)
 	round(lock, 10)
 	lock.Text = "🔓"; lock.Font = BODY; lock.TextSize = 18
 	local rarity = new("TextLabel", {
-		Name = "Rarity", Position = UDim2.fromOffset(148, 58), Size = UDim2.fromOffset(104, 24),
+		Name = "Rarity", Position = UDim2.fromOffset(132, 54), Size = UDim2.fromOffset(100, 24),
 		BackgroundColor3 = C.grey, BorderSizePixel = 0, Text = "", TextColor3 = C.text,
 		Font = BODY, TextSize = 13,
 	}, d)
-	round(rarity)
-	local extra = new("TextLabel", {
-		Name = "Extra", Position = UDim2.fromOffset(258, 58), Size = UDim2.fromOffset(83, 24),
-		BackgroundColor3 = C.violet, BorderSizePixel = 0, Text = "", TextColor3 = C.text,
-		Font = BODY, TextSize = 13, Visible = false,
+	round(rarity, 8)
+	local lvl = new("TextLabel", {
+		Name = "PetLevel", Position = UDim2.fromOffset(238, 54), Size = UDim2.fromOffset(103, 24),
+		BackgroundColor3 = C.raised, BorderSizePixel = 0, Text = "", TextColor3 = C.text,
+		Font = HEAD, TextSize = 15,
 	}, d)
-	round(extra)
-	local status = text(d, "Status", "", 148, 92, 193, 22, 14, C.green, BODY)
+	round(lvl, 8)
+	local _, xpFill = bar(d, "PetXP", 132, 86, 209, 12)
+	local xpText = shrink(text(d, "PetXPText", "", 132, 100, 209, 20, 13, C.soft, BODY), 13, 10)
 	local stats = new("Frame", {
-		Name = "Stats", Position = UDim2.fromOffset(16, 150), Size = UDim2.fromOffset(325, 138),
+		Name = "Stats", Position = UDim2.fromOffset(16, 136), Size = UDim2.fromOffset(325, 138),
 		BackgroundColor3 = C.raised, BorderSizePixel = 0,
 	}, d)
 	round(stats, 14)
@@ -549,61 +724,87 @@ local function buildDetail(parent)
 	local STATS = { { "💰", "Coins" }, { "💎", "Gems" }, { "✨", "Bonus" } }
 	for i, st in ipairs(STATS) do
 		local y = 8 + (i - 1) * 42
+		if i > 1 then
+			new("Frame", {
+				Name = "Rule" .. i, Position = UDim2.fromOffset(12, y - 3), Size = UDim2.fromOffset(301, 1),
+				BackgroundColor3 = C.edge, BackgroundTransparency = 0.2, BorderSizePixel = 0,
+			}, stats)
+		end
 		text(stats, "Icon" .. i, st[1], 12, y + 4, 30, 30, 20, nil, BODY, CENTER)
-		text(stats, "Stat" .. i, st[2], 50, y, 130, 38, 17, C.soft, BODY)
-		rows[i] = text(stats, "Value" .. i, "", 150, y, 163, 38, 18, C.text, HEAD, RIGHT)
+		text(stats, "Stat" .. i, st[2], 50, y, 120, 38, 17, C.soft, BODY)
+		rows[i] = shrink(text(stats, "Value" .. i, "", 150, y, 163, 38, 18, C.green, HEAD, RIGHT), 18, 11)
 	end
-	local unequip = button(d, "HUD_Unequip", 16, 306, 132, 52, C.blue)
+	local unequip = button(d, "HUD_Unequip", 16, 290, 136, 52, C.blue)
 	round(unequip, 14)
 	unequip.Text = "Unequip"; unequip.Font = HEAD; unequip.TextSize = 20; unequip.TextColor3 = C.text
-	local fuse = button(d, "HUD_Fuse", 156, 306, 124, 52, C.purple)
-	round(fuse, 14)
-	fuse.Text = "🧬 Fuse"; fuse.Font = HEAD; fuse.TextSize = 20; fuse.TextColor3 = C.text
-	local del = button(d, "HUD_Delete", 288, 306, 53, 52, C.red)
+	local shiny = button(d, "HUD_Shiny", 160, 290, 128, 52, C.purple)
+	round(shiny, 14)
+	shiny.Text = "✨ Shiny"; shiny.Font = HEAD; shiny.TextSize = 20; shiny.TextColor3 = C.text
+	local del = button(d, "HUD_Delete", 296, 290, 45, 52, C.red)
 	round(del, 14)
 	del.Text = "🗑"; del.Font = BODY; del.TextSize = 22; del.TextColor3 = C.text
-	local empty = text(d, "Empty", "Equip a pet to see it here.\nHatch eggs out in the world!",
-		16, 150, 325, 140, 17, C.soft, BODY, CENTER)
+	local hint = shrink(text(d, "ShinyHint", "", 16, 348, 325, 22, 13, C.soft, BODY, CENTER), 13, 10)
+	local empty = text(d, "Empty", "Equip a pet to see it here.\nPress Eggs to hatch one!",
+		16, 140, 325, 140, 17, C.soft, BODY, CENTER)
 	empty.TextWrapped = true
-	refs.detail = { box = d, portrait = portrait, portraitEdge = pe, name = name, lock = lock,
-		rarity = rarity, extra = extra, status = status, stats = stats, rows = rows,
-		unequip = unequip, fuse = fuse, del = del, empty = empty }
+	refs.detail = { box = d, portrait = portrait, name = name, lock = lock, rarity = rarity,
+		lvl = lvl, xpFill = xpFill, xpText = xpText, xpBar = d.PetXP, stats = stats, rows = rows,
+		unequip = unequip, shiny = shiny, del = del, hint = hint, empty = empty }
 
 	unequip.MouseButton1Click:Connect(function()
 		local rf = remote("UnequipPet")
 		if rf and selectedUid then rf:FireServer(selectedUid) end
 	end)
-	fuse.MouseButton1Click:Connect(function() open("FusionPanel") end)
 	lock.MouseButton1Click:Connect(function()
 		local rf = remote("PetCmd")
 		if rf and selectedUid then rf:FireServer("lock", selectedUid) end
 	end)
-	-- Two presses, like bulk delete: a pet is the one thing in this game
-	-- that cannot be bought back.
-	del.MouseButton1Click:Connect(function()
-		if not selectedUid or del.Active == false then return end
-		if deleteArmed ~= selectedUid then
-			deleteArmed = selectedUid
-			del.Text = "Sure?"; del.TextSize = 13
-			local armedFor = selectedUid
-			task.delay(3, function()
-				if deleteArmed == armedFor then
-					deleteArmed = nil
-					if del.Parent then del.Text = "🗑"; del.TextSize = 22 end
-				end
-			end)
-			return
-		end
-		deleteArmed = nil
-		del.Text = "🗑"; del.TextSize = 22
+	-- Both spend something that cannot be bought back, so both ask first.
+	local function twoPress(btn, armedName, label, size, fire)
+		btn.MouseButton1Click:Connect(function()
+			if not selectedUid or btn.Active == false then return end
+			local armed = armedName == "delete" and deleteArmed or shinyArmed
+			if armed ~= selectedUid then
+				if armedName == "delete" then deleteArmed = selectedUid else shinyArmed = selectedUid end
+				btn.Text = label(); btn.TextSize = 13
+				local armedFor = selectedUid
+				task.delay(3, function()
+					local still = armedName == "delete" and deleteArmed or shinyArmed
+					if still == armedFor then
+						if armedName == "delete" then deleteArmed = nil else shinyArmed = nil end
+						HUD.Update(data())
+					end
+				end)
+				return
+			end
+			if armedName == "delete" then deleteArmed = nil else shinyArmed = nil end
+			btn.TextSize = size
+			fire(selectedUid)
+		end)
+	end
+	twoPress(del, "delete", function() return "Sure?" end, 22, function(uid)
+		del.Text = "🗑"
 		local rf = remote("DeletePet")
-		if rf then rf:FireServer(selectedUid) end
+		if rf then rf:FireServer(uid) end
+	end)
+	twoPress(shiny, "shiny", function()
+		local d_ = data() or {}
+		for _, p in ipairs(d_.Pets or {}) do
+			if p.uniqueId == selectedUid then
+				return "Sure? " .. commas(GameConfig.ShinyCost[p.rarity] or 0) .. " 💎"
+			end
+		end
+		return "Sure?"
+	end, 20, function(uid)
+		shiny.Text = "✨ Shiny"
+		local rf = remote("PetCmd")
+		if rf then rf:FireServer("makeShiny", uid) end
 	end)
 end
 
 local function buildFull()
 	local pills = group("TopPills", 718, 58, Vector2.new(0.5, 0))
-	local p1, coins, add1 = pill(pills, "Coins", "💰", 230, 58, "HUD_AddCoins", C.blue)
+	local p1, coins, add1 = pill(pills, "Coins", "🪙", 230, 58, "HUD_AddCoins", C.blue)
 	local p2, gems, add2 = pill(pills, "Gems", "💎", 230, 58, "HUD_AddGems", C.purple)
 	local p3, pets, add3 = pill(pills, "PetsPill", "🐾", 230, 58, "HUD_AddPets", C.grey)
 	p1.Position = UDim2.fromOffset(0, 0); p2.Position = UDim2.fromOffset(244, 0)
@@ -622,6 +823,10 @@ local function buildFull()
 		text(b, "Icon", item.icon, 0, 0, 58, 58, 28, nil, BODY, CENTER)
 		b.MouseButton1Click:Connect(function() open(item.panel) end)
 	end
+	local gear = button(corner_, "HUD_Settings", 122, 0, 58, 58, C.card, 0.04)
+	round(gear, 16); edge(gear)
+	text(gear, "Icon", "⚙️", 0, 0, 58, 58, 28, nil, BODY, CENTER)
+	gear.MouseButton1Click:Connect(function() togglePopover(refs.settings) end)
 
 	local left = group("LeftColumn", 358, 681, Vector2.new(0, 0))
 	buildProfile(left)
@@ -636,12 +841,14 @@ local function buildFull()
 	end
 
 	local right = group("RightColumn", 357, 853, Vector2.new(1, 0))
+	right.Visible = not cardsHidden
 	buildQuests(right)
 	buildFeatured(right)
 	buildDetail(right)
 
 	refs.groups = { pills = pills, corner = corner_, left = left, bottom = bottom, right = right }
 	moreMenu()
+	settingsMenu()
 end
 
 -- ============================================================
@@ -653,22 +860,21 @@ local RAIL_GAP = 6
 local function railButton(name, icon, label)
 	local b = button(root, name, 0, 0, RAIL, RAIL, C.card, 0.04)
 	round(b, 14)
-	local st = edge(b, C.edge, 2)
-	st.Name = "Edge"
+	edge(b, C.edge, 2)
 	text(b, "Icon", icon, 0, 3, RAIL, 30, 22, nil, BODY, CENTER)
-	text(b, "Label", label, 1, 32, RAIL - 2, 16, 10, C.soft, BODY, CENTER)
+	shrink(text(b, "Label", label, 1, 32, RAIL - 2, 16, 10, C.soft, BODY, CENTER), 10, 9)
 	return b
 end
 
 local function buildCompact()
-	local p1, coins = pill(root, "Coins", "💰", 120, 40)
+	local p1, coins = pill(root, "Coins", "🪙", 120, 40)
 	local p2, gems = pill(root, "Gems", "💎", 120, 40)
 	local p3, pets = pill(root, "PetsPill", "🐾", 120, 40)
 	refs.coins, refs.gems, refs.pets = coins, gems, pets
 	refs.compactPills = { p1, p2, p3 }
 
 	local chip = new("Frame", {
-		Name = "RebirthChip", Size = UDim2.fromOffset(176, 26), AnchorPoint = Vector2.new(0.5, 0),
+		Name = "LevelChip", Size = UDim2.fromOffset(176, 26), AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = C.card, BackgroundTransparency = 0.04, BorderSizePixel = 0,
 	}, root)
 	round(chip); edge(chip)
@@ -688,7 +894,7 @@ local function buildCompact()
 		if item.name ~= "Home" then
 			local b = railButton("Dock_" .. item.name, item.icon, item.short or item.label)
 			b.MouseButton1Click:Connect(function()
-				if item.name == "More" then toggleMore() else open(item.panel) end
+				if item.name == "More" then togglePopover(refs.more) else open(item.panel) end
 			end)
 			table.insert(refs.leftRail, b)
 			refs.nav[item.name] = b
@@ -699,6 +905,9 @@ local function buildCompact()
 		b.MouseButton1Click:Connect(function() open(item.panel) end)
 		table.insert(refs.rightRail, b)
 	end
+	local gear = railButton("HUD_Settings", "⚙️", "Settings")
+	gear.MouseButton1Click:Connect(function() togglePopover(refs.settings) end)
+	table.insert(refs.rightRail, gear)
 	refs.switches = {}
 	for _, sw in ipairs(SWITCHES) do
 		local b = railButton(sw.name, sw.icon, sw.short)
@@ -707,6 +916,7 @@ local function buildCompact()
 		refs.switches[sw.kind] = b
 	end
 	moreMenu()
+	settingsMenu()
 end
 
 -- ============================================================
@@ -767,7 +977,8 @@ local function placeFull(W, H)
 	local cornerTop = 16 * s
 	if maxX < W - 20 then cornerTop = barH + 6 end
 	g.corner.Position = UDim2.fromOffset(W - 14 * s, cornerTop)
-	g.left.Position = UDim2.fromOffset(15 * s, math.max(84 * s, barH + 6))
+	local leftTop = math.max(84 * s, barH + 6)
+	g.left.Position = UDim2.fromOffset(15 * s, leftTop)
 	g.bottom.Position = UDim2.fromOffset(296 * s, H - 59 * s)
 
 	local rightTop = math.max(85 * s, cornerTop + 68 * s)
@@ -776,13 +987,17 @@ local function placeFull(W, H)
 	setScale(g.right, rs)
 	g.right.Position = UDim2.fromOffset(W - 16 * s, rightTop)
 
-	if refs.more then
-		setScale(refs.more, math.max(s, 0.75))
-		refs.more.AnchorPoint = Vector2.new(0, 1)
-		refs.more.Position = UDim2.fromOffset((15 + 265 + 12) * s,
-			math.max(84 * s, barH + 6) + (134 + 7 + 8 * 52 - 14) * s)
-	end
+	-- More opens beside the menu, level with its bottom row; Settings drops
+	-- down from the gear.
+	setScale(refs.more, math.max(s, 0.75))
+	refs.more.AnchorPoint = Vector2.new(0, 1)
+	refs.more.Position = UDim2.fromOffset((15 + 265 + 12) * s, leftTop + (134 + 430) * s)
+	setScale(refs.settings, math.max(s, 0.75))
+	refs.settings.AnchorPoint = Vector2.new(1, 0)
+	refs.settings.Position = UDim2.fromOffset(W - 14 * s, cornerTop + 66 * s)
 end
+
+local narrow = false
 
 local function placeCompact(W, H)
 	local minX = topbar(W)
@@ -790,18 +1005,41 @@ local function placeCompact(W, H)
 	local left = math.max(minX, 100)
 	local avail = W - left - 8
 	local pw = math.min(170, math.floor((avail - 2 * gap) / 3))
-	local x0 = left + math.floor((avail - (3 * pw + 2 * gap)) / 2)
-	for i, p in ipairs(refs.compactPills) do
-		p.Size = UDim2.fromOffset(pw, 40)
-		p.Position = UDim2.fromOffset(x0 + (i - 1) * (pw + gap), 8)
+	-- Three counters in what is left of an upright phone's top row are under
+	-- a hundred points each, too narrow for "123.5M" at a size anyone can
+	-- read. There, coins and gems share the top row and the pet count drops
+	-- to the second, beside the level bar, where Roblox's buttons are not.
+	narrow = pw < 110
+	local pills = refs.compactPills
+	if narrow then
+		local w2 = math.floor((avail - gap) / 2)
+		for i = 1, 2 do
+			pills[i].Size = UDim2.fromOffset(w2, 40)
+			pills[i].Position = UDim2.fromOffset(left + (i - 1) * (w2 + gap), 8)
+		end
+		pills[3].Size = UDim2.fromOffset(104, 40)
+		pills[3].Position = UDim2.fromOffset(8, 54)
+		refs.chip.AnchorPoint = Vector2.new(0, 0)
+		refs.chip.Size = UDim2.fromOffset(W - 128, 26)
+		refs.chip.Position = UDim2.fromOffset(120, 61)
+		refs.barText.Size = UDim2.fromOffset(W - 140, 26)
+	else
+		local x0 = left + math.floor((avail - (3 * pw + 2 * gap)) / 2)
+		for i, p in ipairs(pills) do
+			p.Size = UDim2.fromOffset(pw, 40)
+			p.Position = UDim2.fromOffset(x0 + (i - 1) * (pw + gap), 8)
+		end
+		refs.chip.AnchorPoint = Vector2.new(0.5, 0)
+		refs.chip.Size = UDim2.fromOffset(176, 26)
+		refs.chip.Position = UDim2.fromOffset(W / 2, 54)
+		refs.barText.Size = UDim2.fromOffset(164, 26)
 	end
-	refs.chip.Position = UDim2.fromOffset(W / 2, 54)
 
 	-- The onboarding card hangs at the top centre while a new player learns
 	-- the game. On a narrow screen it spans the width, so the rails start
 	-- below it instead of underneath it.
 	local railTop = 88
-	if W < 470 + 2 * (RAIL + 16) then railTop = 176 end
+	if W < 470 + 2 * (RAIL + 16) then railTop = narrow and 190 or 176 end
 	-- Room above the thumbstick (left) and the jump button (right): the
 	-- bottom quarter of the screen is left to Roblox's own touch controls.
 	local railBottom = math.floor(H * 0.75)
@@ -818,64 +1056,17 @@ local function placeCompact(W, H)
 	rail(refs.leftRail, false)
 	rail(refs.rightRail, true)
 
-	if refs.more then
-		setScale(refs.more, math.min(1, (W - 16) / 300, (H - 16) / 238))
-		refs.more.AnchorPoint = Vector2.new(0.5, 0.5)
-		refs.more.Position = UDim2.fromScale(0.5, 0.5)
+	for _, m in ipairs({ refs.more, refs.settings }) do
+		local size = m.Size
+		setScale(m, math.min(1, (W - 16) / size.X.Offset, (H - 16) / size.Y.Offset))
+		m.AnchorPoint = Vector2.new(0.5, 0.5)
+		m.Position = UDim2.fromScale(0.5, 0.5)
 	end
 end
 
 -- ============================================================
 -- FILLING IN (runs on every data update)
 -- ============================================================
-local function slotsFor(d)
-	return (d.GP_PetSlots and GameConfig.Settings.VIPPetSlots) or GameConfig.Settings.DefaultPetSlots
-end
-
-local function equippedPets(d)
-	local byId = {}
-	for _, p in ipairs(d.Pets or {}) do byId[p.uniqueId] = p end
-	local out = {}
-	for _, uid in ipairs(d.EquippedPets or {}) do
-		if byId[uid] then table.insert(out, byId[uid]) end
-	end
-	return out
-end
-
-local function boostMult(d)
-	local m, now = 1, os.time()
-	for id, expire in pairs(d.ActiveBoosts or {}) do
-		if type(expire) == "number" and expire > now then
-			for _, b in ipairs(GameConfig.Boosts) do
-				if b.id == id then m = m * b.mult end
-			end
-		end
-	end
-	return m
-end
-
--- What one pet earns a second, the way PetService.GetPlayerIncome counts it.
-local function income(pet, d)
-	local pd = PET[pet.name]
-	if not pd then return 0, 0, 1 end
-	local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-	local bonus = ((mut and mut.mult) or 1) * (tonumber(pet.fuseMult) or 1)
-	local reb = d.RebirthMultiplier or 1
-	local coins = pd.coinMult * bonus * reb * (d.GP_2xCoins and 2 or 1) * boostMult(d)
-	local gems = (pd.gemMult or 0) * bonus * reb
-		* (d.GP_VIP and GameConfig.Settings.VIPGemMultiplier or 1) * 0.01
-	return coins, gems, bonus
-end
-
-local function blend(a, b, t)
-	return Color3.new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t)
-end
-
-local function rarityColor(r)
-	local info = GameConfig.Rarities[r or ""]
-	return info and info.color or C.grey
-end
-
 local function showPet(holder, pet)
 	local ok, PetView = pcall(function() return require(script.Parent.PetView) end)
 	local shown = ok and PetView and PetView.Show(holder, pet.name, { mutation = pet.mutation })
@@ -895,7 +1086,8 @@ local function drawSlots(d)
 	-- it does not rebuild six 3D previews.
 	local parts = { tostring(slots) }
 	for _, p in ipairs(pets) do
-		table.insert(parts, tostring(p.uniqueId) .. (p.locked and "L" or "") .. tostring(p.mutation))
+		table.insert(parts, tostring(p.uniqueId) .. (p.locked and "L" or "") .. tostring(p.mutation)
+			.. ":" .. tostring(p.level or 1))
 	end
 	local sig = table.concat(parts, "|")
 	if sig ~= petSig then
@@ -922,26 +1114,27 @@ buildSlots = function(pets, slots)
 			refs.cellEdges[pet.uniqueId] = {
 				stroke = edge(cell, rarityColor(pet.rarity), 2), color = rarityColor(pet.rarity) }
 			local view = new("Frame", {
-				Name = "View", Position = UDim2.fromOffset(16, 4), Size = UDim2.fromOffset(70, 64),
+				Name = "View", Position = UDim2.fromOffset(18, 4), Size = UDim2.fromOffset(66, 56),
 				BackgroundTransparency = 1, BorderSizePixel = 0,
 			}, cell)
 			showPet(view, pet)
-			shrink(text(cell, "PetName", nice(pet.name), 4, 68, 94, 22, 14, C.text, BODY, CENTER), 14)
+			shrink(text(cell, "PetName", nice(pet.name), 4, 60, 94, 18, 14, C.text, BODY, CENTER), 14, 9)
+			text(cell, "PetLevel", "Level " .. (tonumber(pet.level) or 1), 4, 78, 94, 16, 13, C.soft, BODY, CENTER)
 			local r = new("TextLabel", {
-				Name = "Rarity", Position = UDim2.fromOffset(6, 94), Size = UDim2.fromOffset(90, 20),
+				Name = "Rarity", Position = UDim2.fromOffset(6, 98), Size = UDim2.fromOffset(90, 20),
 				BackgroundColor3 = rarityColor(pet.rarity), BorderSizePixel = 0,
 				Text = tostring(pet.rarity or ""), TextColor3 = C.text, Font = BODY, TextSize = 13,
 			}, cell)
 			round(r)
-			if pet.locked then text(cell, "Locked", "🔒", 76, 4, 22, 22, 14, nil, BODY, CENTER) end
+			if pet.locked then text(cell, "Locked", "🔒", 78, 4, 20, 20, 14, nil, BODY, CENTER) end
 			if pet.mutation then
 				local m = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-				text(cell, "Mutation", m and m.emoji or "✨", 4, 4, 22, 22, 14, nil, BODY, CENTER)
+				text(cell, "Mutation", m and m.emoji or "✨", 4, 4, 20, 20, 14, nil, BODY, CENTER)
 			end
 			local uid = pet.uniqueId
 			cell.MouseButton1Click:Connect(function()
 				selectedUid = uid
-				deleteArmed = nil
+				deleteArmed, shinyArmed = nil, nil
 				HUD.Update(data())
 			end)
 		elseif i <= slots then
@@ -960,6 +1153,10 @@ buildSlots = function(pets, slots)
 	end
 end
 
+local function pct(mult)
+	return "+" .. math.floor((mult - 1) * 100 + 0.5) .. "%"
+end
+
 local function drawDetail(d)
 	local v = refs.detail
 	if not v then return end
@@ -971,98 +1168,111 @@ local function drawDetail(d)
 		selectedUid = pet and pet.uniqueId or nil
 	end
 	local has = pet ~= nil
-	for _, k in ipairs({ "stats", "unequip", "fuse", "del", "lock", "rarity", "status" }) do
+	for _, k in ipairs({ "stats", "unequip", "shiny", "del", "lock", "rarity", "lvl", "xpBar",
+		"xpText", "hint" }) do
 		v[k].Visible = has
 	end
 	v.empty.Visible = not has
-	v.extra.Visible = false
 	if not has then
 		v.name.Text = "No pet selected"
 		if v.shown ~= "none" then
 			v.shown = "none"
 			v.portrait:ClearAllChildren()
 			round(v.portrait, 16)
-			v.portraitEdge = edge(v.portrait, C.edge, 2)
+			edge(v.portrait, C.edge, 2)
 			v.portrait.BackgroundColor3 = C.raised
 		end
 		return
 	end
+	local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
 	if v.shown ~= pet.uniqueId .. tostring(pet.mutation) then
 		v.shown = pet.uniqueId .. tostring(pet.mutation)
 		v.portrait:ClearAllChildren()
 		round(v.portrait, 16)
-		v.portraitEdge = edge(v.portrait, rarityColor(pet.rarity), 3)
+		edge(v.portrait, (mut and mut.color) or rarityColor(pet.rarity), 3)
 		showPet(v.portrait, pet)
 	end
 	v.portrait.BackgroundColor3 = blend(rarityColor(pet.rarity), C.raised, 0.65)
-	v.name.Text = nice(pet.name)
+	v.name.Text = (mut and (mut.emoji .. " ") or "") .. nice(pet.name)
 	v.lock.Text = pet.locked and "🔒" or "🔓"
-	v.rarity.Text = string.upper(tostring(pet.rarity or ""))
+	v.rarity.Text = tostring(pet.rarity or "")
 	v.rarity.BackgroundColor3 = rarityColor(pet.rarity)
-	local mut = GameConfig.GetMutation and GameConfig.GetMutation(pet.mutation)
-	local fm = tonumber(pet.fuseMult) or 1
-	if mut then
-		v.extra.Visible = true
-		v.extra.Text = (mut.emoji or "") .. " " .. mut.name
-		v.extra.BackgroundColor3 = mut.color or C.violet
-	elseif fm > 1 then
-		v.extra.Visible = true
-		v.extra.Text = "🧬 Fused"
-		v.extra.BackgroundColor3 = C.violet
+
+	local P = GameConfig.PetLevels
+	local level = tonumber(pet.level) or 1
+	v.lvl.Text = "Level " .. level
+	if level >= P.max then
+		setFill(v.xpFill, 1)
+		v.xpText.Text = "Max Level (" .. P.max .. ")"
+	else
+		local need = GameConfig.PetXPForLevel(level)
+		local into = math.floor(tonumber(pet.xp) or 0)
+		setFill(v.xpFill, into / need)
+		v.xpText.Text = commas(into) .. " / " .. commas(need) .. " XP to Level " .. (level + 1)
 	end
-	local slot = 0
-	for i, uid in ipairs(d.EquippedPets or {}) do if uid == pet.uniqueId then slot = i end end
-	v.status.Text = "● Equipped · slot " .. slot
-	local coins, gems, bonus = income(pet, d)
-	v.rows[1].Text = fmt(coins) .. "/s"
-	v.rows[2].Text = gems > 0 and (gems >= 10 and fmt(gems) or string.format("%.2f", gems)) .. "/s" or "—"
-	v.rows[3].Text = "×" .. (bonus == math.floor(bonus) and tostring(bonus) or string.format("%.1f", bonus))
+
+	local coins, gems, power = income(pet, d)
+	v.rows[1].Text = "+" .. fmt(coins) .. "/s"
+	v.rows[2].Text = gems > 0 and ("+" .. (gems >= 10 and fmt(gems) or string.format("%.2f", gems)) .. "/s") or "—"
+	v.rows[3].Text = pct(power)
+
+	-- Delete: never a locked pet.
 	v.del.Active = not pet.locked
 	v.del.BackgroundTransparency = pet.locked and 0.6 or 0
 	if deleteArmed ~= pet.uniqueId and v.del.Text ~= "🗑" then
 		v.del.Text = "🗑"; v.del.TextSize = 22
 	end
+
+	-- Shiny: a plain or Golden pet, for gems by rarity.
+	local cost = GameConfig.ShinyCost[pet.rarity]
+	local gemsHave = d.Gems or 0
+	local why
+	if pet.mutation == "Shiny" then why = "Already Shiny: x4 coins"
+	elseif pet.mutation == "Rainbow" then why = "Rainbow already beats Shiny"
+	elseif not cost then why = "Cannot be made Shiny"
+	elseif gemsHave < cost then why = "Shiny x4 coins: need " .. commas(cost - gemsHave) .. " more 💎"
+	end
+	v.shiny.Active = why == nil
+	v.shiny.BackgroundTransparency = why and 0.55 or 0
+	v.hint.Text = why or ("Shiny: x4 coins for " .. commas(cost) .. " 💎")
+	if shinyArmed ~= pet.uniqueId and v.shiny.Text ~= "✨ Shiny" then
+		v.shiny.Text = "✨ Shiny"; v.shiny.TextSize = 20
+	end
 end
 
-local function drawProgress(d)
+local function drawProfile(d)
 	if not refs.barFill then return end
-	local reb = d.Rebirths or 0
-	local nextTier
-	for _, t in ipairs(GameConfig.Rebirths) do
-		if t.level == reb + 1 then nextTier = t end
-	end
-	local earned = d.TotalCoinsEarned or 0
-	if nextTier then
-		local f = math.clamp(earned / nextTier.requirement, 0, 1)
-		refs.barFill.Size = UDim2.new(f, 0, 1, 0)
-		refs.barFill.Visible = f > 0.001
-		refs.barText.Text = (mode == "compact" and "♻️ " or "Rebirth  ")
-			.. fmt(math.min(earned, nextTier.requirement)) .. " / " .. fmt(nextTier.requirement)
+	local level, into, need = playerLevel(d)
+	if need then
+		setFill(refs.barFill, into / need)
 	else
-		refs.barFill.Size = UDim2.new(1, 0, 1, 0)
-		refs.barFill.Visible = true
-		refs.barText.Text = "♻️ MAX REBIRTH"
+		setFill(refs.barFill, 1)
 	end
-	if refs.rank then
-		local title = "No rebirths yet"
-		if reb > 0 then
-			title = "Rebirth " .. reb
-			for _, t in ipairs(GameConfig.Rebirths) do
-				if t.level == reb then title = title .. " · " .. t.title end
-			end
-		end
-		refs.rank.Text = "♻️ " .. title
-		refs.vip.Visible = d.GP_VIP == true
-		refs.playerName.Size = UDim2.fromOffset(d.GP_VIP and 138 or 222, 32)
+	if mode == "compact" then
+		refs.barText.Text = "⭐ Level " .. level .. (need and ("  ·  " .. fmt(into) .. "/" .. fmt(need)) or "  ·  MAX")
+		return
 	end
+	refs.barText.Text = need and (commas(into) .. " / " .. commas(need) .. " XP") or "MAX LEVEL"
+	local reb = d.Rebirths or 0
+	refs.level.Text = "Level " .. level .. (reb > 0 and ("   ♻️ Rebirth " .. reb) or "")
+	refs.vip.Visible = d.GP_VIP == true
+	-- Without the VIP line the level moves up into its place.
+	refs.level.Position = UDim2.fromOffset(122, d.GP_VIP and 64 or 46)
+	refs.barText.Parent.Position = UDim2.fromOffset(122, d.GP_VIP and 90 or 74)
 end
 
 local function drawQuests()
 	local rows = refs.questRows
 	if not rows then return end
-	local open_ = {}
+	local open_, dailyDone, dailyAll = {}, 0, 0
 	for _, q in ipairs(questsCache or {}) do
-		if type(q) == "table" and not q.claimed then table.insert(open_, q) end
+		if type(q) == "table" then
+			if q.kind == "daily" then
+				dailyAll = dailyAll + 1
+				if q.done or q.claimed then dailyDone = dailyDone + 1 end
+			end
+			if not q.claimed then table.insert(open_, q) end
+		end
 	end
 	-- Ready to claim first, then today's, then whatever is closest to done.
 	local function rank(q)
@@ -1075,9 +1285,10 @@ local function drawQuests()
 		local q = open_[i]
 		sig[i] = q and (tostring(q.id) .. ":" .. tostring(q.progress) .. ":" .. tostring(q.done)) or "-"
 	end
-	sig = table.concat(sig, "|") .. "|" .. tostring(questsCache ~= nil)
+	sig = table.concat(sig, "|") .. "|" .. tostring(questsCache ~= nil) .. "|" .. dailyDone
 	if sig == questSig then return end
 	questSig = sig
+	refs.questCount.Text = dailyAll > 0 and (dailyDone .. "/" .. dailyAll) or ""
 	for i, r in ipairs(rows) do
 		local q = open_[i]
 		r.row.Visible = q ~= nil
@@ -1085,16 +1296,13 @@ local function drawQuests()
 			local goal = math.max(1, tonumber(q.goal) or 1)
 			local prog = math.min(goal, tonumber(q.progress) or 0)
 			r.name.Text = tostring(q.name or q.desc or "Quest")
-			r.fill.Size = UDim2.new(prog / goal, 0, 1, 0)
-			r.fill.Visible = prog > 0
+			setFill(r.fill, prog / goal)
 			if q.done then
 				r.amount.Text = "Completed!"; r.amount.TextColor3 = C.green
-				r.fill.BackgroundColor3 = C.green
 				r.ring.BackgroundTransparency = 0; r.ringEdge.Color = C.green
 				r.tick.Visible = true
 			else
-				r.amount.Text = fmt(prog) .. "/" .. fmt(goal); r.amount.TextColor3 = C.soft
-				r.fill.BackgroundColor3 = C.blue
+				r.amount.Text = commas(prog) .. " / " .. commas(goal); r.amount.TextColor3 = C.soft
 				r.ring.BackgroundTransparency = 1; r.ringEdge.Color = C.dim
 				r.tick.Visible = false
 			end
@@ -1116,9 +1324,10 @@ local function drawEvent()
 	local on = type(e) == "table" and e.active == true
 	refs.event.Visible = on
 	if on then
+		refs.eventIcon.Text = tostring(e.tokenIcon or "🎉")
 		refs.eventName.Text = tostring(e.name or "Event")
-		refs.eventInfo.Text = tostring(e.tokenIcon or "🎟️") .. " " .. fmt(tonumber(e.tokens) or 0)
-			.. " " .. tostring(e.tokenName or "tokens") .. "  ·  Tap to shop"
+		refs.eventInfo.Text = commas(tonumber(e.tokens) or 0) .. " " .. tostring(e.tokenName or "tokens")
+			.. "  ·  Shop"
 	end
 end
 
@@ -1127,37 +1336,60 @@ function HUD.RefreshSwitches()
 		local b = refs.switches and refs.switches[sw.kind]
 		if b and b.Parent then
 			local st = switchState(sw.kind)
-			local look = PILL_LOOK[st]
-			local edge_ = b:FindFirstChild("Edge")
+			local label, color = pillLook(sw.kind, st)
+			local e = b:FindFirstChild("Edge")
 			local pillLabel = b:FindFirstChild("State")
 			if pillLabel then
-				pillLabel.Text = look[1]; pillLabel.BackgroundColor3 = look[2]
+				pillLabel.Text = label; pillLabel.BackgroundColor3 = color
 			end
-			if edge_ then
-				edge_.Color = st == "on" and C.green or C.edge
-				edge_.Thickness = st == "on" and 3 or 2
+			if e then
+				e.Color = st == "on" and C.green or C.edge
+				e.Thickness = st == "on" and 3 or 2
 			end
-			if sw.kind == "Mute" then
-				local icon = b:FindFirstChild("Icon")
-				if icon then icon.Text = st == "off" and "🔇" or "🔊" end
+			-- The mockup's switched-on tile stands out: a little bigger, with
+			-- a green ring. Grown about its centre so it never reaches a neighbour.
+			local hx, hy = b:GetAttribute("HomeX"), b:GetAttribute("HomeY")
+			if hx and hy then
+				local grow = st == "on" and 6 or 0
+				b.Position = UDim2.fromOffset(hx - grow, hy - grow)
+				b.Size = UDim2.fromOffset(118 + 2 * grow, 118 + grow)
+				b.BackgroundColor3 = st == "on" and Color3.fromRGB(18, 44, 46) or C.card
+			end
+			if mode == "compact" then
+				local lbl = b:FindFirstChild("Label")
+				if lbl then lbl.Text = st == "locked" and ("Lv " .. GameConfig.AutoHatch.level) or sw.short end
 			end
 		end
+	end
+	for kind, r in pairs(refs.settingRows or {}) do
+		local st = switchState(kind)
+		r.button.Text = st == "on" and (kind == "Cards" and "SHOWN" or "ON") or (kind == "Cards" and "HIDDEN" or "OFF")
+		r.button.BackgroundColor3 = st == "on" and C.green or C.grey
+		if kind == "Mute" then r.icon.Text = st == "off" and "🔇" or "🔊" end
 	end
 end
 
 function HUD.ShowSlide(i)
-	local n = #FEATURED
+	local list = slides()
+	local n = #list
 	slide = ((i - 1) % n + n) % n + 1
-	local f, item = refs.feature, FEATURED[slide]
+	local f, item = refs.feature, list[slide]
 	if not f or not item then return end
-	f.tag.Text = item.tag; f.icon.Text = item.icon
+	f.tag.Text = item.tag
 	f.title.Text = item.title; f.sub.Text = item.sub
+	if item.egg then
+		f.icon.Text = "🥚"
+		f.orb.BackgroundColor3 = item.egg.color or C.violet
+	else
+		f.icon.Text = item.icon
+		f.orb.BackgroundColor3 = C.violet
+	end
 end
 
 -- ============================================================
 -- KEEPING UP (cheap, on a timer; never every frame)
 -- ============================================================
-local lastQuests, lastEvent = -math.huge, -math.huge
+local lastQuests = -math.huge
 
 local function fetchQuests(force)
 	if mode ~= "full" then return end
@@ -1177,7 +1409,6 @@ end
 
 local function fetchEvent()
 	if mode ~= "full" then return end
-	lastEvent = os.clock()
 	local rf = remote("GetEvent")
 	if not rf then return end
 	task.spawn(function()
@@ -1261,11 +1492,14 @@ end
 
 function HUD.Update(d)
 	if not d or not refs.coins then return end
-	refs.coins.Text = fmt(d.Coins or 0)
-	refs.gems.Text = fmt(d.Gems or 0)
+	-- A phone's pill is a third of a narrow screen: 1.2M reads there,
+	-- 1,250,000 would be squeezed to nothing.
+	local count = mode == "full" and commas or fmt
+	refs.coins.Text = count(d.Coins or 0)
+	refs.gems.Text = count(d.Gems or 0)
 	refs.pets.Text = #(d.EquippedPets or {}) .. "/" .. slotsFor(d)
 	if refs.petCount then refs.petCount.Text = #(d.EquippedPets or {}) .. "/" .. slotsFor(d) end
-	drawProgress(d)
+	drawProfile(d)
 	-- The detail card first: it settles which pet is selected (the first one
 	-- out, if none is), and the pet cards then mark that one.
 	drawDetail(d)
@@ -1278,7 +1512,7 @@ end
 -- in from the top (toasts, the onboarding card) to sit below.
 function HUD.ClearY()
 	if mode == "full" then return math.floor(96 * s) end
-	return 86
+	return narrow and 100 or 86
 end
 
 function HUD.Mode() return mode end

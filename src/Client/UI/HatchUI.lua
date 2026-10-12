@@ -256,6 +256,14 @@ local function showModel(holder, pet)
 end
 
 function HatchUI.ShowHatchResult(pets, eggId)
+	-- One reveal at a time. Auto Hatch sends one every few seconds, and they
+	-- used to pile up under each other until each one's own timer ran out.
+	local old = PlayerGui:FindFirstChild("HatchResultGui")
+	if old then old:Destroy() end
+	-- Fast Hatch: no dimmed screen, the cards at once, gone on their own.
+	local d = G().getData and G().getData()
+	local fast = type(d) == "table" and d.FastHatch == true
+
 	local screen = Instance.new("ScreenGui")
 	screen.Name           = "HatchResultGui"
 	screen.ResetOnSpawn   = false
@@ -264,12 +272,14 @@ function HatchUI.ShowHatchResult(pets, eggId)
 	screen.Parent         = PlayerGui
 
 	-- Dark backdrop
-	local backdrop = Instance.new("Frame")
-	backdrop.Size             = UDim2.new(1, 0, 1, 0)
-	backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
-	backdrop.BackgroundTransparency = 0.4
-	backdrop.BorderSizePixel  = 0
-	backdrop.Parent           = screen
+	if not fast then
+		local backdrop = Instance.new("Frame")
+		backdrop.Size             = UDim2.new(1, 0, 1, 0)
+		backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
+		backdrop.BackgroundTransparency = 0.4
+		backdrop.BorderSizePixel  = 0
+		backdrop.Parent           = screen
+	end
 
 	-- A grid that fits the screen.
 	--
@@ -302,7 +312,7 @@ function HatchUI.ShowHatchResult(pets, eggId)
 	for i, pet in ipairs(pets) do
 		local rarityInfo = G().GameConfig.Rarities[pet.rarity]
 		local rarityColor = rarityInfo.color
-		local delay = (i - 1) * 0.15
+		local delay = fast and 0 or (i - 1) * 0.15
 		local col = (i - 1) % cols
 		local row = math.floor((i - 1) / cols)
 		local inRow = math.min(cols, n - row * cols)
@@ -436,7 +446,7 @@ function HatchUI.ShowHatchResult(pets, eggId)
 
 	-- Continue: under the grid, never off the bottom of the screen.
 	task.delay(0.5 + n * 0.15, function()
-		if not screen.Parent then return end
+		if fast or not screen.Parent then return end
 		local continueBtn = Instance.new("TextButton")
 		continueBtn.Name             = "Continue"
 		continueBtn.Size             = UDim2.new(0, 200, 0, 50)
@@ -458,8 +468,8 @@ function HatchUI.ShowHatchResult(pets, eggId)
 		end)
 	end)
 
-	-- Auto-close after 8 seconds
-	task.delay(8, function()
+	-- Auto-close after 8 seconds (Fast Hatch: under two)
+	task.delay(fast and 1.6 or 8, function()
 		if screen and screen.Parent then
 			screen:Destroy()
 		end

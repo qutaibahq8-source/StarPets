@@ -95,7 +95,7 @@ local RE_Notification = Remotes:WaitForChild("Notification")
 -- With a timeout. A bare WaitForChild on a remote the server does not have
 -- yields forever, and this is the script that builds the whole HUD.
 local RE_SetMuted     = Remotes:WaitForChild("SetMuted", 10)
-local RE_SetAutoCollect = Remotes:WaitForChild("SetAutoCollect", 10)
+local RE_SetSwitch    = Remotes:WaitForChild("SetSwitch", 10)
 local RE_HatchEgg     = Remotes:WaitForChild("HatchEgg")
 local RE_EquipPet     = Remotes:WaitForChild("EquipPet")
 local RE_UnequipPet   = Remotes:WaitForChild("UnequipPet")
@@ -282,11 +282,18 @@ local function toggleMute()
 	if RE_SetMuted then RE_SetMuted:FireServer(m) end
 end
 
--- Auto Collect on/off, for a player who owns the pass. Shown at once; the
--- server's next update confirms it.
-local function setAutoCollect(on)
-	if CurrentData then CurrentData.AutoCollectOff = not on end
-	if RE_SetAutoCollect then RE_SetAutoCollect:FireServer(on) end
+-- The HUD's switches (Auto Hatch, Auto Collect, Fast Hatch). Shown flipped
+-- at once; the server decides, and its update, sent straight back, is what
+-- the switch then shows — so a refused switch (Auto Hatch below its level)
+-- flips back.
+local SWITCH_FIELD = {
+	AutoCollect = function(d, on) d.AutoCollectOff = not on end,
+	AutoHatch   = function(d, on) d.AutoHatch = on end,
+	FastHatch   = function(d, on) d.FastHatch = on end,
+}
+local function setSwitch(name, on)
+	if CurrentData and SWITCH_FIELD[name] then SWITCH_FIELD[name](CurrentData, on) end
+	if RE_SetSwitch then RE_SetSwitch:FireServer(name, on) end
 	HUDView.RefreshSwitches()
 end
 
@@ -300,7 +307,7 @@ local function buildHUD()
 		getData = function() return CurrentData end,
 		isMuted = function() return Sfx ~= nil and Sfx.IsMuted() end,
 		onMute = toggleMute,
-		onAutoCollect = setAutoCollect,
+		onSwitch = setSwitch,
 	}, HUD)
 end
 

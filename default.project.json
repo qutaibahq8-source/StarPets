@@ -48,6 +48,9 @@
         "LeaderboardService": {
           "$path": "src/Server/LeaderboardService.lua"
         },
+        "LevelService": {
+          "$path": "src/Server/LevelService.lua"
+        },
         "QuestService": {
           "$path": "src/Server/QuestService.lua"
         },
@@ -108,6 +111,12 @@
             },
             "HUD": {
               "$path": "src/Client/UI/HUD.lua"
+            },
+            "MapsPanel": {
+              "$path": "src/Client/UI/MapsPanel.lua"
+            },
+            "AchievementsPanel": {
+              "$path": "src/Client/UI/AchievementsPanel.lua"
             },
             "Sfx": {
               "$path": "src/Client/UI/Sfx.lua"
