@@ -108,6 +108,11 @@ def main():
     PS.GrantPet(bob, lua.eval('{name="dragon", rarity="Epic", uniqueId="bob-dragon", '
                               'mutation="Rainbow", fuseMult=3.5}'))
     PS.GrantPet(me, lua.eval('{name="cat", rarity="Common", uniqueId="me-cat"}'))
+    # What the server does after anything that changes a player's pets: send
+    # them their data. The client holds a copy, as in Roblox, so a pet given
+    # on the server is not in the client's list until this arrives.
+    lua.eval("function(p, d) game.ReplicatedStorage.Remotes.DataUpdated:FireClient(p, d) end")(me, mine)
+    tick(1)
 
     trade = lua.eval("game.ReplicatedStorage.Remotes.Trade")
     as_bob = lua.eval("function(r, p, ...) r.OnServerEvent:Fire(p, ...) end")

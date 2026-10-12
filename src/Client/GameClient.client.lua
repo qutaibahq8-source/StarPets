@@ -22,6 +22,9 @@ local function popup(panel)
 	TweenService:Create(s, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 end
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+-- The HUD itself: counters, cards, menu and buttons. Built and laid out in its
+-- own module; this script feeds it data and owns what its switches do.
+local HUDView = require(script.Parent.UI.HUD)
 
 -- ============================================================
 -- LOADING SCREEN
@@ -92,6 +95,7 @@ local RE_Notification = Remotes:WaitForChild("Notification")
 -- With a timeout. A bare WaitForChild on a remote the server does not have
 -- yields forever, and this is the script that builds the whole HUD.
 local RE_SetMuted     = Remotes:WaitForChild("SetMuted", 10)
+local RE_SetAutoCollect = Remotes:WaitForChild("SetAutoCollect", 10)
 local RE_HatchEgg     = Remotes:WaitForChild("HatchEgg")
 local RE_EquipPet     = Remotes:WaitForChild("EquipPet")
 local RE_UnequipPet   = Remotes:WaitForChild("UnequipPet")
@@ -236,8 +240,10 @@ local function showToast(notifType, message)
 	lbl.TextColor3 = Color3.new(1,1,1); lbl.TextScaled = true
 	lbl.Font = Enum.Font.GothamBold; lbl.TextWrapped = true; lbl.Parent = frame
 
+	-- Below the HUD's counters, not over them: a toast about coins used to
+	-- cover the coin counter for the three seconds it was up.
 	TweenService:Create(frame,TweenInfo.new(0.35,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-170,0,18)
+		Position=UDim2.new(0.5,-170,0,HUDView.ClearY() + 6)
 	}):Play()
 	task.delay(3,function()
 		if frame and frame.Parent then
@@ -253,7 +259,6 @@ end
 -- HUD BUILD
 -- ============================================================
 local HUD
-local CoinLabel, GemLabel, RebirthLabel, PetCountLabel
 local prevCoins = 0
 
 -- Sound. Required through pcall so a broken sound module can never take the
@@ -269,246 +274,40 @@ local prevGems, prevAreas, prevRebirths, prevEquipped = nil, nil, nil, nil
 -- One ping per pickup at that rate is a buzz, not a sound.
 local lastCoinPing = 0
 
--- The HUD's movable pieces, kept so layoutHUD can rearrange them when the
--- screen changes size.
-local statChips = {}
-local dockButtons = {}
-local moreBtn = nil
-local dockExpanded = false
-local muteBtn = nil
+-- Sound on/off, from the HUD's Sound switch. Saved with the player.
+local function toggleMute()
+	local m = not (Sfx and Sfx.IsMuted())
+	if Sfx then Sfx.SetMuted(m) end
+	HUDView.RefreshSwitches()
+	if RE_SetMuted then RE_SetMuted:FireServer(m) end
+end
+
+-- Auto Collect on/off, for a player who owns the pass. Shown at once; the
+-- server's next update confirms it.
+local function setAutoCollect(on)
+	if CurrentData then CurrentData.AutoCollectOff = not on end
+	if RE_SetAutoCollect then RE_SetAutoCollect:FireServer(on) end
+	HUDView.RefreshSwitches()
+end
 
 local function buildHUD()
 	HUD = Instance.new("ScreenGui")
 	HUD.Name="MysticPetsHUD"; HUD.ResetOnSpawn=false
-	HUD.DisplayOrder=10; HUD.IgnoreGuiInset=true; HUD.Parent=PlayerGui
-
-	-- TOP BAR
-	local topBar = Instance.new("Frame")
-	topBar.Size = UDim2.new(1,0,0,58)
-	topBar.BackgroundColor3 = Color3.fromRGB(12,10,22)
-	topBar.BackgroundTransparency = 0.1; topBar.BorderSizePixel=0
-	topBar.Parent = HUD
-	local tg = Instance.new("UIGradient"); tg.Parent=topBar
-	tg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(35,18,70)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,8,25))})
-	tg.Rotation=90
-
-	local function statChip(pos, icon, defaultText, textColor, bgColor)
-		local chip = Instance.new("Frame")
-		chip.Size=UDim2.new(0,155,0,42); chip.Position=pos
-		chip.BackgroundColor3=bgColor; chip.BackgroundTransparency=0.25
-		chip.BorderSizePixel=0; chip.Parent=topBar
-		Instance.new("UICorner",chip).CornerRadius=UDim.new(0,10)
-		local stroke = Instance.new("UIStroke"); stroke.Color=textColor
-		stroke.Transparency=0.7; stroke.Parent=chip
-
-		local iconLbl = Instance.new("TextLabel")
-		iconLbl.Size=UDim2.new(0,34,1,0); iconLbl.BackgroundTransparency=1
-		iconLbl.Text=icon; iconLbl.TextScaled=true; iconLbl.Font=Enum.Font.Gotham
-		iconLbl.Parent=chip
-
-		local valLbl = Instance.new("TextLabel")
-		valLbl.Size=UDim2.new(1,-38,1,0); valLbl.Position=UDim2.new(0,36,0,0)
-		valLbl.BackgroundTransparency=1; valLbl.Text=defaultText
-		valLbl.TextColor3=textColor; valLbl.TextScaled=true
-		valLbl.Font=Enum.Font.GothamBold; valLbl.TextXAlignment=Enum.TextXAlignment.Left
-		valLbl.Parent=chip
-		table.insert(statChips, chip)
-		return valLbl
-	end
-
-	-- Right-aligned so they clear the Roblox menu/chat/voice icons (top-left).
-	-- These are the DESKTOP positions; layoutHUD moves them on a narrow screen.
-	CoinLabel   = statChip(UDim2.new(1,-493,0,8), "💰","0",   Color3.fromRGB(255,215,0),  Color3.fromRGB(50,35,10))
-	GemLabel    = statChip(UDim2.new(1,-328,0,8), "💎","0",   Color3.fromRGB(0,200,255),  Color3.fromRGB(0,20,40))
-	PetCountLabel = statChip(UDim2.new(1,-163,0,8),"🐾","0/0", Color3.fromRGB(200,150,255),Color3.fromRGB(30,15,50))
-
-	-- Center rebirth badge (top bar, stays)
-	RebirthLabel = Instance.new("TextLabel")
-	RebirthLabel.Size=UDim2.new(0,160,0,38); RebirthLabel.Position=UDim2.new(0.5,-80,0,10)
-	RebirthLabel.BackgroundColor3=Color3.fromRGB(80,0,130); RebirthLabel.BackgroundTransparency=0.25
-	RebirthLabel.Text="⭐ No Rebirth"; RebirthLabel.TextColor3=Color3.fromRGB(220,180,255)
-	RebirthLabel.TextScaled=true; RebirthLabel.Font=Enum.Font.GothamBold
-	RebirthLabel.BorderSizePixel=0; RebirthLabel.Parent=topBar
-	Instance.new("UICorner",RebirthLabel).CornerRadius=UDim.new(0,10)
-	Instance.new("UIStroke",RebirthLabel).Color=Color3.fromRGB(150,80,255)
-
-	-- RIGHT SIDE NAV (vertical stack, no Rebirth — that's in the world)
-	local navButtons = {
-		{ name="Pets",    emoji="🐾", panel="PetsPanel",        color=Color3.fromRGB(140,80,255) },
-		{ name="Index",   emoji="📖", panel="PetIndexPanel",    color=Color3.fromRGB(150,120,255) },
-		{ name="Quests",  emoji="📜", panel="QuestPanel",       color=Color3.fromRGB(90,160,255) },
-		-- Hatch removed from HUD on purpose: hatching is via the physical eggs in the world
-		{ name="Ranks",   emoji="🏆", panel="LeaderboardPanel", color=Color3.fromRGB(255,215,0)  },
-		{ name="Upgrade", emoji="⚡", panel="UpgradePanel",     color=Color3.fromRGB(255,200,0)  },
-		{ name="Shop",    emoji="🛒", panel="ShopPanel",        color=Color3.fromRGB(255,140,0)  },
-		{ name="Merchant",emoji="🪙", panel="MerchantPanel",   color=Color3.fromRGB(255,180,90) },
-		{ name="Event",   emoji="🎉", panel="EventPanel",      color=Color3.fromRGB(255,120,200) },
-		{ name="Trade",   emoji="🤝", panel="TradePanel",      color=Color3.fromRGB(90,200,120) },
-		{ name="Codes",   emoji="🎁", panel="CodesPanel",      color=Color3.fromRGB(90,200,150) },
-		{ name="Daily",   emoji="📅", panel="DailyPanel",      color=Color3.fromRGB(255,200,80) },
-		{ name="Boosts",  emoji="⚡", panel="BoostsPanel",     color=Color3.fromRGB(255,170,60) },
-		{ name="Fusion",  emoji="🧬", panel="FusionPanel",     color=Color3.fromRGB(150,90,240) },
-		{ name="Playtime",emoji="⏱️", panel="PlaytimePanel",   color=Color3.fromRGB(90,200,255) },
-		{ name="Spin",    emoji="🎡", panel="SpinWheelPanel",   color=Color3.fromRGB(255,120,200) },
-	}
-	-- Button DOCK along the bottom. Buttons are made once here and PLACED by
-	-- layoutHUD, which runs again whenever the screen changes size.
-	--
-	-- The old dock was eight across at 50px: 442 points wide. A portrait phone
-	-- is about 390, so the outer buttons hung off both edges and the rest sat
-	-- on top of Roblox's own thumbstick and jump button.
-	local PRIMARY = { Pets=true, Index=true, Quests=true, Upgrade=true, Shop=true }
-
-	local function dockButton(label, color)
-		local b = Instance.new("TextButton")
-		b.BackgroundColor3 = Color3.fromRGB(18,14,35)
-		b.BackgroundTransparency = 0.15
-		b.Text     = label
-		b.TextColor3 = Color3.new(1,1,1)
-		b.TextScaled = true
-		b.Font     = Enum.Font.GothamBold
-		b.BorderSizePixel = 0
-		b.Parent   = HUD
-		Instance.new("UICorner",b).CornerRadius = UDim.new(0,14)
-		local stroke = Instance.new("UIStroke",b)
-		stroke.Color = color; stroke.Thickness = 2; stroke.Transparency = 0.4
-		b.MouseEnter:Connect(function()
-			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0}):Play()
-			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0}):Play()
-		end)
-		b.MouseLeave:Connect(function()
-			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0.15}):Play()
-			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0.4}):Play()
-		end)
-		return b
-	end
-
-	for _, btn in ipairs(navButtons) do
-		local b = dockButton(btn.emoji.."\n"..btn.name, btn.color)
-		b.Name = "Dock_"..btn.name
-		b.MouseButton1Click:Connect(function()
-			local UIController = require(script.Parent.UI.UIController)
-			UIController.TogglePanel(btn.panel, CurrentData)
-		end)
-		table.insert(dockButtons, { b = b, primary = PRIMARY[btn.name] == true })
-	end
-
-	-- "More": only shown on a narrow screen, where it opens the rest of the dock.
-	moreBtn = dockButton("⋯\nMore", Color3.fromRGB(200,200,220))
-	moreBtn.Name = "Dock_More"
-	moreBtn.Visible = false
-
-	-- Sound on/off. Not a dock button: it opens no panel, and it is reached
-	-- for in a hurry.
-	muteBtn = Instance.new("TextButton")
-	muteBtn.Name = "HUD_Mute"
-	muteBtn.BackgroundColor3 = Color3.fromRGB(18,14,35)
-	muteBtn.BackgroundTransparency = 0.15
-	muteBtn.Text = "🔊"
-	muteBtn.TextScaled = true
-	muteBtn.Font = Enum.Font.GothamBold
-	muteBtn.TextColor3 = Color3.new(1,1,1)
-	muteBtn.BorderSizePixel = 0
-	muteBtn.Parent = HUD
-	Instance.new("UICorner", muteBtn).CornerRadius = UDim.new(0,10)
+	HUD.DisplayOrder=10; HUD.IgnoreGuiInset=true
+	HUD.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; HUD.Parent=PlayerGui
+	HUDView.Init({
+		fmt = fmt,
+		getData = function() return CurrentData end,
+		isMuted = function() return Sfx ~= nil and Sfx.IsMuted() end,
+		onMute = toggleMute,
+		onAutoCollect = setAutoCollect,
+	}, HUD)
 end
 
--- Lay the HUD out for the screen it is on.
---
--- A desktop keeps exactly the layout it always had. Below COMPACT points wide:
---   * the three counters share the width to the right of Roblox's own menu
---     button, instead of sitting at fixed offsets from the right edge — which
---     on a phone put the COIN counter 103 points off the left of the screen
---   * the rebirth badge drops below the bar instead of being drawn on top of
---     the gem and pet counters
---   * the dock shows its five most used buttons plus "More", sized to the
---     44-point touch target, and wraps to fit rather than hanging off the edge
-local COMPACT = 700
-local DESKTOP_CHIPS = { -493, -328, -163 }
-
-local function viewportWidth()
-	local cam = workspace.CurrentCamera
-	local w = cam and cam.ViewportSize and cam.ViewportSize.X
-	if type(w) ~= "number" or w <= 0 then return 1280 end
-	return w
-end
-
+-- Lay the HUD out for the screen it is on. HUDView picks the layout: the
+-- mockup's cards on a computer, side rails of touch-sized buttons on a phone.
 local function layoutHUD()
-	if not HUD then return end
-	local W = viewportWidth()
-	local compact = W < COMPACT
-
-	-- ---- top bar ----
-	if compact then
-		-- Clear of Roblox's own menu AND chat icons, which sit at the
-		-- top-left of a phone. 64 cleared the menu and sat under chat.
-		local left = 100
-		local gap = 6
-		local cw = math.max(70, math.floor((W - left - 8 - gap * 2) / 3))
-		for i, chip in ipairs(statChips) do
-			chip.Size = UDim2.new(0, cw, 0, 40)
-			chip.Position = UDim2.new(0, left + (i - 1) * (cw + gap), 0, 9)
-		end
-		if RebirthLabel then
-			RebirthLabel.Size = UDim2.new(0, 150, 0, 26)
-			RebirthLabel.Position = UDim2.new(0.5, -75, 0, 62)
-		end
-	else
-		for i, chip in ipairs(statChips) do
-			chip.Size = UDim2.new(0, 155, 0, 42)
-			chip.Position = UDim2.new(1, DESKTOP_CHIPS[i] or -163, 0, 8)
-		end
-		if RebirthLabel then
-			RebirthLabel.Size = UDim2.new(0, 160, 0, 38)
-			RebirthLabel.Position = UDim2.new(0.5, -80, 0, 10)
-		end
-	end
-
-	if muteBtn then
-		if compact then
-			-- Below the bar at the right, opposite the rebirth badge.
-			muteBtn.Size = UDim2.new(0, 44, 0, 30)
-			muteBtn.Position = UDim2.new(1, -52, 0, 60)
-		else
-			-- In the bar, just right of Roblox's icons, nowhere near the counters.
-			muteBtn.Size = UDim2.new(0, 42, 0, 40)
-			muteBtn.Position = UDim2.new(0, 104, 0, 9)
-		end
-	end
-
-	-- ---- dock ----
-	local size = compact and 44 or 50
-	local gap = compact and 5 or 6
-	local visible = {}
-	for _, d in ipairs(dockButtons) do
-		local show = (not compact) or dockExpanded or d.primary
-		d.b.Visible = show
-		if show then table.insert(visible, d.b) end
-	end
-	if moreBtn then
-		moreBtn.Visible = compact
-		moreBtn.Text = dockExpanded and "✕\nLess" or "⋯\nMore"
-		if compact then table.insert(visible, moreBtn) end
-	end
-
-	local perRow = compact
-		and math.max(1, math.floor((W - 24 + gap) / (size + gap)))
-		or 8
-	perRow = math.min(perRow, 8)
-	local n = #visible
-	local numRows = math.ceil(n / perRow)
-	local bottomMargin = 16
-	for i, b in ipairs(visible) do
-		local row      = math.floor((i-1) / perRow)
-		local idxInRow = (i-1) % perRow
-		local rowCount = math.min(perRow, n - row*perRow)
-		local rowW     = rowCount*size + (rowCount-1)*gap
-		local xoff     = -rowW/2 + idxInRow*(size+gap)
-		local rowsFromBottom = (numRows-1) - row
-		local yoff     = -bottomMargin - size - rowsFromBottom*(size+gap)
-		b.Size     = UDim2.new(0, size, 0, size)
-		b.Position = UDim2.new(0.5, xoff, 1, yoff)
-	end
+	HUDView.Layout()
 end
 
 -- ============================================================
@@ -520,7 +319,6 @@ local function onDataUpdated(data)
 	-- could play, so a muted player is not greeted by a coin ping on join.
 	if Sfx and data.Muted ~= nil and Sfx.IsMuted() ~= (data.Muted == true) then
 		Sfx.SetMuted(data.Muted == true)
-		if muteBtn then muteBtn.Text = data.Muted and "🔇" or "🔊" end
 	end
 
 	local newCoins = data.Coins or 0
@@ -558,13 +356,7 @@ local function onDataUpdated(data)
 	prevCoins = newCoins
 	CurrentData = data
 	updateBarriers(data)
-	if not CoinLabel then return end
-	CoinLabel.Text    = fmt(data.Coins or 0)
-	GemLabel.Text     = fmt(data.Gems or 0)
-	local maxSlots = (data.GP_PetSlots and GameConfig.Settings.VIPPetSlots or GameConfig.Settings.DefaultPetSlots)
-	PetCountLabel.Text = #(data.EquippedPets or {}).."/"..maxSlots
-	local r = data.Rebirths or 0
-	RebirthLabel.Text = r>0 and ("♻️ "..r.."x Rebirth") or "⭐ No Rebirth"
+	HUDView.Update(data)
 	-- Only refresh an OPEN panel when the inventory actually changed — rebuilding
 	-- it every coin tick is what made the Pets tab flicker/pop.
 	local sig = #(data.Pets or {}) .. "|" .. table.concat(data.EquippedPets or {}, ",")
@@ -896,6 +688,9 @@ _G.MysticPets = {
 	getPlayer=function() return Player end,
 	getData=function() return CurrentData end,
 	layoutHUD=function() layoutHUD() end,
+	-- How far down the HUD reaches at the top centre, for anything that drops
+	-- in from the top (the onboarding card) to sit below.
+	hudClearY=function() return HUDView.ClearY() end,
 }
 
 -- Admin button — only appears for authorized users (server decides)
@@ -919,27 +714,6 @@ end)
 -- ============================================================
 buildHUD()
 layoutHUD()
-
-if moreBtn then
-	moreBtn.MouseButton1Click:Connect(function()
-		dockExpanded = not dockExpanded
-		layoutHUD()
-	end)
-end
-
-local function showMute(m)
-	if muteBtn then muteBtn.Text = m and "🔇" or "🔊" end
-end
-if muteBtn then
-	muteBtn.MouseButton1Click:Connect(function()
-		local m = not (Sfx and Sfx.IsMuted())
-		-- Click sound BEFORE muting when switching off, so the switch itself is
-		-- heard once; switching back on is heard by the click Responsive plays.
-		if Sfx then Sfx.SetMuted(m) end
-		showMute(m)
-		if RE_SetMuted then RE_SetMuted:FireServer(m) end
-	end)
-end
 
 -- Follow the screen: rotating a phone, resizing a window, or the camera
 -- arriving after this script ran all change the viewport.

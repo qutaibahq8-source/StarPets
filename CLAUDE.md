@@ -7,7 +7,7 @@ way. Read it before changing anything; it is short on purpose.
 ## Run this first
 
 ```bash
-bash tools/scan_all.sh        # 31 checks, a few minutes, no Studio needed
+bash tools/scan_all.sh        # 32 checks, a few minutes, no Studio needed
 ```
 
 They boot the real server and the real client against a Roblox mock (`lupa`),
@@ -23,6 +23,7 @@ reintroducing that bug. If one fails, something is genuinely broken.
 src/Server/GameServer.server.lua   the one Script. Builds the map, owns the remotes.
 src/Server/*.lua                   ModuleScripts, required by GameServer
 src/Client/GameClient.client.lua   the one LocalScript
+src/Client/UI/HUD.lua              the HUD, after the owner's mockup (see below)
 src/Client/UI/*.lua                panels, required by UIController
 src/Shared/GameConfig.lua          all tunable data: pets, eggs, worlds, prices
 default.project.json               the manifest. A file missing from here does NOT ship.
@@ -108,6 +109,36 @@ python3 tools/render_map.py out.png          # top-down, whole map
 
 A top-down diagram answers "is it there". The isometric one answers "does it
 look right", which is the question that actually gets asked.
+
+The screen is drawn the same way:
+
+```bash
+python3 tools/render_gui.py out.png 1536 1024 --demo        # the HUD, a player some way in
+python3 tools/render_gui.py out.png 844 390 --open PetsPanel  # a phone, with a panel up
+```
+
+It boots the real client and lays out every ScreenGui with Roblox's rules
+(UIScale, anchors, constraints, list/grid layouts). `check_hud` uses the same
+layout to measure the HUD at eleven screen sizes.
+
+## The HUD
+
+`HUD.lua` follows the owner's mockup, which was drawn at 1536x1024: profile,
+menu and event cards on the left, quests / featured / selected pet on the
+right, your pets and three switches along the bottom. Each corner is one group
+with a UIScale, pinned to its corner. Below a readable scale (or on a touch
+screen, sooner) it switches to the compact layout: side rails of 52-point
+buttons, clear of the thumbstick and jump button. Every button has a fixed
+name (`Dock_Pets`, `HUD_Mute`, ...) the checks press.
+
+There is no "Eggs" button on purpose: hatching happens at the eggs in the
+world. The mockup's player level, pet levels, Auto Hatch, Fast Click and Shiny
+button are mechanics the game does not have; the HUD shows real ones in their
+places (rebirth progress, rarity and mutation, Auto Collect, Equip Best).
+
+**The loopback copies tables across remotes**, as Roblox does. The client's
+data is never the server's table; a check that changes server data must send
+it (`DataUpdated:FireClient`) before the client can see it.
 
 ## Shipping to Studio
 

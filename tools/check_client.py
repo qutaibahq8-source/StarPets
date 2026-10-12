@@ -28,7 +28,7 @@ from check_syntax import luau_to_lua  # noqa: E402
 import check_map  # noqa: E402
 
 
-def boot(short_delays=False, loopback=False):
+def boot(short_delays=False, loopback=False, screen=None):
     """Boot server + client and hand back the running world.
 
     Split out from main() so other checks can drive the real, booted client
@@ -125,6 +125,27 @@ def boot(short_delays=False, loopback=False):
         # caller waits for the answer, and a server error reaches it.
         lua.execute("""
             local me = game:GetService("Players").LocalPlayer
+            -- What crosses a remote is a COPY, as in Roblox: the client's
+            -- data is never the server's data table. Passing the table itself
+            -- let a client-side write (say, showing a switch flipped before
+            -- the server answers) change the server's copy too, and a server
+            -- handler that did nothing would have looked like it worked.
+            -- Instances and values with metatables (Vector3, Color3) cross as
+            -- themselves; plain tables are copied all the way down.
+            local function wire(v, seen)
+                if type(v) ~= "table" or getmetatable(v) ~= nil then return v end
+                seen = seen or {}
+                if seen[v] then return seen[v] end
+                local out = {}
+                seen[v] = out
+                for k, x in pairs(v) do out[wire(k, seen)] = wire(x, seen) end
+                return out
+            end
+            local function pack(...)
+                local a = table.pack(...)
+                for i = 1, a.n do a[i] = wire(a[i]) end
+                return a
+            end
             __NET = {}
             local function send(fn) __NET[#__NET + 1] = fn end
             function __DELIVER()
@@ -139,22 +160,26 @@ def boot(short_delays=False, loopback=False):
             for _, r in ipairs(game.ReplicatedStorage.Remotes:GetChildren()) do
                 if r.ClassName == "RemoteEvent" then
                     r.FireServer = function(_, ...)
-                        local a = table.pack(...)
+                        local a = pack(...)
                         send(function() r.OnServerEvent:Fire(me, table.unpack(a, 1, a.n)) end)
                     end
                     r.FireClient = function(_, p, ...)
                         if p ~= me then return end
-                        local a = table.pack(...)
+                        local a = pack(...)
                         send(function() r.OnClientEvent:Fire(table.unpack(a, 1, a.n)) end)
                     end
                     r.FireAllClients = function(_, ...)
-                        local a = table.pack(...)
+                        local a = pack(...)
                         send(function() r.OnClientEvent:Fire(table.unpack(a, 1, a.n)) end)
                     end
                 elseif r.ClassName == "RemoteFunction" then
                     r.InvokeServer = function(_, ...)
                         local f = r.OnServerInvoke
-                        if f then return f(me, ...) end
+                        if f then
+                            local back = table.pack(f(me, table.unpack(pack(...))))
+                            for i = 1, back.n do back[i] = wire(back[i]) end
+                            return table.unpack(back, 1, back.n)
+                        end
                     end
                 end
             end
@@ -164,6 +189,15 @@ def boot(short_delays=False, loopback=False):
         mock["Players"].PlayerAdded.Fire(None, player)
 
     # UI modules, as children of a Client/UI folder, the way Rojo lays them out.
+    # The screen the player joins on, when a check cares: the HUD lays itself
+    # out for it as the client starts, the way it does in game.
+    if screen is not None:
+        lua.execute("""
+            local cam = workspace.CurrentCamera or Instance.new("Camera")
+            cam.ViewportSize = Vector2.new(%d, %d)
+            workspace.CurrentCamera = cam
+        """ % tuple(screen))
+
     sps = mock["newInst"]("StarterPlayerScripts")
     sps.Name = "StarterPlayerScripts"
     sps.Parent = mock["game"]["GetService"](mock["game"], "StarterPlayer")

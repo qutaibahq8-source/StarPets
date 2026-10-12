@@ -167,7 +167,9 @@ end
 RunService.Heartbeat:Connect(function()
 	for _, player in ipairs(Players:GetPlayers()) do
 		local data = DataManager.GetData(player)
-		if not data or not data.GP_AutoCollect then continue end
+		-- AutoCollectOff is the owner's own switch on the HUD: a pass they
+		-- bought, paused because they want to walk through orbs themselves.
+		if not data or not data.GP_AutoCollect or data.AutoCollectOff then continue end
 		local char = player.Character
 		if not char then continue end
 		local root = char:FindFirstChild("HumanoidRootPart")

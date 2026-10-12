@@ -442,6 +442,9 @@ GameConfig.DefaultData = {
 	-- Sound off. Saved with the player so it survives a rejoin; an old save
 	-- has no such field and DataManager fills it from here, as false.
 	Muted = false,
+	-- The Auto Collect pass, switched off from the HUD. Off means paused, not
+	-- refunded: the pass stays owned and one press turns it back on.
+	AutoCollectOff = false,
 }
 
 -- ============================================================

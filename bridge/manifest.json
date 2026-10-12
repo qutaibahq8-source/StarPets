@@ -1,5 +1,5 @@
 {
-  "version": "02ff4307122d1f56cec1c65198d035c3e3190299936a9e8a01d26c4c8b8823e3",
+  "version": "910fa2d6642f4b09d2e14dfbe53faaa510536d2013c9c50f6122ce6ce339f896",
   "generated_from": "default.project.json",
   "files": [
     {
@@ -169,6 +169,14 @@
     {
       "path": "src/Client/UI/Responsive.lua",
       "name": "Responsive",
+      "group": "Client",
+      "folders": [
+        "UI"
+      ]
+    },
+    {
+      "path": "src/Client/UI/HUD.lua",
+      "name": "HUD",
       "group": "Client",
       "folders": [
         "UI"

@@ -226,7 +226,7 @@ def main():
 
     def t_hud_button_mutes_and_saves():
         hud = gui["FindFirstChild"](gui, "MysticPetsHUD")
-        btn = hud["FindFirstChild"](hud, "HUD_Mute") if hud is not None else None
+        btn = hud["FindFirstChild"](hud, "HUD_Mute", True) if hud is not None else None
         assert btn is not None, "there is no mute button on the HUD"
         rs = mock["ReplicatedStorage"]
         remotes = rs["FindFirstChild"](rs, "Remotes")

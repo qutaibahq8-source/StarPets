@@ -63,6 +63,18 @@ local screen, card, titleLbl, bodyLbl
 local shown = nil          -- the step on screen right now
 local dismissed = {}       -- steps the player closed; the NEXT one still shows
 
+-- Where the card stops: below the HUD's counters, which reach further down
+-- than Roblox's bar on a big screen. This screen starts under Roblox's bar,
+-- and the HUD measures from the very top, so the bar's height comes off.
+local function cardTop()
+	local mp = _G.MysticPets
+	if not (mp and mp.hudClearY) then return 12 end
+	local okY, clear = pcall(mp.hudClearY)
+	local okI, inset = pcall(function() return game:GetService("GuiService"):GetGuiInset() end)
+	local bar = (okI and typeof(inset) == "Vector2") and inset.Y or 58
+	return math.max(12, ((okY and tonumber(clear)) or 0) - bar + 6)
+end
+
 local function buildBanner()
 	screen = Instance.new("ScreenGui")
 	screen.Name = "OnboardingGui"
@@ -187,7 +199,7 @@ local function apply(d)
 	bodyLbl.Text = STEPS[step].body
 	shown = step
 	TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back), {
-		Position = UDim2.new(0.5, 0, 0, 12) }):Play()
+		Position = UDim2.new(0.5, 0, 0, cardTop()) }):Play()
 end
 
 -- Expose the decision for the checks; nothing in the game reads this.

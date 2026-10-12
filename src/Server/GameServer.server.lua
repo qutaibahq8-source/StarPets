@@ -139,6 +139,7 @@ local RE_PetCmd       = makeEvent("PetCmd")
 local RF_GetDaily     = makeFunction("GetDaily")
 local RE_ClaimDaily   = makeEvent("ClaimDaily")
 local RE_SetMuted     = makeEvent("SetMuted")
+local RE_SetAutoCollect = makeEvent("SetAutoCollect")
 local RF_GetBoosts    = makeFunction("GetBoosts")
 local RE_BuyBoost     = makeEvent("BuyBoost")
 local RF_GetFusion    = makeFunction("GetFusion")
@@ -1125,20 +1126,30 @@ end
 -- ClickDetectors never pass through any guard around the remotes, because no
 -- remote is involved on the way in. SecretChest writes to player data.
 MapPersist.SetRateLimit(RateLimit)
+-- Each of these opens something on the client that shows a price or a
+-- requirement against the player's coins. The client's copy of the data is
+-- up to two seconds old (the periodic sync), so a player who had only just
+-- reached a world's price was shown "you have" the old figure and a dead
+-- Unlock button. Fresh data goes first; remotes arrive in order, so the
+-- prompt is built from it.
 MapPersist.Handlers({
 	HatchEgg = function(player, eggId)
+		syncData(player)
 		RE_HatchEgg:FireClient(player, eggId)
 	end,
 	BuyArea = function(player, areaId)
+		syncData(player)
 		RE_BuyArea:FireClient(player, areaId)
 	end,
 	UpgradePad = function(player, key)
+		syncData(player)
 		RE_HatchEgg:FireClient(player, "__upgrade__" .. tostring(key))
 	end,
 	OpenLeaderboard = function(player)
 		RE_TitleUpdate:FireClient(player, "__openleaderboard__")
 	end,
 	Rebirth = function(player)
+		syncData(player)
 		RE_Rebirth:FireClient(player)
 	end,
 	SecretChest = function(player)
@@ -1454,6 +1465,17 @@ RE_SetMuted.OnServerEvent:Connect(function(player, muted)
 	if type(muted) ~= "boolean" then return end
 	local data = DataManager.GetData(player)
 	if data then data.Muted = muted end
+end)
+
+-- The HUD's Auto Collect switch. Only a boolean is accepted, for the same
+-- reason as SetMuted: it goes straight into the save.
+RE_SetAutoCollect.OnServerEvent:Connect(function(player, on)
+	if type(on) ~= "boolean" then return end
+	local data = DataManager.GetData(player)
+	if data then
+		data.AutoCollectOff = not on
+		syncData(player)
+	end
 end)
 
 RE_ClaimQuest.OnServerEvent:Connect(function(player, id)
