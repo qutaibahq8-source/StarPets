@@ -20,6 +20,7 @@
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
 
 local GameConfig = require(game.ReplicatedStorage.Shared.GameConfig)
 
@@ -32,6 +33,27 @@ local Failed      = {}   -- userId -> true if the load failed; never save these
 local Loaded      = {}   -- userId -> true once a load has completed cleanly
 local Leaving     = {}   -- userId -> true for the last save, which gives up the claim
 local Abandoned   = {}   -- userId -> true if they left while their load was waiting
+local Unsaved     = {}   -- userId -> true: Studio with save access off (see below)
+
+-- STUDIO WITH SAVE ACCESS OFF.
+--
+-- Unless "Enable Studio Access to API Services" is on (Game Settings ->
+-- Security), every DataStore call in Studio fails at once, every time. That is
+-- not an outage: retrying for half a minute ends it no sooner, and the safe
+-- answer to an outage (kick, and touch nothing) left the owner staring at a
+-- HUD of zeros for thirty seconds and then thrown out of their own game.
+--
+-- So in Studio, for that reason only, the player gets a fresh session that is
+-- NEVER saved: the load still counts as failed, and saveWithRetry refuses a
+-- failed load exactly as it always has. A live server never takes this path.
+DataManager.STUDIO_NO_API = "studio-no-api"
+local function studioLocked(err)
+	if not RunService:IsStudio() then return false end
+	local e = tostring(err)
+	return string.find(e, "StudioAccessToApis", 1, true) ~= nil
+		or string.find(e, "Studio access", 1, true) ~= nil
+		or string.find(e, "publish this place", 1, true) ~= nil
+end
 
 -- Shutdown gets about 30 seconds in total. Five attempts with doubling backoff
 -- is 2+4+8+16+32 = 62 seconds for ONE player, and the loop is serial, so a
@@ -132,6 +154,7 @@ local function loadWithRetry(userId)
 			end)
 		end)
 		if not ok then
+			if studioLocked(e) then return false, nil, DataManager.STUDIO_NO_API end
 			failures = failures + 1
 			err = e
 			warn(("[DataManager] load attempt %d failed for %s: %s")
@@ -164,9 +187,11 @@ local function saveWithRetry(userId, data)
 	-- record. Writing it is the wipe. A session that never loaded at all is the
 	-- same thing one step earlier.
 	if Failed[userId] then
-		warn(("[DataManager] refusing to save %s: their load failed, so the "
-			.. "cached data is defaults and would overwrite their real save.")
-			:format(userId))
+		if not Unsaved[userId] then
+			warn(("[DataManager] refusing to save %s: their load failed, so the "
+				.. "cached data is defaults and would overwrite their real save.")
+				:format(userId))
+		end
 		return false
 	end
 	if not Loaded[userId] then
@@ -236,6 +261,18 @@ function DataManager.LoadPlayer(player)
 	Abandoned[uid] = nil
 
 	local ok, raw, err = loadWithRetry(uid)
+	if not ok and err == DataManager.STUDIO_NO_API then
+		-- Studio only (see studioLocked): play on defaults, save nothing.
+		Failed[uid] = true
+		Unsaved[uid] = true
+		local fresh = deepCopy(GameConfig.DefaultData)
+		fresh.JoinTime = os.time()
+		Cache[uid] = fresh
+		warn(("[DataManager] Studio cannot reach DataStores, so %s is playing a "
+			.. "fresh session that will NOT be saved. To test saving: Game Settings "
+			.. "-> Security -> Enable Studio Access to API Services."):format(player.Name))
+		return fresh, nil, DataManager.STUDIO_NO_API
+	end
 	if not ok then
 		-- NOT a new player. Cache nothing, mark the session, and say so.
 		Failed[uid] = true
@@ -302,6 +339,7 @@ function DataManager.RemovePlayer(player)
 	Cache[uid] = nil
 	Saving[uid] = nil
 	Failed[uid] = nil
+	Unsaved[uid] = nil
 	Loaded[uid] = nil
 	Leaving[uid] = nil
 end

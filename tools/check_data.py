@@ -85,7 +85,7 @@ def runtime(fail_reads=False, fail_writes=False):
             -- through here now, so an outage test that only failed GetAsync
             -- would test nothing.
             UpdateAsync = function(_, k, fn)
-              if FAIL_READ or FAIL_WRITE then error("DataStore is unavailable", 0) end
+              if FAIL_READ or FAIL_WRITE then error(FAIL_MSG or "DataStore is unavailable", 0) end
               local nv = fn(copy(STORE_DATA[k]))
               if nv ~= nil then WRITES = WRITES + 1; STORE_DATA[k] = copy(nv) end
               return copy(nv)
@@ -183,6 +183,49 @@ def main():
                      % after_coins)
     else:
         print("  ok  the real save survived a DataStore outage")
+
+    # ---- 1b. STUDIO WITH SAVE ACCESS OFF ---------------------------------
+    # Every DataStore call fails there, at once, forever. In Studio the player
+    # plays on an unsaved session straight away; on a live server the same
+    # error is an outage and changes nothing about how it is handled.
+    STUDIO_ERR = "StudioAccessToApisNotAllowed: Studio access to APIs is not allowed."
+    for studio in (True, False):
+        luaS, mockS, DMS = runtime()
+        GS = luaS.globals()
+        luaS.execute("game:GetService('RunService').__studio = %s" % ("true" if studio else "false"))
+        GS["STORE_DATA"]["5150"] = luaS.table_from({"Coins": 777})
+        GS["FAIL_READ"] = True
+        GS["FAIL_MSG"] = STUDIO_ERR
+        GS["WAITED"] = 0
+        ps = player(mockS, 5150, "Owner")
+        res = DMS.LoadPlayer(ps)
+        got = res[0] if isinstance(res, tuple) else res
+        note = res[2] if isinstance(res, tuple) and len(res) > 2 else None
+        if studio:
+            if got is None:
+                fails.append("in Studio with save access off, the owner got no data at "
+                             "all: a HUD of zeros, then a kick")
+            elif int(GS.WAITED or 0) > 0:
+                fails.append("in Studio with save access off, it retried for %ds first"
+                             % int(GS.WAITED))
+            elif str(note) != str(DMS.STUDIO_NO_API):
+                fails.append("the unsaved Studio session was not reported as such")
+            else:
+                GS["FAIL_READ"] = False
+                GS["WRITES"] = 0
+                got.Coins = 5
+                DMS.SavePlayer(ps)
+                DMS.RemovePlayer(ps)
+                kept = int(GS.STORE_DATA["5150"].Coins)
+                if int(GS.WRITES) or kept != 777:
+                    fails.append("the unsaved Studio session WAS saved: 777 coins -> %d" % kept)
+                else:
+                    print("  ok  Studio without save access plays at once, and saves nothing")
+        elif got is not None:
+            fails.append("on a live server, a Studio-looking error was treated as "
+                         "Studio and the player played on defaults")
+        else:
+            print("  ok  a live server still treats the same error as an outage")
 
     # ---- 2. AN IN-FLIGHT SAVE MUST NOT SKIP THE LEAVE SAVE ----------------
     # saveWithRetry returned immediately if a save was already running, and

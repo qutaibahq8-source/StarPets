@@ -26,6 +26,13 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 -- own module; this script feeds it data and owns what its switches do.
 local HUDView = require(script.Parent.UI.HUD)
 
+-- Roblox's own player list sits at the top right, over the HUD's corner
+-- buttons and the quest card. The Ranks panel and Trade's player search
+-- cover what it was for.
+pcall(function()
+	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+end)
+
 -- ============================================================
 -- LOADING SCREEN
 -- ============================================================

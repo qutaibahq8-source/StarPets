@@ -1190,7 +1190,17 @@ end)
 -- PLAYER JOIN / LEAVE
 -- ============================================================
 local function onPlayerAdded(player)
-	local data0, loadErr = DataManager.LoadPlayer(player)
+	local data0, loadErr, loadNote = DataManager.LoadPlayer(player)
+	if loadNote == DataManager.STUDIO_NO_API then
+		-- Said on screen as well as in Output: a session that quietly does
+		-- not save is the worst kind of surprise.
+		task.delay(5, function()
+			if player.Parent then
+				RE_Notification:FireClient(player, "error",
+					"Studio: saving is OFF. Game Settings → Security → Enable Studio Access to API Services")
+			end
+		end)
+	end
 	if not data0 then
 		-- Their save could not be read. Letting them play would mean an hour of
 		-- progress on data that DataManager will correctly refuse to write —
