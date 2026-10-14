@@ -38,7 +38,11 @@ end)
 
 RE_TradeState.OnClientEvent:Connect(function(s)
 	state = s or { active=false }
-	if state.active and not PlayerGui:FindFirstChild("TradePanel") then TradePanel.Build() end
+	-- Opened through UIController like any panel: fitted to the screen, and
+	-- whatever else was open is closed rather than left underneath.
+	if state.active and not PlayerGui:FindFirstChild("TradePanel") then
+		require(script.Parent.UIController).Open("TradePanel")
+	end
 	if rerender then rerender() end
 end)
 
@@ -84,23 +88,17 @@ function TradePanel.Build()
 		req.MouseButton1Click:Connect(function() if box.Text~="" then RE_Trade:FireServer("request", box.Text) end end)
 	end
 
-	local function offerColumn(title, list, x, removable)
-		local col=Instance.new("Frame"); col.Size=UDim2.new(0.5,-6,0,180); col.Position=UDim2.new(x,x>0 and 6 or 0,0,0)
-		col.BackgroundColor3=Color3.fromRGB(24,26,40); col.BorderSizePixel=0; col.Parent=body
-		Instance.new("UICorner",col).CornerRadius=UDim.new(0,10)
-		local h=Instance.new("TextLabel"); h.Size=UDim2.new(1,0,0,26); h.BackgroundTransparency=1; h.Text=title
-		h.TextColor3=Color3.fromRGB(150,220,160); h.TextScaled=true; h.Font=Enum.Font.GothamBold; h.Parent=col
-		local sc=Instance.new("ScrollingFrame"); sc.Size=UDim2.new(1,-8,1,-32); sc.Position=UDim2.new(0,4,0,28)
-		sc.BackgroundTransparency=1; sc.BorderSizePixel=0; sc.ScrollBarThickness=4; sc.CanvasSize=UDim2.new(0,0,0,0)
-		sc.AutomaticCanvasSize=Enum.AutomaticSize.Y; sc.Parent=col
-		local l=Instance.new("UIListLayout",sc); l.Padding=UDim.new(0,3)
-		for i,pet in ipairs(list or {}) do
-			local b=Instance.new("TextButton"); b.Size=UDim2.new(1,-4,0,26); b.BackgroundColor3=Color3.fromRGB(40,44,62)
-			b.Text=pet.name.." ("..pet.rarity..")"; b.TextColor3=Color3.new(1,1,1); b.TextScaled=true; b.Font=Enum.Font.Gotham
-			b.BorderSizePixel=0; b.LayoutOrder=i; b.Parent=sc
-			Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
-			if removable then b.MouseButton1Click:Connect(function() RE_Trade:FireServer("remove", pet.uniqueId) end) end
-		end
+	-- A pet as a trader needs to see it: mutation, name, rarity, and how far
+	-- it has been fused. These rows showed the name alone, so a Rainbow pet
+	-- three fusions deep looked exactly like a fresh one.
+	local function petLabel(pet)
+		local cfg = G().GameConfig
+		local mut = pet.mutation and cfg.GetMutation and cfg.GetMutation(pet.mutation)
+		local bits = { (mut and (mut.emoji .. " " .. mut.name .. " ") or "") .. pet.name }
+		if pet.rarity then table.insert(bits, pet.rarity) end
+		local fm = tonumber(pet.fuseMult)
+		if fm and fm > 1 then table.insert(bits, "x" .. tostring(math.floor(fm * 100 + 0.5) / 100)) end
+		return table.concat(bits, " · "), mut and mut.color or Color3.new(1, 1, 1)
 	end
 
 	local function renderTrade()
@@ -108,7 +106,6 @@ function TradePanel.Build()
 		local title=Instance.new("TextLabel"); title.Size=UDim2.new(1,0,0,22); title.BackgroundTransparency=1
 		title.Text="Trading with "..(state.partner or "?"); title.TextColor3=Color3.new(1,1,1); title.TextScaled=true; title.Font=Enum.Font.GothamBold; title.Parent=body
 		local cols=Instance.new("Frame"); cols.Size=UDim2.new(1,0,0,180); cols.Position=UDim2.new(0,0,0,26); cols.BackgroundTransparency=1; cols.Parent=body
-		local function colIn(parent) for _,c in ipairs({parent}) do end end
 		-- offer columns
 		do
 			local holder=cols
@@ -124,7 +121,8 @@ function TradePanel.Build()
 				local l=Instance.new("UIListLayout",sc); l.Padding=UDim.new(0,3)
 				for i,pet in ipairs(list or {}) do
 					local b=Instance.new("TextButton"); b.Size=UDim2.new(1,-4,0,26); b.BackgroundColor3=Color3.fromRGB(40,44,62)
-					b.Text=pet.name; b.TextColor3=Color3.new(1,1,1); b.TextScaled=true; b.Font=Enum.Font.Gotham; b.BorderSizePixel=0; b.LayoutOrder=i; b.Parent=sc
+					b.Text, b.TextColor3 = petLabel(pet)
+					b.TextScaled=true; b.Font=Enum.Font.Gotham; b.BorderSizePixel=0; b.LayoutOrder=i; b.Parent=sc
 					Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
 					if removable then b.MouseButton1Click:Connect(function() RE_Trade:FireServer("remove", pet.uniqueId) end) end
 				end
@@ -145,8 +143,9 @@ function TradePanel.Build()
 		local inOffer={}; for _,p in ipairs(state.yourOffer or {}) do inOffer[p.uniqueId]=true end
 		for _,pet in ipairs((data and data.Pets) or {}) do
 			if not inOffer[pet.uniqueId] then
-				local b=Instance.new("TextButton"); b.BackgroundColor3=Color3.fromRGB(40,44,62); b.Text=pet.name
-				b.TextColor3=Color3.new(1,1,1); b.TextScaled=true; b.Font=Enum.Font.Gotham; b.BorderSizePixel=0; b.Parent=inv
+				local b=Instance.new("TextButton"); b.BackgroundColor3=Color3.fromRGB(40,44,62)
+				b.Text, b.TextColor3 = petLabel(pet)
+				b.TextScaled=true; b.Font=Enum.Font.Gotham; b.BorderSizePixel=0; b.Parent=inv
 				Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
 				b.MouseButton1Click:Connect(function() RE_Trade:FireServer("add", pet.uniqueId) end)
 			end

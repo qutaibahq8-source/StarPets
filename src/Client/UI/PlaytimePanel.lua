@@ -91,10 +91,13 @@ function PlaytimePanel.Build()
 		end
 	end
 
+	-- Redraw only when the server's answer changed, and never mid-press:
+	-- a redraw between a button's Down and Up loses the click.
+	local fresh = require(script.Parent.Responsive).Poller()
 	task.spawn(function()
 		while alive and screen.Parent do
 			local ok, s = pcall(function() return RF_GetPlaytime:InvokeServer() end)
-			if ok then render(s) end
+			if ok and fresh(s) then render(s) end
 			task.wait(1)
 		end
 	end)

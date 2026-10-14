@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local LevelService = require(script.Parent.LevelService)
 
 local CurrencyService = {}
 
@@ -37,6 +38,10 @@ local function createOrb(position, value, isGem, areaId)
 	end
 	orb.Anchored   = true
 	orb.CanCollide = false
+	-- Out of mouse picking: a click goes to the first part under the cursor,
+	-- and a coin in front of an egg would take the click meant for the egg.
+	-- Walking into it still collects it — that is CanTouch, not CanQuery.
+	orb.CanQuery   = false
 	orb.CastShadow = false
 	orb.Position   = position
 	orb.Parent     = OrbsFolder
@@ -54,16 +59,44 @@ function CurrencyService.SeedArea(areaId, areaOrigin, orbCount)
 	end
 	if not areaConfig then return end
 
-	for i = 1, orbCount do
+	-- Each coin is dropped onto the ground that is actually under it.
+	--
+	-- They were all placed at one fixed height, which was right while every
+	-- world was flat. The Volcano has a raised terrace now, seven studs up and
+	-- covering most of the world, so nearly every Volcano coin was buried
+	-- inside it. A ray finds the real surface; a spot whose ray lands on
+	-- something that is not open ground — a tree, a rock, the top of a wall,
+	-- a lava pool — is rerolled rather than used.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { OrbsFolder, workspace:FindFirstChild("Pets") }
+
+	local function groundAt(x, z)
+		local hit = workspace:Raycast(Vector3.new(x, areaOrigin.Y + 120, z),
+			Vector3.new(0, -240, 0), params)
+		if not hit then return nil end
+		local p = hit.Instance
+		if p.Size.X < 12 or p.Size.Z < 12 then return nil end
+		if string.sub(p.Name, 1, 4) == "Lava" then return nil end
+		return hit.Position.Y
+	end
+
+	local placed = 0
+	for _ = 1, orbCount * 6 do
+		if placed >= orbCount then break end
 		local x = areaOrigin.X + math.random(-58, 58)
 		local z = areaOrigin.Z + math.random(-85, 85)
-		local y = areaOrigin.Y + 0.4  -- low so the coin sits at ~stomach height (grass is flat now)
-		local pos = Vector3.new(x, y, z)
-
-		local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))
-		local value = isGem and 1 or areaConfig.coinOrbValue
-		createOrb(pos, value, isGem, areaId)
+		local top = groundAt(x, z)
+		if top then
+			-- 1.4 above the surface: the coin's centre at stomach height.
+			local pos = Vector3.new(x, top + 1.4, z)
+			local isGem = (math.random() < (areaConfig.gemOrbChance or 0.01))
+			local value = isGem and 1 or areaConfig.coinOrbValue
+			createOrb(pos, value, isGem, areaId)
+			placed = placed + 1
+		end
 	end
+	return placed
 end
 
 -- ============================================================
@@ -98,10 +131,17 @@ local function collectOrb(player, orb)
 		DataManager.IncrementData(player, "Gems", earned)
 		DataManager.IncrementData(player, "TotalGemsEarned", earned)
 	else
-		local earned = math.max(1, math.floor(orbInfo.value * rebirthMult * coinBoost))
+		-- The Coin Bonus upgrade, which nothing read until now. Its four levels
+		-- cost 126,000 coins to max and its own description says "Multiply
+		-- coins earned from orbs" — this is the line that was missing, so every
+		-- level of it bought exactly nothing.
+		local upgradeMult = GameConfig.UpgradeValue(data, "CoinBonus") or 1
+		local earned = math.max(1, math.floor(
+			orbInfo.value * rebirthMult * coinBoost * upgradeMult))
 		DataManager.IncrementData(player, "Coins", earned)
 		DataManager.IncrementData(player, "TotalCoinsEarned", earned)
 	end
+	LevelService.Add(player, orbInfo.isGem and GameConfig.XPRewards.gemOrb or GameConfig.XPRewards.orb)
 
 	-- Respawn
 	task.delay(GameConfig.Settings.CoinOrbRespawnTime, function()
@@ -129,7 +169,9 @@ end
 RunService.Heartbeat:Connect(function()
 	for _, player in ipairs(Players:GetPlayers()) do
 		local data = DataManager.GetData(player)
-		if not data or not data.GP_AutoCollect then continue end
+		-- AutoCollectOff is the owner's own switch on the HUD: a pass they
+		-- bought, paused because they want to walk through orbs themselves.
+		if not data or not data.GP_AutoCollect or data.AutoCollectOff then continue end
 		local char = player.Character
 		if not char then continue end
 		local root = char:FindFirstChild("HumanoidRootPart")
@@ -152,6 +194,8 @@ function CurrencyService.StartPassiveIncome(PetService)
 		while true do
 			task.wait(GameConfig.Settings.PetIncomeInterval)
 			for _, player in ipairs(Players:GetPlayers()) do
+				-- Pets out earn experience as well as coins.
+				PetService.TickPetXP(player, GameConfig.Settings.PetIncomeInterval)
 				local coins, gems = PetService.GetPlayerIncome(player)
 				if coins > 0 then
 					DataManager.IncrementData(player, "Coins", coins)

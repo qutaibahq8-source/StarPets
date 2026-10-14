@@ -6,7 +6,32 @@ local RunService       = game:GetService("RunService")
 
 local Player    = Players.LocalPlayer
 local PlayerGui = Player.PlayerGui
+
+-- A centred popup (rebirth, secret found, welcome back), fitted to the screen
+-- and popped in.
+--
+-- These were 420 px wide in hard pixels and slid in by tweening Position, so
+-- on a 390-wide phone they hung off both edges — and the rebirth popup's two
+-- 180-wide buttons, pinned to opposite sides, overlapped by 34 px. They are
+-- sized the way every panel is now (scale, clamped to the size they were
+-- designed at), and pop in on a UIScale, which never touches Position.
+local function popup(panel)
+	local okR, Responsive = pcall(function() return require(script.Parent.UI.Responsive) end)
+	if okR and Responsive then Responsive.FitFrame(panel) end
+	local s = Instance.new("UIScale"); s.Name = "SPEnter"; s.Scale = 0.85; s.Parent = panel
+	TweenService:Create(s, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+end
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+-- The HUD itself: counters, cards, menu and buttons. Built and laid out in its
+-- own module; this script feeds it data and owns what its switches do.
+local HUDView = require(script.Parent.UI.HUD)
+
+-- Roblox's own player list sits at the top right, over the HUD's corner
+-- buttons and the quest card. The Ranks panel and Trade's player search
+-- cover what it was for.
+pcall(function()
+	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+end)
 
 -- ============================================================
 -- LOADING SCREEN
@@ -74,6 +99,10 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes",30)
 local RE_DataUpdated  = Remotes:WaitForChild("DataUpdated")
 local RE_HatchResult  = Remotes:WaitForChild("HatchResult")
 local RE_Notification = Remotes:WaitForChild("Notification")
+-- With a timeout. A bare WaitForChild on a remote the server does not have
+-- yields forever, and this is the script that builds the whole HUD.
+local RE_SetMuted     = Remotes:WaitForChild("SetMuted", 10)
+local RE_SetSwitch    = Remotes:WaitForChild("SetSwitch", 10)
 local RE_HatchEgg     = Remotes:WaitForChild("HatchEgg")
 local RE_EquipPet     = Remotes:WaitForChild("EquipPet")
 local RE_UnequipPet   = Remotes:WaitForChild("UnequipPet")
@@ -91,8 +120,28 @@ local RE_PetCmd         = Remotes:WaitForChild("PetCmd")
 local RE_OfflineEarnings = Remotes:WaitForChild("OfflineEarnings")
 
 -- Area barriers: block locked areas for THIS player only (client-side collision)
-local AreaBarriers = workspace:WaitForChild("AreaBarriers", 30)
+-- Resolved on demand, and from inside StarPetsMap.
+--
+-- The barriers moved into the map folder so that selecting StarPetsMap in the
+-- Explorer and copying it takes the buy-gates with it. This line still waited
+-- for workspace.AreaBarriers, which no longer exists — it would have timed out
+-- and returned nil, and then every locked world would have stayed sealed
+-- forever because nothing ever updated a barrier again. My own change, caught
+-- reading the file back.
+--
+-- On demand rather than captured once: a reference grabbed before the map
+-- existed, or held across a rebuild, points at a folder no longer in the world.
+local barrierCache = nil
+local function areaBarriers()
+	if barrierCache and barrierCache.Parent then return barrierCache end
+	local root = workspace:FindFirstChild("StarPetsMap")
+	barrierCache = (root and root:FindFirstChild("AreaBarriers"))
+		or workspace:FindFirstChild("AreaBarriers")
+	return barrierCache
+end
+
 local function updateBarriers(data)
+	local AreaBarriers = areaBarriers()
 	if not AreaBarriers or not data then return end
 	local unlocked = {}
 	for _, id in ipairs(data.UnlockedAreas or {}) do unlocked[id] = true end
@@ -198,8 +247,10 @@ local function showToast(notifType, message)
 	lbl.TextColor3 = Color3.new(1,1,1); lbl.TextScaled = true
 	lbl.Font = Enum.Font.GothamBold; lbl.TextWrapped = true; lbl.Parent = frame
 
+	-- Below the HUD's counters, not over them: a toast about coins used to
+	-- cover the coin counter for the three seconds it was up.
 	TweenService:Create(frame,TweenInfo.new(0.35,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-170,0,18)
+		Position=UDim2.new(0.5,-170,0,HUDView.ClearY() + 6)
 	}):Play()
 	task.delay(3,function()
 		if frame and frame.Parent then
@@ -215,127 +266,62 @@ end
 -- HUD BUILD
 -- ============================================================
 local HUD
-local CoinLabel, GemLabel, RebirthLabel, PetCountLabel
 local prevCoins = 0
+
+-- Sound. Required through pcall so a broken sound module can never take the
+-- HUD down with it — a silent game is a worse game, a game with no buttons is
+-- no game at all.
+local Sfx = nil
+pcall(function() Sfx = require(script.Parent.UI.Sfx) end)
+local function sfx(name, jitter) if Sfx then Sfx.Play(name, jitter) end end
+
+-- What the last data update looked like, so each change can be heard once.
+local prevGems, prevAreas, prevRebirths, prevEquipped = nil, nil, nil, nil
+-- Coins can arrive several times a second while a player runs through orbs.
+-- One ping per pickup at that rate is a buzz, not a sound.
+local lastCoinPing = 0
+
+-- Sound on/off, from the HUD's Sound switch. Saved with the player.
+local function toggleMute()
+	local m = not (Sfx and Sfx.IsMuted())
+	if Sfx then Sfx.SetMuted(m) end
+	HUDView.RefreshSwitches()
+	if RE_SetMuted then RE_SetMuted:FireServer(m) end
+end
+
+-- The HUD's switches (Auto Hatch, Auto Collect, Fast Hatch). Shown flipped
+-- at once; the server decides, and its update, sent straight back, is what
+-- the switch then shows — so a refused switch (Auto Hatch below its level)
+-- flips back.
+local SWITCH_FIELD = {
+	AutoCollect = function(d, on) d.AutoCollectOff = not on end,
+	AutoHatch   = function(d, on) d.AutoHatch = on end,
+	FastHatch   = function(d, on) d.FastHatch = on end,
+}
+local function setSwitch(name, on)
+	if CurrentData and SWITCH_FIELD[name] then SWITCH_FIELD[name](CurrentData, on) end
+	if RE_SetSwitch then RE_SetSwitch:FireServer(name, on) end
+	HUDView.RefreshSwitches()
+end
 
 local function buildHUD()
 	HUD = Instance.new("ScreenGui")
 	HUD.Name="MysticPetsHUD"; HUD.ResetOnSpawn=false
-	HUD.DisplayOrder=10; HUD.IgnoreGuiInset=true; HUD.Parent=PlayerGui
+	HUD.DisplayOrder=10; HUD.IgnoreGuiInset=true
+	HUD.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; HUD.Parent=PlayerGui
+	HUDView.Init({
+		fmt = fmt,
+		getData = function() return CurrentData end,
+		isMuted = function() return Sfx ~= nil and Sfx.IsMuted() end,
+		onMute = toggleMute,
+		onSwitch = setSwitch,
+	}, HUD)
+end
 
-	-- TOP BAR
-	local topBar = Instance.new("Frame")
-	topBar.Size = UDim2.new(1,0,0,58)
-	topBar.BackgroundColor3 = Color3.fromRGB(12,10,22)
-	topBar.BackgroundTransparency = 0.1; topBar.BorderSizePixel=0
-	topBar.Parent = HUD
-	local tg = Instance.new("UIGradient"); tg.Parent=topBar
-	tg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(35,18,70)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,8,25))})
-	tg.Rotation=90
-
-	local function statChip(pos, icon, defaultText, textColor, bgColor)
-		local chip = Instance.new("Frame")
-		chip.Size=UDim2.new(0,155,0,42); chip.Position=pos
-		chip.BackgroundColor3=bgColor; chip.BackgroundTransparency=0.25
-		chip.BorderSizePixel=0; chip.Parent=topBar
-		Instance.new("UICorner",chip).CornerRadius=UDim.new(0,10)
-		local stroke = Instance.new("UIStroke"); stroke.Color=textColor
-		stroke.Transparency=0.7; stroke.Parent=chip
-
-		local iconLbl = Instance.new("TextLabel")
-		iconLbl.Size=UDim2.new(0,34,1,0); iconLbl.BackgroundTransparency=1
-		iconLbl.Text=icon; iconLbl.TextScaled=true; iconLbl.Font=Enum.Font.Gotham
-		iconLbl.Parent=chip
-
-		local valLbl = Instance.new("TextLabel")
-		valLbl.Size=UDim2.new(1,-38,1,0); valLbl.Position=UDim2.new(0,36,0,0)
-		valLbl.BackgroundTransparency=1; valLbl.Text=defaultText
-		valLbl.TextColor3=textColor; valLbl.TextScaled=true
-		valLbl.Font=Enum.Font.GothamBold; valLbl.TextXAlignment=Enum.TextXAlignment.Left
-		valLbl.Parent=chip
-		return valLbl
-	end
-
-	-- Right-aligned so they clear the Roblox menu/chat/voice icons (top-left).
-	CoinLabel   = statChip(UDim2.new(1,-493,0,8), "💰","0",   Color3.fromRGB(255,215,0),  Color3.fromRGB(50,35,10))
-	GemLabel    = statChip(UDim2.new(1,-328,0,8), "💎","0",   Color3.fromRGB(0,200,255),  Color3.fromRGB(0,20,40))
-	PetCountLabel = statChip(UDim2.new(1,-163,0,8),"🐾","0/0", Color3.fromRGB(200,150,255),Color3.fromRGB(30,15,50))
-
-	-- Center rebirth badge (top bar, stays)
-	RebirthLabel = Instance.new("TextLabel")
-	RebirthLabel.Size=UDim2.new(0,160,0,38); RebirthLabel.Position=UDim2.new(0.5,-80,0,10)
-	RebirthLabel.BackgroundColor3=Color3.fromRGB(80,0,130); RebirthLabel.BackgroundTransparency=0.25
-	RebirthLabel.Text="⭐ No Rebirth"; RebirthLabel.TextColor3=Color3.fromRGB(220,180,255)
-	RebirthLabel.TextScaled=true; RebirthLabel.Font=Enum.Font.GothamBold
-	RebirthLabel.BorderSizePixel=0; RebirthLabel.Parent=topBar
-	Instance.new("UICorner",RebirthLabel).CornerRadius=UDim.new(0,10)
-	Instance.new("UIStroke",RebirthLabel).Color=Color3.fromRGB(150,80,255)
-
-	-- RIGHT SIDE NAV (vertical stack, no Rebirth — that's in the world)
-	local navButtons = {
-		{ name="Pets",    emoji="🐾", panel="PetsPanel",        color=Color3.fromRGB(140,80,255) },
-		{ name="Index",   emoji="📖", panel="PetIndexPanel",    color=Color3.fromRGB(150,120,255) },
-		{ name="Quests",  emoji="📜", panel="QuestPanel",       color=Color3.fromRGB(90,160,255) },
-		-- Hatch removed from HUD on purpose: hatching is via the physical eggs in the world
-		{ name="Ranks",   emoji="🏆", panel="LeaderboardPanel", color=Color3.fromRGB(255,215,0)  },
-		{ name="Upgrade", emoji="⚡", panel="UpgradePanel",     color=Color3.fromRGB(255,200,0)  },
-		{ name="Shop",    emoji="🛒", panel="ShopPanel",        color=Color3.fromRGB(255,140,0)  },
-		{ name="Merchant",emoji="🪙", panel="MerchantPanel",   color=Color3.fromRGB(255,180,90) },
-		{ name="Event",   emoji="🎉", panel="EventPanel",      color=Color3.fromRGB(255,120,200) },
-		{ name="Trade",   emoji="🤝", panel="TradePanel",      color=Color3.fromRGB(90,200,120) },
-		{ name="Codes",   emoji="🎁", panel="CodesPanel",      color=Color3.fromRGB(90,200,150) },
-		{ name="Daily",   emoji="📅", panel="DailyPanel",      color=Color3.fromRGB(255,200,80) },
-		{ name="Boosts",  emoji="⚡", panel="BoostsPanel",     color=Color3.fromRGB(255,170,60) },
-		{ name="Fusion",  emoji="🧬", panel="FusionPanel",     color=Color3.fromRGB(150,90,240) },
-		{ name="Playtime",emoji="⏱️", panel="PlaytimePanel",   color=Color3.fromRGB(90,200,255) },
-		{ name="Spin",    emoji="🎡", panel="SpinWheelPanel",   color=Color3.fromRGB(255,120,200) },
-	}
-	-- Clean centered button DOCK along the bottom (wraps into rows) — not stacked on one side
-	local btnSize = 50
-	local btnGap  = 6
-	local perRow  = 8
-	local n       = #navButtons
-	local numRows = math.ceil(n / perRow)
-	local bottomMargin = 16
-
-	for i, btn in ipairs(navButtons) do
-		local row      = math.floor((i-1) / perRow)
-		local idxInRow = (i-1) % perRow
-		local rowCount = math.min(perRow, n - row*perRow)
-		local rowW     = rowCount*btnSize + (rowCount-1)*btnGap
-		local xoff     = -rowW/2 + idxInRow*(btnSize+btnGap)
-		local rowsFromBottom = (numRows-1) - row
-		local yoff     = -bottomMargin - btnSize - rowsFromBottom*(btnSize+btnGap)
-
-		local b = Instance.new("TextButton")
-		b.Size     = UDim2.new(0, btnSize, 0, btnSize)
-		b.Position = UDim2.new(0.5, xoff, 1, yoff)
-		b.BackgroundColor3 = Color3.fromRGB(18,14,35)
-		b.BackgroundTransparency = 0.15
-		b.Text     = btn.emoji.."\n"..btn.name
-		b.TextColor3 = Color3.new(1,1,1)
-		b.TextScaled = true
-		b.Font     = Enum.Font.GothamBold
-		b.BorderSizePixel = 0
-		b.Parent   = HUD
-		Instance.new("UICorner",b).CornerRadius = UDim.new(0,14)
-
-		local stroke = Instance.new("UIStroke",b)
-		stroke.Color = btn.color; stroke.Thickness = 2; stroke.Transparency = 0.4
-
-		b.MouseButton1Click:Connect(function()
-			local UIController = require(script.Parent.UI.UIController)
-			UIController.TogglePanel(btn.panel, CurrentData)
-		end)
-		b.MouseEnter:Connect(function()
-			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0}):Play()
-			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0}):Play()
-		end)
-		b.MouseLeave:Connect(function()
-			TweenService:Create(b,TweenInfo.new(0.15),{BackgroundTransparency=0.15}):Play()
-			TweenService:Create(stroke,TweenInfo.new(0.15),{Transparency=0.4}):Play()
-		end)
-	end
+-- Lay the HUD out for the screen it is on. HUDView picks the layout: the
+-- mockup's cards on a computer, side rails of touch-sized buttons on a phone.
+local function layoutHUD()
+	HUDView.Layout()
 end
 
 -- ============================================================
@@ -343,6 +329,12 @@ end
 -- ============================================================
 local lastInvSig = ""
 local function onDataUpdated(data)
+	-- The saved mute preference, applied BEFORE any sound for this update
+	-- could play, so a muted player is not greeted by a coin ping on join.
+	if Sfx and data.Muted ~= nil and Sfx.IsMuted() ~= (data.Muted == true) then
+		Sfx.SetMuted(data.Muted == true)
+	end
+
 	local newCoins = data.Coins or 0
 	if CurrentData and newCoins > prevCoins then
 		local diff = newCoins - prevCoins
@@ -350,16 +342,35 @@ local function onDataUpdated(data)
 			floatText("+"..fmt(diff).." 💰", Color3.fromRGB(255,215,0))
 		end
 	end
+	-- Each of these fires only on a CHANGE between two updates, never on the
+	-- first one. The first update is the save loading in, and a player joining
+	-- to a burst of unlock, rebirth and coin sounds for things they did last
+	-- week is noise, not feedback.
+	if CurrentData then
+		if newCoins > prevCoins and (os.clock() - lastCoinPing) > 0.12 then
+			lastCoinPing = os.clock()
+			sfx("coin", 0.08)
+		end
+		local gems = data.Gems or 0
+		if prevGems and gems > prevGems then sfx("gem", 0.05) end
+		local areas = #(data.UnlockedAreas or {})
+		if prevAreas and areas > prevAreas then sfx("unlock") end
+		local reb = data.Rebirths or 0
+		if prevRebirths and reb > prevRebirths then sfx("rebirth") end
+		local eq = #(data.EquippedPets or {})
+		if prevEquipped and eq ~= prevEquipped then
+			sfx(eq > prevEquipped and "equip" or "unequip")
+		end
+	end
+	prevGems = data.Gems or 0
+	prevAreas = #(data.UnlockedAreas or {})
+	prevRebirths = data.Rebirths or 0
+	prevEquipped = #(data.EquippedPets or {})
+
 	prevCoins = newCoins
 	CurrentData = data
 	updateBarriers(data)
-	if not CoinLabel then return end
-	CoinLabel.Text    = fmt(data.Coins or 0)
-	GemLabel.Text     = fmt(data.Gems or 0)
-	local maxSlots = (data.GP_PetSlots and GameConfig.Settings.VIPPetSlots or GameConfig.Settings.DefaultPetSlots)
-	PetCountLabel.Text = #(data.EquippedPets or {}).."/"..maxSlots
-	local r = data.Rebirths or 0
-	RebirthLabel.Text = r>0 and ("♻️ "..r.."x Rebirth") or "⭐ No Rebirth"
+	HUDView.Update(data)
 	-- Only refresh an OPEN panel when the inventory actually changed — rebuilding
 	-- it every coin tick is what made the Pets tab flicker/pop.
 	local sig = #(data.Pets or {}) .. "|" .. table.concat(data.EquippedPets or {}, ",")
@@ -372,12 +383,29 @@ end
 
 RE_DataUpdated.OnClientEvent:Connect(onDataUpdated)
 
+-- Rarest first, so a ten-hatch reveal is announced by the best thing in it.
+local RARITY_RANK = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6 }
+
 RE_HatchResult.OnClientEvent:Connect(function(pets,eggId)
+	-- The moment the whole game is built around. It was silent.
+	sfx("hatch")
+	local best = "Common"
+	for _, p in ipairs(type(pets) == "table" and pets or {}) do
+		local r = type(p) == "table" and p.rarity or nil
+		if r and (RARITY_RANK[r] or 0) > (RARITY_RANK[best] or 0) then best = r end
+	end
+	task.delay(0.35, function() if Sfx then Sfx.Reveal(best) end end)
+
 	local HatchUI = require(script.Parent.UI.HatchPanel)
 	HatchUI.ShowHatchResult(pets,eggId)
 end)
 
-RE_Notification.OnClientEvent:Connect(function(t,msg) showToast(t,msg) end)
+RE_Notification.OnClientEvent:Connect(function(t,msg)
+	-- Every toast the game already shows now has a sound, chosen from the
+	-- toast's own type, without changing any of the forty places that send one.
+	if Sfx then Sfx.Toast(t) end
+	showToast(t,msg)
+end)
 
 RE_HatchEgg.OnClientEvent:Connect(function(eggId)
 	if eggId and eggId:sub(1,11) == "__upgrade__" then
@@ -386,8 +414,96 @@ RE_HatchEgg.OnClientEvent:Connect(function(eggId)
 		UIController.TogglePanel("UpgradePanel", CurrentData)
 		return
 	end
-	local HatchUI = require(script.Parent.UI.HatchPanel)
-	HatchUI.Build(CurrentData)
+	-- Through UIController, like every other panel, and opened ON the egg that
+	-- was clicked. This called HatchUI.Build directly: it skipped the pass that
+	-- fits panels to a phone (a 600-wide panel on a 390-wide screen), could
+	-- stack on top of another open panel, and threw away which egg was clicked,
+	-- so clicking the Volcano egg opened the same list as clicking any other.
+	local UIController = require(script.Parent.UI.UIController)
+	UIController.Open("HatchPanel", CurrentData, eggId)
+end)
+
+-- A world gate was clicked → ask, and buy on yes.
+--
+-- Nothing listened for this. Clicking a gate made the server send BuyArea to
+-- the client, and no version of the client ever had a handler for it, or ever
+-- asked the server to buy an area at all: the purchase code on the server was
+-- unreachable. No player could leave the Meadow except through the admin
+-- panel's "Unlock ALL Worlds". check_firstplay now walks a player through
+-- the Forest gate.
+RE_BuyArea.OnClientEvent:Connect(function(areaId)
+	if not CurrentData then return end
+	local area, prev
+	for i, a in ipairs(GameConfig.Areas) do
+		if a.id == areaId then area = a; prev = GameConfig.Areas[i - 1]; break end
+	end
+	if not area then return end
+	local owned = {}
+	for _, id in ipairs(CurrentData.UnlockedAreas or {}) do owned[id] = true end
+	if owned[areaId] then return end
+
+	local existing = PlayerGui:FindFirstChild("AreaUnlockGui")
+	if existing then existing:Destroy() end
+	local screen = Instance.new("ScreenGui")
+	screen.Name = "AreaUnlockGui"; screen.ResetOnSpawn = false
+	screen.DisplayOrder = 80; screen.IgnoreGuiInset = true; screen.Parent = PlayerGui
+
+	local panel = Instance.new("Frame")
+	panel.Size = UDim2.new(0, 420, 0, 260)
+	panel.BackgroundColor3 = Color3.fromRGB(14, 18, 30); panel.BorderSizePixel = 0
+	panel.Parent = screen
+	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 16)
+	local stroke = Instance.new("UIStroke", panel)
+	stroke.Color = area.groundColor or Color3.fromRGB(120, 200, 120); stroke.Thickness = 3
+	popup(panel)
+
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -20, 0, 46); title.Position = UDim2.new(0, 10, 0, 10)
+	title.BackgroundTransparency = 1; title.Text = "🔓  " .. area.name
+	title.TextColor3 = Color3.new(1, 1, 1); title.TextScaled = true
+	title.Font = Enum.Font.GothamBold; title.Parent = panel
+
+	local icon = area.currency == "Gems" and "💎 " or "💰 "
+	local have = area.currency == "Gems" and (CurrentData.Gems or 0) or (CurrentData.Coins or 0)
+	local needPrev = prev and not owned[prev.id]
+	local canPay = have >= (area.unlockCost or 0)
+
+	local body = Instance.new("TextLabel")
+	body.Size = UDim2.new(1, -30, 0, 110); body.Position = UDim2.new(0, 15, 0, 60)
+	body.BackgroundTransparency = 1; body.TextWrapped = true; body.TextScaled = true
+	body.Font = Enum.Font.Gotham; body.TextColor3 = Color3.fromRGB(200, 205, 220)
+	body.Text = (area.description or "") .. "\n\n"
+		.. (needPrev and ("Unlock " .. prev.name .. " first.")
+			or ("Costs " .. icon .. fmt(area.unlockCost) .. (canPay and ""
+				or ("  —  you have " .. icon .. fmt(have)))))
+	body.Parent = panel
+
+	local yes = Instance.new("TextButton")
+	yes.Name = "Unlock"
+	yes.Size = UDim2.new(0.5, -30, 0, 50); yes.Position = UDim2.new(0, 20, 1, -66)
+	local ready = canPay and not needPrev
+	yes.BackgroundColor3 = ready and Color3.fromRGB(50, 170, 80) or Color3.fromRGB(60, 62, 76)
+	yes.Active = ready; yes.AutoButtonColor = ready
+	yes.Text = "Unlock " .. icon .. fmt(area.unlockCost)
+	yes.TextColor3 = Color3.new(1, 1, 1); yes.TextScaled = true
+	yes.Font = Enum.Font.GothamBold; yes.BorderSizePixel = 0; yes.Parent = panel
+	Instance.new("UICorner", yes).CornerRadius = UDim.new(0, 10)
+
+	local no = Instance.new("TextButton")
+	no.Name = "Cancel"
+	no.Size = UDim2.new(0.5, -30, 0, 50); no.Position = UDim2.new(0.5, 10, 1, -66)
+	no.BackgroundColor3 = Color3.fromRGB(80, 50, 60); no.Text = "Not yet"
+	no.TextColor3 = Color3.new(1, 1, 1); no.TextScaled = true
+	no.Font = Enum.Font.GothamBold; no.BorderSizePixel = 0; no.Parent = panel
+	Instance.new("UICorner", no).CornerRadius = UDim.new(0, 10)
+
+	yes.MouseButton1Click:Connect(function()
+		if not ready then return end
+		RE_BuyArea:FireServer(areaId)
+		screen:Destroy()
+	end)
+	no.MouseButton1Click:Connect(function() screen:Destroy() end)
+	pcall(function() require(script.Parent.UI.Responsive).Apply(screen) end)
 end)
 
 -- Machine fires this → show rebirth confirmation popup
@@ -410,16 +526,12 @@ RE_Rebirth.OnClientEvent:Connect(function()
 
 	local panel = Instance.new("Frame")
 	panel.Size=UDim2.new(0,420,0,300)
-	panel.Position=UDim2.new(0.5,-210,0.5,400)
 	panel.BackgroundColor3=Color3.fromRGB(15,10,30)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(180,0,255); stroke.Thickness=2.5
-
-	TweenService:Create(panel,TweenInfo.new(0.35,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-210,0.5,-150)
-	}):Play()
+	popup(panel)
 
 	-- Title
 	local title=Instance.new("TextLabel")
@@ -449,7 +561,8 @@ RE_Rebirth.OnClientEvent:Connect(function()
 	-- Buttons
 	local canDo = nextTier and (data.TotalCoinsEarned or 0) >= nextTier.requirement
 	local confirmBtn=Instance.new("TextButton")
-	confirmBtn.Size=UDim2.new(0,180,0,50); confirmBtn.Position=UDim2.new(0,20,1,-70)
+	-- Half the panel each, so they share a narrow screen instead of overlapping.
+	confirmBtn.Size=UDim2.new(0.5,-30,0,50); confirmBtn.Position=UDim2.new(0,20,1,-70)
 	confirmBtn.BackgroundColor3=canDo and Color3.fromRGB(150,0,255) or Color3.fromRGB(60,60,80)
 	confirmBtn.Text=canDo and "♻️  REBIRTH!" or "Not Ready"
 	confirmBtn.TextColor3=Color3.new(1,1,1); confirmBtn.TextScaled=true
@@ -458,7 +571,7 @@ RE_Rebirth.OnClientEvent:Connect(function()
 	Instance.new("UICorner",confirmBtn).CornerRadius=UDim.new(0,10)
 
 	local cancelBtn=Instance.new("TextButton")
-	cancelBtn.Size=UDim2.new(0,180,0,50); cancelBtn.Position=UDim2.new(1,-200,1,-70)
+	cancelBtn.Size=UDim2.new(0.5,-30,0,50); cancelBtn.Position=UDim2.new(0.5,10,1,-70)
 	cancelBtn.BackgroundColor3=Color3.fromRGB(180,40,40)
 	cancelBtn.Text="✕  Cancel"; cancelBtn.TextColor3=Color3.new(1,1,1)
 	cancelBtn.TextScaled=true; cancelBtn.Font=Enum.Font.GothamBold
@@ -494,16 +607,12 @@ RE_SecretFound.OnClientEvent:Connect(function(reward)
 
 	local panel=Instance.new("Frame")
 	panel.Size=UDim2.new(0,420,0,240)
-	panel.Position=UDim2.new(0.5,-210,0.5,300)
 	panel.BackgroundColor3=Color3.fromRGB(12,8,24)
 	panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel)
 	stroke.Color=Color3.fromRGB(255,215,0); stroke.Thickness=3
-
-	TweenService:Create(panel,TweenInfo.new(0.5,Enum.EasingStyle.Back),{
-		Position=UDim2.new(0.5,-210,0.5,-120)
-	}):Play()
+	popup(panel)
 
 	local t1=Instance.new("TextLabel")
 	t1.Size=UDim2.new(1,0,0,60); t1.BackgroundTransparency=1
@@ -545,11 +654,11 @@ RE_OfflineEarnings.OnClientEvent:Connect(function(coins, awaySeconds)
 	bg.BackgroundTransparency=0.5; bg.BorderSizePixel=0; bg.Parent=screen
 
 	local panel=Instance.new("Frame")
-	panel.Size=UDim2.new(0,420,0,240); panel.Position=UDim2.new(0.5,-210,0.5,300)
+	panel.Size=UDim2.new(0,420,0,240)
 	panel.BackgroundColor3=Color3.fromRGB(12,18,28); panel.BorderSizePixel=0; panel.Parent=screen
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,16)
 	local stroke=Instance.new("UIStroke",panel); stroke.Color=Color3.fromRGB(90,200,255); stroke.Thickness=3
-	TweenService:Create(panel,TweenInfo.new(0.5,Enum.EasingStyle.Back),{Position=UDim2.new(0.5,-210,0.5,-120)}):Play()
+	popup(panel)
 
 	local hrs = math.floor(awaySeconds/3600)
 	local mins = math.floor((awaySeconds%3600)/60)
@@ -578,13 +687,24 @@ end)
 
 -- Globals for UI modules
 _G.MysticPets = {
-	fmt=fmt, GameConfig=GameConfig, showToast=showToast,
+	-- Both names, on purpose. HatchUI and RebirthPanel call G().formatNum(n)
+	-- with no fallback, and this table only ever exported `fmt` — so the first
+	-- number either of them tried to format threw, Build never returned, and
+	-- the Hatch and Rebirth buttons did nothing at all when pressed. Nothing in
+	-- Output but a red line nobody was reading, and the egg-opening screen —
+	-- the core of the game — simply would not open.
+	fmt=fmt, formatNum=fmt,
+	GameConfig=GameConfig, showToast=showToast,
 	RE_HatchEgg=RE_HatchEgg, RE_EquipPet=RE_EquipPet, RE_UnequipPet=RE_UnequipPet,
 	RE_BuyArea=RE_BuyArea, RE_Rebirth=RE_Rebirth, RE_DeletePet=RE_DeletePet,
 	RE_BuyGamepass=RE_BuyGamepass, RE_BuyUpgrade=RE_BuyUpgrade,
 	RF_Admin=RF_Admin, RE_PetCmd=RE_PetCmd,
 	getPlayer=function() return Player end,
 	getData=function() return CurrentData end,
+	layoutHUD=function() layoutHUD() end,
+	-- How far down the HUD reaches at the top centre, for anything that drops
+	-- in from the top (the onboarding card) to sit below.
+	hudClearY=function() return HUDView.ClearY() end,
 }
 
 -- Admin button — only appears for authorized users (server decides)
@@ -607,6 +727,23 @@ end)
 -- INIT
 -- ============================================================
 buildHUD()
+layoutHUD()
+
+-- Follow the screen: rotating a phone, resizing a window, or the camera
+-- arriving after this script ran all change the viewport.
+local function watchCamera(cam)
+	if not cam then return end
+	pcall(function()
+		cam:GetPropertyChangedSignal("ViewportSize"):Connect(layoutHUD)
+	end)
+	layoutHUD()
+end
+watchCamera(workspace.CurrentCamera)
+pcall(function()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		watchCamera(workspace.CurrentCamera)
+	end)
+end)
 
 local ok, data = pcall(function() return RF_GetData:InvokeServer() end)
 if ok and data then onDataUpdated(data) end
@@ -626,9 +763,14 @@ task.delay(2, function()
 		wScreen.DisplayOrder=60; wScreen.IgnoreGuiInset=true
 		wScreen.Parent=PlayerGui
 
+		-- Anchored at its top centre, as wide as the screen allows up to the
+		-- 400 it was designed at. It was 400 hard pixels: wider than a phone.
 		local card = Instance.new("Frame")
-		card.Size    = UDim2.new(0,400,0,130)
-		card.Position= UDim2.new(0.5,-200,1,10)  -- start below screen
+		card.AnchorPoint = Vector2.new(0.5, 0)
+		card.Size    = UDim2.new(0.94,0,0,130)
+		card.Position= UDim2.new(0.5,0,1,10)  -- start below screen
+		local cardMax = Instance.new("UISizeConstraint")
+		cardMax.MaxSize = Vector2.new(400, 130); cardMax.Parent = card
 		card.BackgroundColor3 = Color3.fromRGB(12,9,25)
 		card.BackgroundTransparency = 0.05
 		card.BorderSizePixel = 0
@@ -663,20 +805,75 @@ task.delay(2, function()
 
 		-- Slide up from bottom
 		TweenService:Create(card,TweenInfo.new(0.5,Enum.EasingStyle.Back),{
-			Position=UDim2.new(0.5,-200,1,-145)
+			Position=UDim2.new(0.5,0,1,-145)
 		}):Play()
 
 		-- Slide back down after 6 seconds
 		task.delay(6, function()
 			if card and card.Parent then
 				TweenService:Create(card,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{
-					Position=UDim2.new(0.5,-200,1,10)
+					Position=UDim2.new(0.5,0,1,10)
 				}):Play()
 				task.delay(0.5,function()
 					if wScreen then wScreen:Destroy() end
 				end)
 			end
 		end)
+	end)
+end)
+
+-- ============================================================
+-- BUILD BADGE  (Studio only — players never see it)
+-- ============================================================
+-- "Nothing changed" and "the new code did not install" look identical from
+-- inside the game, and the difference matters enormously: one is a complaint
+-- about the work, the other is a complaint about a folder being in the wrong
+-- place. Reading the Output window is not a reasonable thing to ask, so the
+-- answer is on screen for two seconds.
+--
+-- It shows the map part count, which is the number that actually moves when
+-- the map changes — config counts like "5 worlds" stay identical across every
+-- revision and settle nothing.
+task.spawn(function()
+	if not game:GetService("RunService"):IsStudio() then return end
+
+	local map = workspace:WaitForChild("StarPetsMap", 25)
+	local parts, props = 0, 0
+	if map then
+		for _, d in ipairs(map:GetDescendants()) do
+			if d:IsA("BasePart") then
+				parts = parts + 1
+				if d:GetAttribute("StarPetsBuilt") then props = props + 1 end
+			end
+		end
+	end
+
+	local sg = Instance.new("ScreenGui")
+	sg.Name = "StarPetsBuildBadge"
+	sg.ResetOnSpawn = false
+	sg.DisplayOrder = 999
+	sg.IgnoreGuiInset = true
+	sg.Parent = PlayerGui
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0, 300, 0, 26)
+	lbl.Position = UDim2.new(0, 8, 1, -34)
+	lbl.BackgroundColor3 = Color3.fromRGB(14, 12, 22)
+	lbl.BackgroundTransparency = 0.25
+	lbl.BorderSizePixel = 0
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 13
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = map
+		and ("  StarPets build OK  -  " .. parts .. " map parts")
+		or "  StarPets: NO StarPetsMap - the server code did not run"
+	lbl.TextColor3 = map and Color3.fromRGB(150, 235, 160)
+		or Color3.fromRGB(255, 140, 140)
+	lbl.Parent = sg
+	Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 6)
+
+	task.delay(12, function()
+		if sg then sg:Destroy() end
 	end)
 end)
 

@@ -4,6 +4,7 @@
 local HttpService = game:GetService("HttpService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local CodeService = {}
 
@@ -17,9 +18,21 @@ function CodeService.Redeem(player, codeStr)
 	data.RedeemedCodes = data.RedeemedCodes or {}
 	if data.RedeemedCodes[code] then return false, "Code already used" end
 
+	-- A pet reward is checked BEFORE anything is given. It used to be granted
+	-- last and its result ignored: with a full inventory the coins were paid,
+	-- the code was spent, and the pet was simply never given. And its rarity
+	-- came from the code entry, defaulting to Common, rather than from the
+	-- species itself.
+	local petCfg
+	if reward.pet then
+		local why
+		petCfg, why = PetService.CanReceive(player, reward.pet)
+		if not petCfg then return false, why end
+	end
+
 	if reward.coins then data.Coins = (data.Coins or 0) + reward.coins; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + reward.coins end
 	if reward.gems  then data.Gems  = (data.Gems  or 0) + reward.gems end
-	if reward.pet   then table.insert(data.Pets, { name=reward.pet, rarity=reward.petRarity or "Common", uniqueId=HttpService:GenerateGUID(false) }) end
+	if petCfg then PetService.GrantPet(player, { name = petCfg.name, rarity = petCfg.rarity }) end
 	data.RedeemedCodes[code] = true
 	return true, reward.label or "Redeemed!"
 end

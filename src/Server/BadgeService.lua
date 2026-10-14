@@ -44,6 +44,13 @@ local Badges = {
 	{ id = "speed_demon",     icon = "⚡", title = "Speed Demon",        desc = "Unlocked Forest within 5 minutes of joining",rarity = "Rare"      },
 	-- Secret
 	{ id = "secret_finder",   icon = "🗝️", title = "Secret Finder",     desc = "Found the hidden secret of Mystic Pets...",  rarity = "Legendary" },
+	-- Levels, and what pets and gems are turned into
+	{ id = "level_10",        icon = "⭐", title = "Rising Star",        desc = "Reached Level 10",                           rarity = "Uncommon"  },
+	{ id = "level_25",        icon = "🌠", title = "Star Player",        desc = "Reached Level 25",                           rarity = "Rare"      },
+	{ id = "level_50",        icon = "🌟", title = "Superstar",          desc = "Reached Level 50",                           rarity = "Legendary" },
+	{ id = "pet_level_10",    icon = "🐾", title = "Best Buddy",         desc = "A pet reached Level 10",                     rarity = "Rare"      },
+	{ id = "pet_level_50",    icon = "🏅", title = "Maxed Out",          desc = "A pet reached Level 50",                     rarity = "Mythic"    },
+	{ id = "first_shiny",     icon = "✨", title = "Shine On",           desc = "Made a pet Shiny",                           rarity = "Epic"      },
 }
 
 -- Build lookup by id
@@ -51,6 +58,19 @@ local BadgeLookup = {}
 for _, b in ipairs(Badges) do BadgeLookup[b.id] = b end
 
 function BadgeService.GetAll() return Badges end
+
+-- Every achievement, and whether this player has it: the Achievements panel.
+function BadgeService.List(player)
+	local data = require(script.Parent.DataManager).GetData(player)
+	local have = {}
+	for _, id in ipairs((data and data.Badges) or {}) do have[id] = true end
+	local out = {}
+	for _, b in ipairs(Badges) do
+		table.insert(out, { id = b.id, icon = b.icon, title = b.title, desc = b.desc,
+			rarity = b.rarity, earned = have[b.id] == true })
+	end
+	return out
+end
 function BadgeService.Get(id) return BadgeLookup[id] end
 
 -- ============================================================
@@ -98,6 +118,19 @@ function BadgeService.CheckAll(player)
 
 	-- Welcome (always on first check)
 	if not has("welcome") then grant("welcome") end
+
+	-- Player level, the best pet's level, and Shiny
+	local level = GameConfig.LevelFromXP(data.XP)
+	if level >= 10 then grant("level_10") end
+	if level >= 25 then grant("level_25") end
+	if level >= 50 then grant("level_50") end
+	local bestPet = 1
+	for _, pet in ipairs(data.Pets or {}) do
+		bestPet = math.max(bestPet, tonumber(pet.level) or 1)
+	end
+	if bestPet >= 10 then grant("pet_level_10") end
+	if bestPet >= GameConfig.PetLevels.max then grant("pet_level_50") end
+	if (tonumber(data.ShinyMade) or 0) >= 1 then grant("first_shiny") end
 
 	-- Pet count
 	local petCount = #(data.Pets or {})

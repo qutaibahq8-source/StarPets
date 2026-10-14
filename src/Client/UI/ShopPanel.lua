@@ -1,12 +1,10 @@
 -- MysticPets: ShopPanel.lua
 -- Place in: StarterPlayerScripts > Client > UI > ShopPanel (ModuleScript)
 
-local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local PlayerGui    = Players.LocalPlayer.PlayerGui
 
 local ShopPanel = {}
-local ActiveGui = nil
 
 local function G() return _G.MysticPets end
 
@@ -14,7 +12,10 @@ local function G() return _G.MysticPets end
 -- BUILD
 -- ============================================================
 function ShopPanel.Build(data)
-	if ActiveGui then ActiveGui:Destroy() end
+	-- Nothing destroyed here: UIController owns a panel's lifetime. It
+	-- closes the old one on open, and on a rebuild it compares old and new and
+	-- keeps the old if nothing changed — which it cannot do once Build has
+	-- already destroyed it.
 
 	local screen = Instance.new("ScreenGui")
 	screen.Name           = "ShopPanel"
@@ -22,19 +23,17 @@ function ShopPanel.Build(data)
 	screen.DisplayOrder   = 50
 	screen.IgnoreGuiInset = true
 	screen.Parent         = PlayerGui
-	ActiveGui             = screen
 
 	local panel = Instance.new("Frame")
 	panel.Size             = UDim2.new(0, 620, 0, 500)
-	panel.Position         = UDim2.new(0.5, -310, 0.5, 400)
+	panel.Position         = UDim2.new(0.5, -310, 0.5, -250)
 	panel.BackgroundColor3 = Color3.fromRGB(18, 14, 35)
 	panel.BorderSizePixel  = 0
 	panel.Parent           = screen
 	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
 
-	TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-		Position = UDim2.new(0.5, -310, 0.5, -250)
-	}):Play()
+	-- No slide-in: UIController gives every panel the same entrance, and a
+	-- Position tween here fought the phone fit and dragged the panel off screen.
 
 	-- Header
 	local header = Instance.new("Frame")
@@ -181,11 +180,9 @@ function ShopPanel.Build(data)
 end
 
 function ShopPanel.Refresh(data)
-	local existing = PlayerGui:FindFirstChild("ShopPanel")
-	if existing then
-		existing:Destroy()
-		ShopPanel.Build(data)
-	end
+	-- Through UIController, which keeps the phone fit, the scroll position, and
+	-- the panel itself when nothing on it actually changed.
+	require(script.Parent.UIController).Rebuild("ShopPanel", data)
 end
 
 return ShopPanel

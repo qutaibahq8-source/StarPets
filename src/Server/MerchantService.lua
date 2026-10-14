@@ -5,6 +5,7 @@
 local HttpService = game:GetService("HttpService")
 local GameConfig  = require(game.ReplicatedStorage.Shared.GameConfig)
 local DataManager = require(script.Parent.DataManager)
+local PetService  = require(script.Parent.PetService)
 
 local MerchantService = {}
 local cfg   = GameConfig.Merchant
@@ -56,9 +57,16 @@ function MerchantService.Buy(player, index)
 	local data = DataManager.GetData(player); if not data then return false, "no data" end
 	local bal = (item.cur == "Gems") and (data.Gems or 0) or (data.Coins or 0)
 	if bal < item.cost then return false, "Not enough " .. item.cur end
+	-- Checked before charging: a real species, and room for it.
+	local species
+	if item.kind == "pet" then
+		local why
+		species, why = PetService.CanReceive(player, item.name)
+		if not species then return false, why end
+	end
 	if item.cur == "Gems" then data.Gems = data.Gems - item.cost else data.Coins = data.Coins - item.cost end
 	if item.kind == "pet" then
-		table.insert(data.Pets, { name=item.name, rarity=item.rarity or "Common", uniqueId=HttpService:GenerateGUID(false) })
+		PetService.GrantPet(player, { name = species.name, rarity = species.rarity })
 	elseif item.kind == "coins" then
 		data.Coins = (data.Coins or 0) + item.amount; data.TotalCoinsEarned = (data.TotalCoinsEarned or 0) + item.amount
 	elseif item.kind == "gems" then

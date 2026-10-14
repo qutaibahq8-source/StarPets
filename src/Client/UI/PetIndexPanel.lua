@@ -11,11 +11,19 @@ function PetIndexPanel.Build(data)
 	local cfg = G().GameConfig
 	data = data or (G().getData and G().getData()) or {}
 
-	-- count how many of each pet the player owns
+	-- How many of each pet the player holds RIGHT NOW...
 	local ownedCount = {}
 	for _, p in ipairs(data.Pets or {}) do
 		ownedCount[p.name] = (ownedCount[p.name] or 0) + 1
 	end
+
+	-- ...and what they have ever owned, which is a different question and the
+	-- one an index is actually asking. This used to count only current
+	-- holdings, so fusing three pets, trading one away or deleting one erased
+	-- the species from your collection. Discovered is permanent.
+	local discovered = {}
+	for name in pairs(data.Discovered or {}) do discovered[name] = true end
+	for name in pairs(ownedCount) do discovered[name] = true end
 
 	local screen = Instance.new("ScreenGui")
 	screen.Name="PetIndexPanel"; screen.ResetOnSpawn=false
@@ -27,8 +35,11 @@ function PetIndexPanel.Build(data)
 	Instance.new("UICorner",panel).CornerRadius=UDim.new(0,14)
 	Instance.new("UIStroke",panel).Color=Color3.fromRGB(150,120,255)
 
+	local okView, PetView = pcall(function() return require(script.Parent.PetView) end)
+	if not okView then PetView = nil end
+
 	local total, have = #cfg.Pets, 0
-	for _, pet in ipairs(cfg.Pets) do if ownedCount[pet.name] then have = have + 1 end end
+	for _, pet in ipairs(cfg.Pets) do if discovered[pet.name] then have = have + 1 end end
 
 	local hd=Instance.new("TextLabel")
 	hd.Size=UDim2.new(1,0,0,50); hd.BackgroundColor3=Color3.fromRGB(50,30,90)
@@ -53,7 +64,13 @@ function PetIndexPanel.Build(data)
 	for i, pet in ipairs(cfg.Pets) do
 		local rar = cfg.Rarities and cfg.Rarities[pet.rarity]
 		local rcol = (rar and rar.color) or Color3.fromRGB(200,200,200)
-		local owned = ownedCount[pet.name]
+		-- A card is REVEALED once discovered and stays revealed; the count
+		-- beside it is how many you hold now. Those are two different facts and
+		-- the panel used to conflate them, so a pet you had fused away showed
+		-- as "Not found" — as if you had never seen it.
+		local seen = discovered[pet.name]
+		local owned = seen
+		local held = ownedCount[pet.name]
 
 		local card=Instance.new("Frame")
 		card.BackgroundColor3=owned and Color3.fromRGB(28,24,44) or Color3.fromRGB(18,16,28)
@@ -61,15 +78,26 @@ function PetIndexPanel.Build(data)
 		Instance.new("UICorner",card).CornerRadius=UDim.new(0,10)
 		local st=Instance.new("UIStroke",card); st.Color=rcol; st.Transparency=owned and 0.2 or 0.7
 
-		-- color swatch (the pet's color) as a quick icon
+		-- The pet itself. A species you have found is drawn as it is; one you
+		-- have not is drawn as its own shape in near-black, so the Index shows
+		-- what is still out there without giving away what it looks like.
+		-- This was a plain coloured disc, and "?" for anything not yet found.
 		local swatch=Instance.new("Frame")
+		swatch.Name="PetIcon"
 		swatch.Size=UDim2.new(0,54,0,54); swatch.Position=UDim2.new(0.5,-27,0,10)
-		swatch.BackgroundColor3=owned and (pet.color or rcol) or Color3.fromRGB(40,40,50)
+		swatch.BackgroundColor3=owned and rcol or Color3.fromRGB(40,40,50)
+		swatch.BackgroundTransparency=owned and 0.6 or 0
 		swatch.BorderSizePixel=0; swatch.Parent=card
 		Instance.new("UICorner",swatch).CornerRadius=UDim.new(1,0)
-		if not owned then
-			local q=Instance.new("TextLabel"); q.Size=UDim2.new(1,0,1,0); q.BackgroundTransparency=1
-			q.Text="?"; q.TextColor3=Color3.fromRGB(120,120,140); q.TextScaled=true; q.Font=Enum.Font.GothamBold; q.Parent=swatch
+		local shown = PetView and PetView.Show(swatch, pet.name, { silhouette = not owned })
+		if not shown then
+			-- Only if no model can be made for this species.
+			swatch.BackgroundColor3=owned and (pet.color or rcol) or Color3.fromRGB(40,40,50)
+			swatch.BackgroundTransparency=0
+			if not owned then
+				local q=Instance.new("TextLabel"); q.Size=UDim2.new(1,0,1,0); q.BackgroundTransparency=1
+				q.Text="?"; q.TextColor3=Color3.fromRGB(120,120,140); q.TextScaled=true; q.Font=Enum.Font.GothamBold; q.Parent=swatch
+			end
 		end
 
 		local name=Instance.new("TextLabel")
@@ -79,7 +107,10 @@ function PetIndexPanel.Build(data)
 
 		local rl=Instance.new("TextLabel")
 		rl.Size=UDim2.new(1,-6,0,18); rl.Position=UDim2.new(0,3,0,92); rl.BackgroundTransparency=1
-		rl.Text=owned and (pet.rarity..(ownedCount[pet.name]>1 and "  x"..ownedCount[pet.name] or "")) or "🔒 Not found"
+		rl.Text = seen
+			and (pet.rarity .. (held and held > 1 and ("  x" .. held) or
+				(held and "" or "  (none held)")))
+			or "🔒 Not found"
 		rl.TextColor3=owned and rcol or Color3.fromRGB(120,120,140); rl.TextScaled=true; rl.Font=Enum.Font.Gotham; rl.Parent=card
 	end
 
