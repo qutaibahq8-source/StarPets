@@ -5,3 +5,7 @@
 *.rbxl.lock
 *.rbxlx.lock
 .DS_Store
+
+# Thumbnail renderer
+thumbnails/node_modules
+thumbnails/out/*@2x.png
