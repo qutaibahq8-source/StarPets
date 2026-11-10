@@ -211,7 +211,7 @@ export function unicorn(k, { color = [250, 247, 255], muzzle = [255, 228, 240], 
 }
 
 // ------------------------------------------------------------------ VOID SERPENT
-export function serpent(k, { color = [110, 50, 210], belly = [200, 160, 255], neon = [255, 70, 230], iris = [255, 60, 220] } = {}) {
+export function serpent(k, { color = [110, 50, 210], belly = [200, 160, 255], neon = [255, 70, 230], iris = [255, 60, 220], rings } = {}) {
   const g = new THREE.Group();
   const skin = { color, rough: 0.35, metal: 0.15, emissive: [70, 0, 160], ei: 0.25 };
   const pts = [[0.95, 0.12, 0.55], [0.25, 0.2, 0.98], [-0.6, 0.26, 0.62], [-0.88, 0.3, -0.2], [-0.3, 0.33, -0.78],
@@ -221,18 +221,20 @@ export function serpent(k, { color = [110, 50, 210], belly = [200, 160, 255], ne
     const t = 0.22 + i * 0.11;
     const r = 0.08 + 0.23 * t;
     k.torus(g, { R: r * 1.0, r: 0.035, pos: curve.getPoint(t), quat: new THREE.Quaternion().setFromUnitVectors(V3(0, 0, 1), curve.getTangent(t)),
-      color: neon, neon: true, glow: 1.5, outline: false });
+      color: rings ? rings[(i - 1) % rings.length] : neon, neon: true, glow: 1.5, outline: false });
   }
-  const H = V3(0, 2.08, 0.38), R = 0.46;
-  k.ball(g, { r: 0.78, scale: [1.05, 1.1, 0.13], pos: [0, 1.98, 0.06], color: neon, emissive: neon, ei: 0.9, rough: 0.4 });
-  k.ball(g, { r: 0.6, scale: [1.0, 1.05, 0.14], pos: [0, 1.96, 0.1], color: [60, 20, 120], rough: 0.4, outline: false });
-  k.ball(g, { r: R, scale: [1.15, 0.9, 1.2], pos: H, ...skin });
-  k.ball(g, { r: 0.3, scale: [1.2, 0.7, 1.0], pos: H.clone().add(V3(0, -0.2, 0.32)), color: belly, rough: 0.4 });
+  const H = V3(0, 2.12, 0.4), R = 0.5;
+  k.ball(g, { r: 0.8, scale: [1.05, 1.1, 0.13], pos: [0, 2.0, 0.02], color: neon, emissive: neon, ei: 0.9, rough: 0.4 });
+  k.ball(g, { r: 0.62, scale: [1.0, 1.05, 0.14], pos: [0, 1.98, 0.06], color: [60, 20, 120], rough: 0.4, outline: false });
+  k.ball(g, { r: R, scale: [1.12, 0.95, 1.0], pos: H, ...skin });
+  const snout = H.clone().add(V3(0, -0.3, 0.33));
+  k.ball(g, { r: 0.27, scale: [1.25, 0.6, 0.95], pos: snout, color: belly, rough: 0.4 });
   for (const s of [1, -1]) {
-    k.cone(g, { r: 0.05, h: 0.16, pos: H.clone().add(V3(s * 0.12, -0.38, 0.55)), rot: [Math.PI + 0.2, 0, 0], color: WHITE, outlinePx: k.px * 0.6 });
-    k.cone(g, { r: 0.08, h: 0.3, pos: H.clone().add(V3(s * 0.3, 0.42, -0.1)), rot: [-0.5, 0, -s * 0.4], color: neon, neon: true, glow: 2.0 });
+    k.ball(g, { r: 0.035, scale: [1.3, 0.8, 0.8], pos: snout.clone().add(V3(s * 0.1, 0.1, 0.22)), color: [60, 20, 90], outline: false, shadow: false });
+    k.cone(g, { r: 0.045, h: 0.14, pos: snout.clone().add(V3(s * 0.11, -0.16, 0.17)), rot: [Math.PI + 0.15, 0, 0], color: WHITE, outlinePx: k.px * 0.6 });
+    k.cone(g, { r: 0.075, h: 0.34, pos: H.clone().add(V3(s * 0.27, 0.36, -0.18)), rot: [-1.05, 0, -s * 0.25], color: neon, neon: true, glow: 2.0 });
   }
-  face(k, g, { c: H, R, iris, irisLight: [255, 190, 250], spread: 0.48, eyeY: 0.12, eyeScale: 1.15, mouth: 'smile',
-    mouthAt: H.clone().add(V3(0, -0.3, 0.46)), mouthR: 1.1 });
+  face(k, g, { c: H, R, iris, irisLight: [255, 190, 250], spread: 0.46, eyeY: 0.14, eyeScale: 1.15, mouth: 'smile',
+    mouthAt: snout.clone().add(V3(0, -0.06, 0.25)), mouthR: 1.0 });
   return g;
 }

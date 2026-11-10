@@ -7,18 +7,34 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { makeKit } from './kit.js';
+import { makeKit, mulberry32 } from './kit.js';
 
-function skyTexture({ top, horizon, horizonAt }) {
+// Vertical gradient sky; optional nebula clouds and stars (for Star Space).
+function skyTexture({ top, horizon, horizonAt, stars = 0, nebula = [], seed = 3 }) {
   const c = document.createElement('canvas');
-  c.width = 4; c.height = 1024;
+  const w = stars || nebula.length ? 1024 : 4;
+  c.width = w; c.height = 1024;
   const g = c.getContext('2d');
   const gr = g.createLinearGradient(0, 0, 0, 1024);
   gr.addColorStop(0, top);
   gr.addColorStop(horizonAt, horizon);
   gr.addColorStop(1, horizon);
   g.fillStyle = gr;
-  g.fillRect(0, 0, 4, 1024);
+  g.fillRect(0, 0, w, 1024);
+  for (const n of nebula) {
+    const ng = g.createRadialGradient(n.x * w, n.y * 1024, 0, n.x * w, n.y * 1024, n.r * w);
+    ng.addColorStop(0, n.color);
+    ng.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = ng;
+    g.fillRect(0, 0, w, 1024);
+  }
+  const rng = mulberry32(seed);
+  for (let i = 0; i < stars; i++) {
+    const x = rng() * w, y = Math.pow(rng(), 1.3) * horizonAt * 1024;
+    const r = 0.6 + Math.pow(rng(), 4) * 2.6;
+    g.fillStyle = `rgba(255,255,255,${0.35 + rng() * 0.65})`;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -60,7 +76,8 @@ export function makeStage(canvas, opt) {
     tile = 2.2,
     sunDir = [-9, 15, 6], sunColor = 0xfff1dc, sunIntensity = 2.6,
     shadowCenter = [0, 0, 0], shadowSize = 9,
-    hemi = 1.15, env = 0.55, exposure = 1.0,
+    hemi = 1.15, hemiColors = [0xd6eeff, 0x5f9c3c], env = 0.55, exposure = 1.0,
+    rim = null,
     bloom = { strength: 0.35, radius: 0.45, threshold: 0.95 },
     outlinePx = 5,
     fog = [35, 140],
@@ -87,7 +104,12 @@ export function makeStage(canvas, opt) {
   camera.position.set(...camPos);
   camera.lookAt(...target);
 
-  scene.add(new THREE.HemisphereLight(0xd6eeff, 0x5f9c3c, hemi));
+  scene.add(new THREE.HemisphereLight(hemiColors[0], hemiColors[1], hemi));
+  if (rim) {
+    const r = new THREE.DirectionalLight(rim.color, rim.intensity);
+    r.position.set(...rim.dir);
+    scene.add(r);
+  }
   const sun = new THREE.DirectionalLight(sunColor, sunIntensity);
   sun.position.set(shadowCenter[0] + sunDir[0], shadowCenter[1] + sunDir[1], shadowCenter[2] + sunDir[2]);
   sun.target.position.set(...shadowCenter);
@@ -106,7 +128,13 @@ export function makeStage(canvas, opt) {
   gt.repeat.set(groundSize / (tile * 4), groundSize / (tile * 4));
   const plane = new THREE.Mesh(
     new THREE.PlaneGeometry(groundSize, groundSize),
-    new THREE.MeshStandardMaterial({ map: gt, roughness: 0.92, metalness: 0, envMapIntensity: 0.4 }),
+    new THREE.MeshStandardMaterial({
+      map: gt, roughness: 0.92, metalness: 0, envMapIntensity: 0.4,
+      // Glowing floor lines (Star Space): reuse the grid as an emissive map.
+      emissiveMap: ground.glow ? gt : null,
+      emissive: ground.glow ? new THREE.Color(0xffffff) : new THREE.Color(0),
+      emissiveIntensity: ground.glow ?? 0,
+    }),
   );
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
@@ -154,6 +182,11 @@ export function makeStage(canvas, opt) {
 
   return {
     renderer, scene, camera, kit, sun,
+    // World point -> CSS pixel position inside this canvas (for HTML name tags).
+    project(p) {
+      const v = (p.isVector3 ? p.clone() : new THREE.Vector3(...p)).project(camera);
+      return [((v.x + 1) / 2) * width, ((1 - v.y) / 2) * height];
+    },
     render() {
       if (bloomComposer) renderBloom();
       composer.render();

@@ -42,3 +42,22 @@ html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; 
     linear-gradient(180deg, #fff7c2 0%, #ffd83a 42%, #ffb000 62%, #ff8a00 100%);
   -webkit-background-clip: text; background-clip: text;
 }
+
+/* In-game style pet name tag (PetModels.addNameTag): name + rarity, Gotham-like bold with black outline. */
+@font-face {
+  font-family: 'Montserrat';
+  font-weight: 900;
+  src: url('../node_modules/@fontsource/montserrat/files/montserrat-latin-900-normal.woff2') format('woff2');
+}
+.label.tag { font-family: 'Montserrat', 'Arial Black', sans-serif; font-weight: 900; transform: translate(-50%, -100%); text-align: center; letter-spacing: 0; }
+.label.tag .fill { background: none; color: var(--fill, #fff); }
+.label.tag .stroke { filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.45)); }
+
+/* Game logo */
+.label.logo .fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, #ffffff 0%, #e9d2ff 35%, #b06cff 62%, #7a2dff 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
+.label.logo .stroke { filter: drop-shadow(0 10px 0 rgba(0, 0, 0, 0.5)) drop-shadow(0 0 28px rgba(170, 90, 255, 0.85)); }
