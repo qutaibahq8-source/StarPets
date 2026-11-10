@@ -1,0 +1,44 @@
+@font-face {
+  font-family: 'Lilita One';
+  src: url('../node_modules/@fontsource/lilita-one/files/lilita-one-latin-400-normal.woff2') format('woff2');
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+#frame { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+#frame canvas { position: absolute; top: 0; display: block; }
+#frame svg.overlay { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+
+/* Chunky thumbnail text: a black stroke layer under a fill layer. */
+.label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: 'Lilita One', 'Arial Black', sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.label .stroke, .label .fill { display: block; }
+.label .stroke {
+  position: absolute; inset: 0;
+  color: #000;
+  -webkit-text-stroke: var(--stroke, 30px) #000;
+  filter: drop-shadow(0 var(--drop, 12px) 0 rgba(0, 0, 0, 0.5));
+}
+.label .fill {
+  position: relative;
+  background: linear-gradient(180deg, #ffffff 55%, #d9e3ee 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+.label.rainbow .fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.08) 46%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.12) 100%),
+    linear-gradient(90deg, #ff3d3d 0%, #ff9d1e 17%, #ffe925 33%, #57ff5c 50%, #2cd8ff 67%, #6f6cff 83%, #ff4fe0 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
+.label.gold .fill {
+  background:
+    linear-gradient(180deg, #fff7c2 0%, #ffd83a 42%, #ffb000 62%, #ff8a00 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
